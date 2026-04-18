@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 import ReadingView from "./components/ReadingView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
@@ -9,6 +11,15 @@ type Mode = "read" | "write" | "preach";
 
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("read");
+  const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <div style={{
@@ -62,6 +73,25 @@ export default function AmboApp() {
               </button>
             ))}
           </nav>
+
+          {/* Sign out */}
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            style={{
+              border: "none",
+              background: "none",
+              fontSize: 12,
+              color: "var(--ambo-text-muted)",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              padding: "4px 8px",
+              borderRadius: 6,
+              opacity: signingOut ? 0.5 : 1,
+            }}
+          >
+            {signingOut ? "…" : "Sign out"}
+          </button>
         </div>
       </header>
 

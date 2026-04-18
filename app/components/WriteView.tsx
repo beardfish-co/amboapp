@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getComingSunday } from "./ReadingView";
+import { createClient } from "@/lib/supabase/client";
 
 interface Paragraph {
   id: string;
@@ -46,22 +47,55 @@ export default function WriteView() {
   const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
   const [justMoved, setJustMoved] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftIdRef = useRef<string | null>(null);
 
-  // Load from localStorage on mount + fetch Sunday name
+  // Load draft on mount: try Supabase first, fall back to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const { title: t, content } = JSON.parse(saved);
-        if (t) setTitle(t);
-        if (content) {
-          const parsed = parseParagraphs(content);
-          setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
+    async function load() {
+      let loaded = false;
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data } = await supabase
+            .from("homilies")
+            .select("id, title, content")
+            .eq("user_id", user.id)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (data) {
+            draftIdRef.current = data.id;
+            if (data.title) setTitle(data.title);
+            if (data.content) {
+              const parsed = parseParagraphs(data.content);
+              setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
+            }
+            loaded = true;
+          }
         }
+      } catch { /* fall through to localStorage */ }
+
+      // Fall back to localStorage if Supabase had nothing
+      if (!loaded) {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const { title: t, content } = JSON.parse(saved);
+            if (t) setTitle(t);
+            if (content) {
+              const parsed = parseParagraphs(content);
+              setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
+            }
+          }
+        } catch { /* fresh start */ }
       }
-    } catch {
-      // fresh start
     }
+
+    load();
 
     // Fetch coming Sunday name for title suggestion
     const sunday = getComingSunday();
@@ -79,21 +113,43 @@ export default function WriteView() {
     setWordCount(words);
   }, [paragraphs]);
 
-  // Auto-save with debounce
+  // Auto-save: localStorage immediately, Supabase debounced
   const save = useCallback(
     (t: string, paras: Paragraph[]) => {
+      const content = joinParagraphs(paras);
+
+      // Always save to localStorage as fast local cache
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: t, content }));
+      } catch { /* ignore */ }
+
+      // Debounce the Supabase save
       if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
-      autoSaveRef.current = setTimeout(() => {
+      autoSaveRef.current = setTimeout(async () => {
         try {
-          localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify({ title: t, content: joinParagraphs(paras) })
-          );
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          if (draftIdRef.current) {
+            // Update existing draft
+            await supabase
+              .from("homilies")
+              .update({ title: t, content, updated_at: new Date().toISOString() })
+              .eq("id", draftIdRef.current)
+              .eq("user_id", user.id);
+          } else {
+            // Create new draft
+            const { data } = await supabase
+              .from("homilies")
+              .insert({ user_id: user.id, title: t, content })
+              .select("id")
+              .single();
+            if (data?.id) draftIdRef.current = data.id;
+          }
           setLastSaved(new Date());
-        } catch {
-          // storage error
-        }
-      }, 800);
+        } catch { /* network error — localStorage already saved */ }
+      }, 1200);
     },
     []
   );
