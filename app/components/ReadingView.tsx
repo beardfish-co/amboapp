@@ -49,7 +49,10 @@ export default function ReadingView() {
   const [sunday, setSunday] = useState<DayReadings | null>(null);
   const [today, setToday] = useState<DayReadings | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>("gospel");
+  const [sundayError, setSundayError] = useState(false);
+  const [showToday, setShowToday] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
@@ -61,16 +64,18 @@ export default function ReadingView() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setSundayError(false);
       const [sundayData, todayData] = await Promise.all([
         fetchReadings(sundayStr),
         isSunday ? Promise.resolve(null) : fetchReadings(todayStr),
       ]);
+      if (!sundayData) setSundayError(true);
       setSunday(sundayData);
       setToday(todayData);
       setLoading(false);
     }
     load();
-  }, [sundayStr, todayStr, isSunday]);
+  }, [sundayStr, todayStr, isSunday, retryKey]);
 
   if (loading) {
     return (
@@ -85,46 +90,110 @@ export default function ReadingView() {
   return (
     <div className="view-fade" style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px 80px" }}>
 
-      {/* ── Coming Sunday ── */}
-      {sunday && (
-        <section style={{ marginBottom: 48 }}>
-          <SectionLabel
-            eyebrow={isSunday ? "Today" : "Coming Sunday"}
-            title={sunday.dayName}
-            date={sunday.date}
-            accent
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {sunday.readings.map((r) => (
-              <ReadingCard
-                key={r.id}
-                reading={r}
-                open={expandedId === `sun-${r.id}`}
-                onToggle={() => setExpandedId(expandedId === `sun-${r.id}` ? null : `sun-${r.id}`)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* ── Coming Sunday — primary focus ── */}
+      <section style={{ marginBottom: 48 }}>
+        {/* Eyebrow */}
+        <p style={{
+          margin: "0 0 6px",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          textTransform: "uppercase",
+          color: "var(--ambo-accent)",
+        }}>
+          {isSunday ? "Today" : "Coming Sunday"}
+        </p>
 
-      {/* ── Today's weekday readings ── */}
+        {sunday ? (
+          <>
+            <h2 style={{
+              margin: "0 0 4px",
+              fontSize: 24,
+              fontWeight: 700,
+              color: "var(--ambo-text-primary)",
+              letterSpacing: "-0.02em",
+            }}>
+              {sunday.dayName}
+            </h2>
+            <p style={{ margin: "0 0 20px", fontSize: 12, color: "var(--ambo-text-muted)" }}>
+              {sunday.date}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {sunday.readings.map((r) => (
+                <ReadingCard
+                  key={r.id}
+                  reading={r}
+                  open={expandedId === `sun-${r.id}`}
+                  onToggle={() => setExpandedId(expandedId === `sun-${r.id}` ? null : `sun-${r.id}`)}
+                />
+              ))}
+            </div>
+          </>
+        ) : sundayError ? (
+          <div style={{
+            padding: "24px 20px",
+            borderRadius: 12,
+            border: "1px solid var(--ambo-border)",
+            background: "rgba(255,255,255,0.4)",
+            textAlign: "center",
+          }}>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--ambo-text-muted)" }}>
+              Unable to load Sunday readings right now.{" "}
+              <button
+                onClick={() => { setSundayError(false); setRetryKey(k => k + 1); }}
+                style={{
+                  border: "none", background: "none", color: "var(--ambo-accent)",
+                  cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, padding: 0,
+                }}
+              >
+                Retry
+              </button>
+            </p>
+          </div>
+        ) : null}
+      </section>
+
+      {/* ── Today's weekday readings — secondary, hidden by default ── */}
       {!isSunday && today && (
         <section style={{ marginBottom: 48 }}>
-          <SectionLabel
-            eyebrow="Today"
-            title={today.dayName}
-            date={today.date}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {today.readings.map((r) => (
-              <ReadingCard
-                key={r.id}
-                reading={r}
-                open={expandedId === `today-${r.id}`}
-                onToggle={() => setExpandedId(expandedId === `today-${r.id}` ? null : `today-${r.id}`)}
-              />
-            ))}
-          </div>
+          <button
+            onClick={() => setShowToday((s) => !s)}
+            style={{
+              border: "none",
+              background: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: showToday ? 16 : 0,
+            }}
+          >
+            <span style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-muted)",
+            }}>
+              Today — {today.dayName}
+            </span>
+            <ChevronIcon open={showToday} />
+          </button>
+
+          {showToday && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {today.readings.map((r) => (
+                <ReadingCard
+                  key={r.id}
+                  reading={r}
+                  open={expandedId === `today-${r.id}`}
+                  onToggle={() => setExpandedId(expandedId === `today-${r.id}` ? null : `today-${r.id}`)}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
