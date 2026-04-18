@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+// Force dynamic rendering on every request — prevents Vercel/Next.js
+// from serving a stale statically-generated shell with old JS chunk refs.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
-  title: "Ambo — A place to write your homily",
+  title: "Ambo — Homily writing space",
   description: "A sacred writing workspace for priests. Read, pray, and write your homily in a space designed for encounter.",
   manifest: "/manifest.json",
 };
