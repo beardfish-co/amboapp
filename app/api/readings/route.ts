@@ -1,25 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Strip HTML tags and decode common entities
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/div>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&#x2010;/g, "–")
-    .replace(/&#x2018;/g, "\u2018")
-    .replace(/&#x2019;/g, "\u2019")
-    .replace(/&#x201c;/g, "\u201c")
-    .replace(/&#x201d;/g, "\u201d")
-    .replace(/&#xa0;/g, " ")
-    .replace(/&#xa;/g, "\n")
-    .replace(/&#x2013;/g, "–")
-    .replace(/&#x2014;/g, "—")
+// Decode HTML entities — generic numeric (decimal + hex) plus common named ones.
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => {
+      const code = parseInt(n, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => {
+      const code = parseInt(n, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : "";
+    })
+    .replace(/&nbsp;/g, "\u00a0")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
+// Strip HTML tags, preserving paragraph structure via blank lines.
+function stripHtml(html: string): string {
+  const withBreaks = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p|li)>/gi, "\n\n")
+    .replace(/<\/(h[1-6])>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "");
+  return decodeEntities(withBreaks)
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
