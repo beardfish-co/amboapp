@@ -59,12 +59,12 @@ A sacred writing workspace for Catholic priests. Three modes: Read (liturgical r
 - Enter = new paragraph, Backspace on empty = delete paragraph
 - Drag-to-reorder with HTML5 drag API + undo toast (`justMoved`, `undoStack`)
 - Title input with Sunday name suggestion (from Universalis dayName)
-- Save: localStorage immediately + Supabase debounced 1.2s
-- Load: Supabase first (most recent homily by updated_at), falls back to localStorage
-- `draftIdRef` tracks current Supabase row ID
+- Save: localStorage immediately + Supabase debounced 1.2s; pending save flushed on homily switch + tab hide
+- Load: by `currentId` prop (owned by `app/page.tsx`); first save of a null id inserts a new row
+- Shows 'My homilies' button that opens the HomilyList drawer
 
 ### Preach view (`app/components/PreachView.tsx`)
-- Loads from localStorage only (TODO: also load from Supabase)
+- Takes `currentId` prop; loads that homily from Supabase, falls back to localStorage cache when offline
 - Scroll mode or Step mode (Prev/Next paragraph)
 - Adjustable font size (A buttons, 18–36px)
 
@@ -121,10 +121,19 @@ Supabase's Site URL was also set to the frozen URL, so magic links kept dragging
 
 ## Pending work (priority order)
 1. ~~Fix ReadingView bug~~ — resolved 2026-04-18 (see post-mortem above)
-2. **Preach view Supabase sync** — currently reads localStorage only
-3. **Multiple homilies** — priests need to manage more than one draft
+2. ~~Multiple homilies~~ — shipped 2026-04-18 (HomilyList drawer, switch/create/delete, Preach syncs by active id)
+3. ~~Preach view Supabase sync~~ — shipped 2026-04-18 (folded into Multiple homilies; PreachView now loads by `currentId`)
 4. **Custom domain** — still on auto-generated Vercel URL
-5. **Writing surface polish** — formatting (bold/italic), paragraph types
+5. **Writing surface polish** — formatting (bold/italic), paragraph types, rich-text toolbar
+6. **Sermon metadata** — associate each homily with its Sunday / liturgical date so readings auto-match in Preach
+
+## New multi-homily architecture notes
+- `app/page.tsx` owns `currentId: string | null` and persists it to localStorage as `ambo-current-id`
+- On mount, `page.tsx` hydrates `currentId` by verifying the stored id still exists for the user; falls back to most-recent; falls back to null (fresh blank draft)
+- `app/components/HomilyList.tsx` — drawer overlay, lists all homilies, handles New + Switch + Delete
+- `app/components/WriteView.tsx` — takes `currentId`/`onCurrentIdChange`; flushes pending save before swapping
+- `app/components/PreachView.tsx` — takes `currentId`; loads from Supabase then falls back to localStorage
+- Legacy localStorage key `ambo-draft` still written by Write view as offline cache for the active homily
 
 ## Known gotchas
 - `@supabase/ssr` cookie handlers need `SetAllCookies` type or TypeScript build fails
