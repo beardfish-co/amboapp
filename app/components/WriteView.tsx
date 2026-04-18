@@ -9,28 +9,76 @@ interface Paragraph {
   text: string;
 }
 
-// Legacy single-draft cache — still written so older Preach clients and offline
-// fallback keep working. Always holds whatever homily is currently active.
+// Legacy single-draft cache — still written so offline fallback keeps working.
+// Always holds whatever homily is currently active.
 const STORAGE_KEY = "ambo-draft";
 
+// In-memory cache of Sunday names keyed by ISO date (YYYY-MM-DD), shared with the list drawer.
+const sundayNameCache: Map<string, string> = (globalThis as typeof globalThis & {
+  __amboSundayNameCache?: Map<string, string>;
+}).__amboSundayNameCache ??= new Map<string, string>();
+
 interface WriteViewProps {
-  // The homily to load. null means "start fresh — first save will create a row".
   currentId: string | null;
-  // Called when a brand-new homily row is created so the parent can track it.
   onCurrentIdChange: (id: string) => void;
-  // Called when an autosave completes; lets the parent know list ordering/titles may have changed.
   onSaved?: () => void;
-  // Called when a homily is loaded; lets the parent update its cached title for the drawer.
   onLoaded?: (info: { id: string | null; title: string }) => void;
-  // Open the homily list drawer.
   onOpenList: () => void;
 }
 
-function toDateString(d: Date): string {
+function toCompactDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}${m}${day}`;
+}
+
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseIsoDate(iso: string): Date {
+  // Parse as local date — avoid UTC time-zone shift
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function isoToCompact(iso: string): string {
+  return iso.replace(/-/g, "");
+}
+
+function shortSundayLabel(iso: string): string {
+  const d = parseIsoDate(iso);
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+async function fetchSundayName(iso: string): Promise<string | null> {
+  if (sundayNameCache.has(iso)) return sundayNameCache.get(iso) ?? null;
+  try {
+    const res = await fetch(`/api/readings?date=${isoToCompact(iso)}`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    const name = (d.dayName as string | undefined) ?? null;
+    if (name) sundayNameCache.set(iso, name);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
+function listSundayOptions(anchor: Date = new Date(), pastCount = 4, futureCount = 12): Date[] {
+  // Build list of Sundays: pastCount Sundays before the anchor's coming Sunday, then futureCount future ones (inclusive of coming)
+  const coming = getComingSunday(anchor);
+  const out: Date[] = [];
+  for (let i = -pastCount; i < futureCount; i++) {
+    const d = new Date(coming);
+    d.setDate(d.getDate() + i * 7);
+    out.push(d);
+  }
+  return out;
 }
 
 function generateId() {
@@ -57,7 +105,9 @@ export default function WriteView({
   onOpenList,
 }: WriteViewProps) {
   const [title, setTitle] = useState("");
+  const [sundayDate, setSundayDate] = useState<string | null>(null); // ISO "YYYY-MM-DD"
   const [sundayName, setSundayName] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
     { id: generateId(), text: "" },
   ]);
@@ -70,15 +120,16 @@ export default function WriteView({
 
   // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSaveRef = useRef<{ id: string | null; title: string; content: string } | null>(null);
-  // draftIdRef is the DB row id for whatever is currently in state.
-  // It can differ from props.currentId briefly (when currentId is null and
-  // we've just created a row on first save).
+  const pendingSaveRef = useRef<{
+    id: string | null;
+    title: string;
+    content: string;
+    sundayDate: string | null;
+  } | null>(null);
   const draftIdRef = useRef<string | null>(null);
-  // Which currentId (prop) have we already loaded into state?
   const loadedIdRef = useRef<string | null | undefined>(undefined);
 
-  // Flush any pending debounced save immediately. Cancels the timer.
+  // Flush any pending debounced save immediately.
   const flushPendingSave = useCallback(async () => {
     if (autoSaveRef.current) {
       clearTimeout(autoSaveRef.current);
@@ -94,13 +145,23 @@ export default function WriteView({
       if (pending.id) {
         await supabase
           .from("homilies")
-          .update({ title: pending.title, content: pending.content, updated_at: new Date().toISOString() })
+          .update({
+            title: pending.title,
+            content: pending.content,
+            sunday_date: pending.sundayDate,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", pending.id)
           .eq("user_id", user.id);
       } else {
         const { data } = await supabase
           .from("homilies")
-          .insert({ user_id: user.id, title: pending.title, content: pending.content })
+          .insert({
+            user_id: user.id,
+            title: pending.title,
+            content: pending.content,
+            sunday_date: pending.sundayDate,
+          })
           .select("id")
           .single();
         if (data?.id) {
@@ -108,18 +169,16 @@ export default function WriteView({
           onCurrentIdChange(data.id);
         }
       }
-    } catch { /* offline — localStorage already has it */ }
+    } catch { /* offline — localStorage still has it */ }
   }, [onCurrentIdChange]);
 
-  // Load content for the current homily. Runs on mount and whenever currentId changes.
+  // Load content for the current homily.
   useEffect(() => {
-    // If we've already loaded this exact id (including null), skip.
     if (loadedIdRef.current === currentId) return;
 
     let cancelled = false;
 
     (async () => {
-      // Flush any pending save for the previously-loaded homily before we swap.
       if (loadedIdRef.current !== undefined) {
         await flushPendingSave();
       }
@@ -127,9 +186,11 @@ export default function WriteView({
       // Start-fresh case
       if (currentId === null) {
         if (cancelled) return;
+        const defaultSunday = toIsoDate(getComingSunday(new Date()));
         setTitle("");
         setParagraphs([{ id: generateId(), text: "" }]);
         setLastSaved(null);
+        setSundayDate(defaultSunday);
         draftIdRef.current = null;
         loadedIdRef.current = null;
         try {
@@ -139,7 +200,6 @@ export default function WriteView({
         return;
       }
 
-      // Load by id — Supabase first, localStorage as last-resort fallback
       let loaded = false;
       try {
         const supabase = createClient();
@@ -148,7 +208,7 @@ export default function WriteView({
         if (user) {
           const { data } = await supabase
             .from("homilies")
-            .select("id, title, content")
+            .select("id, title, content, sunday_date")
             .eq("id", currentId)
             .eq("user_id", user.id)
             .single();
@@ -158,6 +218,7 @@ export default function WriteView({
             draftIdRef.current = data.id;
             const nextTitle = data.title ?? "";
             setTitle(nextTitle);
+            setSundayDate((data.sunday_date as string | null) ?? null);
             const parsed = data.content ? parseParagraphs(data.content) : [];
             setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
             try {
@@ -173,9 +234,9 @@ export default function WriteView({
       } catch { /* fall through */ }
 
       if (!loaded && !cancelled) {
-        // Couldn't fetch — show the blank slate for this id so the user can still type
         draftIdRef.current = currentId;
         setTitle("");
+        setSundayDate(null);
         setParagraphs([{ id: generateId(), text: "" }]);
         setLastSaved(null);
         onLoaded?.({ id: currentId, title: "" });
@@ -187,23 +248,27 @@ export default function WriteView({
     return () => { cancelled = true; };
   }, [currentId, flushPendingSave, onLoaded]);
 
-  // Fetch coming Sunday name for title suggestion (once on mount)
+  // Fetch the Sunday name whenever sundayDate changes
   useEffect(() => {
-    const sunday = getComingSunday();
-    const dateStr = toDateString(sunday);
-    fetch(`/api/readings?date=${dateStr}`)
-      .then((r) => r.json())
-      .then((d) => { if (d.dayName) setSundayName(d.dayName); })
-      .catch(() => {});
-  }, []);
+    if (!sundayDate) {
+      setSundayName(null);
+      return;
+    }
+    let cancelled = false;
+    const cached = sundayNameCache.get(sundayDate);
+    if (cached) {
+      setSundayName(cached);
+    } else {
+      setSundayName(null);
+      fetchSundayName(sundayDate).then((n) => { if (!cancelled) setSundayName(n); });
+    }
+    return () => { cancelled = true; };
+  }, [sundayDate]);
 
-  // Flush pending save when the tab is hidden / closed
+  // Flush pending save when tab is hidden / closed
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === "hidden") {
-        // Best-effort — use the pending ref directly since flush is async
-        flushPendingSave();
-      }
+      if (document.visibilityState === "hidden") flushPendingSave();
     };
     window.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("beforeunload", onVisibility);
@@ -213,6 +278,14 @@ export default function WriteView({
     };
   }, [flushPendingSave]);
 
+  // Close picker on Escape
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPickerOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pickerOpen]);
+
   // Word count
   useEffect(() => {
     const allText = paragraphs.map((p) => p.text).join(" ");
@@ -220,20 +293,17 @@ export default function WriteView({
     setWordCount(words);
   }, [paragraphs]);
 
-  // Auto-save: localStorage immediately, Supabase debounced
+  // Auto-save
   const save = useCallback(
-    (t: string, paras: Paragraph[]) => {
+    (t: string, paras: Paragraph[], sd: string | null) => {
       const content = joinParagraphs(paras);
 
-      // Always save to localStorage as fast local cache
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: t, content }));
       } catch { /* ignore */ }
 
-      // Stage the save — latest wins
-      pendingSaveRef.current = { id: draftIdRef.current, title: t, content };
+      pendingSaveRef.current = { id: draftIdRef.current, title: t, content, sundayDate: sd };
 
-      // Debounce the Supabase save
       if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
       autoSaveRef.current = setTimeout(async () => {
         autoSaveRef.current = null;
@@ -248,13 +318,23 @@ export default function WriteView({
           if (pending.id) {
             await supabase
               .from("homilies")
-              .update({ title: pending.title, content: pending.content, updated_at: new Date().toISOString() })
+              .update({
+                title: pending.title,
+                content: pending.content,
+                sunday_date: pending.sundayDate,
+                updated_at: new Date().toISOString(),
+              })
               .eq("id", pending.id)
               .eq("user_id", user.id);
           } else {
             const { data } = await supabase
               .from("homilies")
-              .insert({ user_id: user.id, title: pending.title, content: pending.content })
+              .insert({
+                user_id: user.id,
+                title: pending.title,
+                content: pending.content,
+                sunday_date: pending.sundayDate,
+              })
               .select("id")
               .single();
             if (data?.id) {
@@ -272,13 +352,19 @@ export default function WriteView({
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
-    save(val, paragraphs);
+    save(val, paragraphs, sundayDate);
   };
 
   const handleParaChange = (id: string, val: string) => {
     const updated = paragraphs.map((p) => (p.id === id ? { ...p, text: val } : p));
     setParagraphs(updated);
-    save(title, updated);
+    save(title, updated, sundayDate);
+  };
+
+  const handleSundayChange = (iso: string | null) => {
+    setSundayDate(iso);
+    setPickerOpen(false);
+    save(title, paragraphs, iso);
   };
 
   const handleParaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
@@ -292,8 +378,7 @@ export default function WriteView({
         ...paragraphs.slice(idx + 1),
       ];
       setParagraphs(updated);
-      save(title, updated);
-      // Focus the new paragraph after render
+      save(title, updated, sundayDate);
       setTimeout(() => {
         const el = document.getElementById(`para-${newPara.id}`);
         if (el) el.focus();
@@ -306,7 +391,7 @@ export default function WriteView({
         const idx = paragraphs.findIndex((p) => p.id === id);
         const updated = paragraphs.filter((p) => p.id !== id);
         setParagraphs(updated);
-        save(title, updated);
+        save(title, updated, sundayDate);
         const prevId = updated[Math.max(0, idx - 1)]?.id;
         if (prevId) {
           setTimeout(() => {
@@ -326,12 +411,10 @@ export default function WriteView({
     setUndoStack((s) => [...s, before]);
     setDragId(id);
   };
-
   const handleDragOver = (e: React.DragEvent, id: string) => {
     e.preventDefault();
     setDragOverId(id);
   };
-
   const handleDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
     if (!dragId || dragId === targetId) {
@@ -345,33 +428,35 @@ export default function WriteView({
     const [moved] = updated.splice(fromIdx, 1);
     updated.splice(toIdx, 0, moved);
     setParagraphs(updated);
-    save(title, updated);
+    save(title, updated, sundayDate);
     setDragId(null);
     setDragOverId(null);
     setJustMoved(true);
     setTimeout(() => setJustMoved(false), 4000);
   };
-
   const handleUndoMove = () => {
     if (undoStack.length === 0) return;
     const prev = undoStack[undoStack.length - 1];
     setParagraphs(prev);
     setUndoStack((s) => s.slice(0, -1));
-    save(title, prev);
+    save(title, prev, sundayDate);
     setJustMoved(false);
   };
-
   const handleDragEnd = () => {
     setDragId(null);
     setDragOverId(null);
   };
 
   const estimatedMinutes = Math.round(wordCount / 130);
+  const sundayOptions = listSundayOptions();
+  const pickerLabel = sundayDate
+    ? `For ${sundayName ?? shortSundayLabel(sundayDate)}`
+    : "Pick a Sunday";
 
   return (
     <div className="view-fade" style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px 120px" }}>
 
-      {/* My homilies button — subtle, top */}
+      {/* Top bar: My homilies button */}
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "flex-start" }}>
         <button
           onClick={onOpenList}
@@ -398,7 +483,7 @@ export default function WriteView({
       </div>
 
       {/* Title */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 20 }}>
         <input
           value={title}
           onChange={(e) => handleTitleChange(e.target.value)}
@@ -416,32 +501,152 @@ export default function WriteView({
             padding: 0,
           }}
         />
-        {/* Sunday name suggestion — only when title is empty */}
-        {!title && sundayName && (
+
+        {/* Sunday picker pill + use-as-title suggestion */}
+        <div style={{
+          marginTop: 10,
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 8,
+          position: "relative",
+        }}>
           <button
-            onClick={() => handleTitleChange(sundayName)}
+            onClick={() => setPickerOpen((v) => !v)}
             style={{
-              marginTop: 8,
-              border: "none",
-              background: "none",
-              padding: 0,
+              border: "1px solid var(--ambo-border)",
+              background: pickerOpen ? "var(--ambo-accent-light)" : "transparent",
+              color: "var(--ambo-text-secondary)",
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "5px 10px",
+              borderRadius: 100,
               cursor: "pointer",
-              fontSize: 13,
-              color: "var(--ambo-text-muted)",
               fontFamily: "inherit",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: 5,
+              gap: 6,
             }}
+            title="Change which Sunday this homily is for"
           >
-            <span style={{ color: "var(--ambo-accent)", fontWeight: 600 }}>↑</span>
-            Use Sunday: <em style={{ color: "var(--ambo-text-secondary)" }}>{sundayName}</em>
+            <CalendarIcon />
+            <span>{pickerLabel}</span>
+            <span style={{ fontSize: 10, opacity: 0.6 }}>▾</span>
           </button>
-        )}
+
+          {!title && sundayName && (
+            <button
+              onClick={() => handleTitleChange(sundayName)}
+              style={{
+                border: "none",
+                background: "none",
+                padding: "5px 4px",
+                cursor: "pointer",
+                fontSize: 12,
+                color: "var(--ambo-text-muted)",
+                fontFamily: "inherit",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              title="Use the Sunday name as the title"
+            >
+              <span style={{ color: "var(--ambo-accent)", fontWeight: 600 }}>↑</span>
+              Use as title
+            </button>
+          )}
+
+          {pickerOpen && (
+            <>
+              <div
+                onClick={() => setPickerOpen(false)}
+                style={{ position: "fixed", inset: 0, zIndex: 40 }}
+              />
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                left: 0,
+                zIndex: 50,
+                background: "var(--ambo-bg)",
+                border: "1px solid var(--ambo-border)",
+                borderRadius: 10,
+                boxShadow: "var(--ambo-shadow-md)",
+                padding: 4,
+                minWidth: 240,
+                maxHeight: 320,
+                overflowY: "auto",
+              }}>
+                {sundayOptions.map((d) => {
+                  const iso = toIsoDate(d);
+                  const isSelected = iso === sundayDate;
+                  const isPast = d.getTime() < new Date(new Date().setHours(0,0,0,0)).getTime();
+                  const nameCached = sundayNameCache.get(iso);
+                  return (
+                    <button
+                      key={iso}
+                      onClick={() => handleSundayChange(iso)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        width: "100%",
+                        textAlign: "left",
+                        border: "none",
+                        background: isSelected ? "var(--ambo-accent-light)" : "transparent",
+                        color: isSelected
+                          ? "var(--ambo-accent)"
+                          : isPast
+                            ? "var(--ambo-text-muted)"
+                            : "var(--ambo-text-primary)",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        fontSize: 13,
+                        fontWeight: isSelected ? 600 : 500,
+                      }}
+                    >
+                      <span>{shortSundayLabel(iso)}</span>
+                      <span style={{
+                        fontSize: 11,
+                        color: "var(--ambo-text-muted)",
+                        textAlign: "right",
+                        maxWidth: 160,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {nameCached ?? ""}
+                      </span>
+                    </button>
+                  );
+                })}
+                <div style={{ padding: "6px 10px", borderTop: "1px solid var(--ambo-border)", marginTop: 4 }}>
+                  <button
+                    onClick={() => handleSundayChange(null)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "var(--ambo-text-muted)",
+                      fontSize: 12,
+                      fontFamily: "inherit",
+                      cursor: "pointer",
+                      padding: "4px 0",
+                    }}
+                  >
+                    No Sunday (clear)
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
         <div style={{
           height: 1,
           background: "var(--ambo-border)",
-          marginTop: 12,
+          marginTop: 16,
         }} />
       </div>
 
@@ -498,12 +703,9 @@ export default function WriteView({
             onDragEnd={handleDragEnd}
             style={{ paddingLeft: 30 }}
           >
-            {/* Drag handle */}
             <div className="ambo-drag-handle" title="Drag to reorder">
               <DragIcon />
             </div>
-
-            {/* Textarea auto-grows */}
             <AutoTextarea
               id={`para-${para.id}`}
               value={para.text}
@@ -614,6 +816,16 @@ function StackIcon() {
       <rect x="3" y="3" width="14" height="4" rx="1" />
       <rect x="3" y="9" width="14" height="4" rx="1" />
       <rect x="3" y="15" width="14" height="2.5" rx="1" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="14" height="12" rx="2" />
+      <path d="M3 9h14" />
+      <path d="M7 3v4M13 3v4" />
     </svg>
   );
 }

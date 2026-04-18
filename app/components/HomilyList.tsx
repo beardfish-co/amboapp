@@ -7,6 +7,7 @@ export interface HomilyRow {
   id: string;
   title: string | null;
   content: string | null;
+  sunday_date: string | null;
   updated_at: string;
   created_at: string;
 }
@@ -17,8 +18,40 @@ interface HomilyListProps {
   onClose: () => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
-  // Bumped each time the parent saves, so the drawer can refetch when it re-opens.
   refreshKey?: number;
+}
+
+// Shared Sunday-name cache (same Map WriteView uses)
+const sundayNameCache: Map<string, string> = (globalThis as typeof globalThis & {
+  __amboSundayNameCache?: Map<string, string>;
+}).__amboSundayNameCache ??= new Map<string, string>();
+
+function isoToCompact(iso: string): string {
+  return iso.replace(/-/g, "");
+}
+
+function parseIsoDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function shortSundayLabel(iso: string): string {
+  const d = parseIsoDate(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+async function fetchSundayName(iso: string): Promise<string | null> {
+  if (sundayNameCache.has(iso)) return sundayNameCache.get(iso) ?? null;
+  try {
+    const res = await fetch(`/api/readings?date=${isoToCompact(iso)}`);
+    if (!res.ok) return null;
+    const d = await res.json();
+    const name = (d.dayName as string | undefined) ?? null;
+    if (name) sundayNameCache.set(iso, name);
+    return name;
+  } catch {
+    return null;
+  }
 }
 
 function relativeTime(iso: string): string {
@@ -62,9 +95,10 @@ export default function HomilyList({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Re-render when Sunday names are fetched
+  const [, bumpNames] = useState(0);
   const loadedForKey = useRef<number | null>(null);
 
-  // Fetch whenever drawer opens OR refreshKey changes while open
   useEffect(() => {
     if (!open) return;
     if (loadedForKey.current === refreshKey && homilies !== null) return;
@@ -81,7 +115,7 @@ export default function HomilyList({
         }
         const { data, error } = await supabase
           .from("homilies")
-          .select("id, title, content, updated_at, created_at")
+          .select("id, title, content, sunday_date, updated_at, created_at")
           .eq("user_id", user.id)
           .order("updated_at", { ascending: false });
 
@@ -101,7 +135,23 @@ export default function HomilyList({
     return () => { cancelled = true; };
   }, [open, refreshKey, homilies]);
 
-  // Close on Escape
+  // When the homily list loads, kick off Sunday-name fetches for any rows that don't have a cached name
+  useEffect(() => {
+    if (!open || !homilies) return;
+    let cancelled = false;
+    const unique = Array.from(
+      new Set(homilies.map((h) => h.sunday_date).filter((s): s is string => !!s && !sundayNameCache.has(s)))
+    );
+    if (unique.length === 0) return;
+    (async () => {
+      for (const iso of unique) {
+        const name = await fetchSundayName(iso);
+        if (name && !cancelled) bumpNames((n) => n + 1);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, homilies]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -127,7 +177,7 @@ export default function HomilyList({
         .eq("user_id", user.id);
       setHomilies((prev) => (prev ? prev.filter((h) => h.id !== id) : prev));
     } catch {
-      // keep the row visible — user can try again
+      /* keep the row visible — user can try again */
     } finally {
       setDeletingId(null);
       setConfirmDeleteId(null);
@@ -171,7 +221,6 @@ export default function HomilyList({
           animation: "slideInLeft 0.2s ease",
         }}
       >
-        {/* Header */}
         <div style={{
           padding: "20px 20px 14px",
           borderBottom: "1px solid var(--ambo-border)",
@@ -206,7 +255,6 @@ export default function HomilyList({
           </button>
         </div>
 
-        {/* New button */}
         <div style={{ padding: "12px 12px 8px" }}>
           <button
             onClick={onCreate}
@@ -233,38 +281,21 @@ export default function HomilyList({
           </button>
         </div>
 
-        {/* List */}
         <div style={{ flex: 1, overflowY: "auto", padding: "4px 8px 20px" }}>
           {homilies === null && !loadError && (
-            <div style={{
-              padding: 20,
-              fontSize: 13,
-              color: "var(--ambo-text-muted)",
-              textAlign: "center",
-            }}>
+            <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
               Loading…
             </div>
           )}
 
           {loadError && (
-            <div style={{
-              padding: 20,
-              fontSize: 13,
-              color: "var(--ambo-text-muted)",
-              textAlign: "center",
-            }}>
+            <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
               Couldn’t load homilies. {loadError}
             </div>
           )}
 
           {homilies && homilies.length === 0 && !loadError && (
-            <div style={{
-              padding: "32px 20px",
-              fontSize: 13,
-              color: "var(--ambo-text-muted)",
-              textAlign: "center",
-              lineHeight: 1.6,
-            }}>
+            <div style={{ padding: "32px 20px", fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center", lineHeight: 1.6 }}>
               No homilies yet.<br />Start a new one above.
             </div>
           )}
@@ -275,6 +306,10 @@ export default function HomilyList({
             const preview = previewOf(h.content);
             const words = wordCount(h.content);
             const confirming = confirmDeleteId === h.id;
+            const sundayName = h.sunday_date ? sundayNameCache.get(h.sunday_date) : undefined;
+            const sundaySubtitle = h.sunday_date
+              ? `${sundayName ?? "Sunday"} · ${shortSundayLabel(h.sunday_date)}`
+              : null;
 
             return (
               <div
@@ -316,14 +351,23 @@ export default function HomilyList({
                   }}>
                     {title}
                   </div>
-                  <div style={{
-                    fontSize: 11,
-                    color: "var(--ambo-text-muted)",
-                    flexShrink: 0,
-                  }}>
+                  <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", flexShrink: 0 }}>
                     {relativeTime(h.updated_at)}
                   </div>
                 </div>
+                {sundaySubtitle && (
+                  <div style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: "var(--ambo-accent)",
+                    marginBottom: 4,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {sundaySubtitle}
+                  </div>
+                )}
                 <div style={{
                   fontSize: 12,
                   color: "var(--ambo-text-secondary)",

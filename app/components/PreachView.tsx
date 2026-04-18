@@ -5,21 +5,42 @@ import { createClient } from "@/lib/supabase/client";
 
 const STORAGE_KEY = "ambo-draft";
 
+interface Reading {
+  id: string;
+  title: string;
+  reference: string;
+  heading: string;
+  text: string;
+}
+
+interface DayReadings {
+  date: string;
+  dayName: string;
+  readings: Reading[];
+}
+
 interface PreachViewProps {
-  // The homily to show. null means "show the most recently edited".
   currentId: string | null;
+}
+
+function isoToCompact(iso: string): string {
+  return iso.replace(/-/g, "");
 }
 
 export default function PreachView({ currentId }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [sundayDate, setSundayDate] = useState<string | null>(null);
+  const [readings, setReadings] = useState<DayReadings | null>(null);
+  const [readingsOpen, setReadingsOpen] = useState(false);
+  const [expandedReadingId, setExpandedReadingId] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
   const [currentPara, setCurrentPara] = useState(0);
   const [paragraphs, setParagraphs] = useState<string[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Load from Supabase (by id, or most-recent if currentId is null), fall back to localStorage
+  // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
     let cancelled = false;
 
@@ -27,6 +48,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       setLoading(true);
       let loadedTitle = "";
       let loadedContent = "";
+      let loadedSunday: string | null = null;
       let gotIt = false;
 
       try {
@@ -35,7 +57,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         if (user) {
           const base = supabase
             .from("homilies")
-            .select("title, content")
+            .select("title, content, sunday_date")
             .eq("user_id", user.id);
 
           const { data } = currentId
@@ -45,6 +67,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
           if (data) {
             loadedTitle = data.title ?? "";
             loadedContent = data.content ?? "";
+            loadedSunday = (data.sunday_date as string | null) ?? null;
             gotIt = true;
           }
         }
@@ -65,6 +88,10 @@ export default function PreachView({ currentId }: PreachViewProps) {
 
       setTitle(loadedTitle);
       setContent(loadedContent);
+      setSundayDate(loadedSunday);
+      setReadings(null);
+      setReadingsOpen(false);
+      setExpandedReadingId(null);
       const paras = loadedContent
         .split("\n\n")
         .map((p: string) => p.trim())
@@ -76,6 +103,24 @@ export default function PreachView({ currentId }: PreachViewProps) {
 
     return () => { cancelled = true; };
   }, [currentId]);
+
+  // Fetch readings when sundayDate is set
+  useEffect(() => {
+    if (!sundayDate) {
+      setReadings(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/readings?date=${isoToCompact(sundayDate)}`);
+        if (!res.ok) return;
+        const d: DayReadings = await res.json();
+        if (!cancelled) setReadings(d);
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [sundayDate]);
 
   const hasContent = content.trim().length > 0;
 
@@ -125,15 +170,14 @@ export default function PreachView({ currentId }: PreachViewProps) {
   return (
     <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 32px 80px" }}>
 
-      {/* Controls — subtle, top right */}
+      {/* Controls */}
       <div style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 40,
+        marginBottom: 32,
         gap: 16,
       }}>
-        {/* Mode toggle */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => setIsScrollMode(true)}
@@ -171,7 +215,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
           </button>
         </div>
 
-        {/* Font size */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => setFontSize((f) => Math.max(18, f - 2))}
@@ -190,6 +233,112 @@ export default function PreachView({ currentId }: PreachViewProps) {
         </div>
       </div>
 
+      {/* Readings panel (collapsible) */}
+      {readings && readings.readings.length > 0 && (
+        <div style={{
+          marginBottom: 32,
+          border: "1px solid var(--ambo-border)",
+          borderRadius: 12,
+          background: "var(--ambo-surface)",
+          overflow: "hidden",
+        }}>
+          <button
+            onClick={() => setReadingsOpen((v) => !v)}
+            style={{
+              width: "100%",
+              border: "none",
+              background: "transparent",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 16px",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              textAlign: "left",
+            }}
+          >
+            <span style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--ambo-accent)",
+              letterSpacing: "0.02em",
+              textTransform: "uppercase",
+            }}>
+              Readings · {readings.dayName}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
+              {readingsOpen ? "Hide ▴" : "Show ▾"}
+            </span>
+          </button>
+          {readingsOpen && (
+            <div style={{ padding: "4px 16px 16px" }}>
+              {readings.readings.map((r) => {
+                const isOpen = expandedReadingId === r.id;
+                return (
+                  <div key={r.id} style={{
+                    borderTop: "1px solid var(--ambo-border)",
+                    padding: "10px 0",
+                  }}>
+                    <button
+                      onClick={() => setExpandedReadingId(isOpen ? null : r.id)}
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "baseline",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--ambo-text-primary)",
+                      }}>
+                        {r.title}
+                      </span>
+                      <span style={{
+                        fontSize: 12,
+                        color: "var(--ambo-text-muted)",
+                        fontStyle: "italic",
+                      }}>
+                        {r.reference}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div style={{
+                        marginTop: 10,
+                        fontSize: 15,
+                        lineHeight: 1.7,
+                        color: "var(--ambo-text-primary)",
+                        whiteSpace: "pre-wrap",
+                      }}>
+                        {r.heading && (
+                          <div style={{
+                            fontSize: 13,
+                            fontStyle: "italic",
+                            color: "var(--ambo-text-secondary)",
+                            marginBottom: 8,
+                          }}>
+                            {r.heading}
+                          </div>
+                        )}
+                        {r.text}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Title */}
       {title && (
         <h1 style={{
@@ -203,7 +352,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         </h1>
       )}
 
-      {/* Scroll mode — full text */}
+      {/* Scroll mode */}
       {isScrollMode && (
         <div>
           {paragraphs.map((para, i) => (
@@ -223,7 +372,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         </div>
       )}
 
-      {/* Step mode — one paragraph at a time */}
+      {/* Step mode */}
       {!isScrollMode && paragraphs.length > 0 && (
         <div>
           <p style={{
