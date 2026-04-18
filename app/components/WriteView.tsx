@@ -135,7 +135,8 @@ export default function WriteView({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
-  const [justMoved, setJustMoved] = useState(false);
+  const [recentAction, setRecentAction] = useState<"moved" | "inserted" | null>(null);
+  const recentActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track most-recently-focused paragraph so Insert knows where to drop a quote.
   const lastFocusedParaIdRef = useRef<string | null>(null);
@@ -388,8 +389,10 @@ export default function WriteView({
   };
 
   const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
-    // Find the insertion index: after the last-focused paragraph, or at the end.
+    // Snapshot for undo (captured synchronously; setState below will use the same prev).
     setParagraphs((prev) => {
+      setUndoStack((s) => [...s, prev]);
+
       let insertAfter = prev.length - 1;
       const focusedId = lastFocusedParaIdRef.current;
       if (focusedId) {
@@ -438,6 +441,11 @@ export default function WriteView({
 
       return next;
     });
+
+    // Show undo toast for ~6 seconds
+    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
+    setRecentAction("inserted");
+    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 6000);
 
     setReadingsOpen(false);
   }, [save, title, sundayDate]);
@@ -509,16 +517,18 @@ export default function WriteView({
     save(title, updated, sundayDate);
     setDragId(null);
     setDragOverId(null);
-    setJustMoved(true);
-    setTimeout(() => setJustMoved(false), 4000);
+    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
+    setRecentAction("moved");
+    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 4000);
   };
-  const handleUndoMove = () => {
+  const handleUndoLast = () => {
     if (undoStack.length === 0) return;
     const prev = undoStack[undoStack.length - 1];
     setParagraphs(prev);
     setUndoStack((s) => s.slice(0, -1));
     save(title, prev, sundayDate);
-    setJustMoved(false);
+    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
+    setRecentAction(null);
   };
   const handleDragEnd = () => {
     setDragId(null);
@@ -728,8 +738,8 @@ export default function WriteView({
         }} />
       </div>
 
-      {/* Undo move toast */}
-      {justMoved && (
+      {/* Undo toast — shared between paragraph move and quote insert */}
+      {recentAction && (
         <div style={{
           position: "fixed",
           bottom: 100,
@@ -748,9 +758,11 @@ export default function WriteView({
           zIndex: 100,
           animation: "fadeIn 0.2s ease",
         }}>
-          <span style={{ fontSize: 14, color: "var(--ambo-text-secondary)" }}>Paragraph moved</span>
+          <span style={{ fontSize: 14, color: "var(--ambo-text-secondary)" }}>
+            {recentAction === "moved" ? "Paragraph moved" : "Quote inserted"}
+          </span>
           <button
-            onClick={handleUndoMove}
+            onClick={handleUndoLast}
             style={{
               border: "none",
               background: "var(--ambo-accent-light)",

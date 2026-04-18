@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Reading {
   id: string;
@@ -24,6 +24,11 @@ interface ReadingsDrawerProps {
   onInsert: (payload: { text: string; citation: string }) => void;
 }
 
+interface ActiveSelection {
+  text: string;
+  reference: string;
+}
+
 function isoToCompact(iso: string): string {
   return iso.replace(/-/g, "");
 }
@@ -35,6 +40,18 @@ function splitReadingParagraphs(text: string): string[] {
     .filter(Boolean);
 }
 
+// Walk up from a DOM node looking for an element with data-reading-ref
+function readingRefFromNode(node: Node | null): string | null {
+  let el: Node | null = node;
+  while (el && el.nodeType !== 1) el = el.parentNode;
+  let cur = el as HTMLElement | null;
+  while (cur) {
+    if (cur.dataset && cur.dataset.readingRef) return cur.dataset.readingRef;
+    cur = cur.parentElement;
+  }
+  return null;
+}
+
 export default function ReadingsDrawer({
   open,
   sundayDate,
@@ -44,6 +61,8 @@ export default function ReadingsDrawer({
   const [data, setData] = useState<DayReadings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selection, setSelection] = useState<ActiveSelection | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open || !sundayDate) return;
@@ -51,6 +70,7 @@ export default function ReadingsDrawer({
     setLoading(true);
     setError(null);
     setData(null);
+    setSelection(null);
 
     (async () => {
       try {
@@ -76,7 +96,52 @@ export default function ReadingsDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Track the user's text selection inside the drawer body
+  useEffect(() => {
+    if (!open) return;
+
+    const update = () => {
+      const sel = typeof window !== "undefined" ? window.getSelection() : null;
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+        setSelection(null);
+        return;
+      }
+      const body = bodyRef.current;
+      if (!body) {
+        setSelection(null);
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      // Only count selections that start inside the drawer body
+      if (!body.contains(range.startContainer)) {
+        setSelection(null);
+        return;
+      }
+      const text = sel.toString().trim();
+      if (!text) {
+        setSelection(null);
+        return;
+      }
+      const ref =
+        readingRefFromNode(range.startContainer) ??
+        readingRefFromNode(range.endContainer) ??
+        "";
+      setSelection({ text, reference: ref });
+    };
+
+    document.addEventListener("selectionchange", update);
+    return () => document.removeEventListener("selectionchange", update);
+  }, [open]);
+
   if (!open) return null;
+
+  const handleInsertSelection = () => {
+    if (!selection || !selection.text) return;
+    onInsert({ text: selection.text, citation: selection.reference });
+    setSelection(null);
+    // Clear the actual browser selection too
+    if (typeof window !== "undefined") window.getSelection()?.removeAllRanges();
+  };
 
   return (
     <>
@@ -167,8 +232,22 @@ export default function ReadingsDrawer({
           </button>
         </div>
 
+        {/* Hint when no selection is active */}
+        {sundayDate && data && !selection && (
+          <div style={{
+            padding: "10px 20px",
+            fontSize: 12,
+            color: "var(--ambo-text-muted)",
+            borderBottom: "1px solid var(--ambo-border)",
+            background: "var(--ambo-surface)",
+            lineHeight: 1.5,
+          }}>
+            Highlight any text to insert just that piece, or use Insert to drop in a whole paragraph.
+          </div>
+        )}
+
         {/* Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 40px" }}>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 20px 80px" }}>
           {!sundayDate && (
             <EmptyState
               title="No Sunday set"
@@ -192,7 +271,12 @@ export default function ReadingsDrawer({
           {sundayDate && data && data.readings.map((r) => {
             const paragraphs = splitReadingParagraphs(r.text);
             return (
-              <section key={r.id} style={{ marginBottom: 28 }}>
+              <section
+                key={r.id}
+                data-reading-id={r.id}
+                data-reading-ref={r.reference}
+                style={{ marginBottom: 28 }}
+              >
                 {/* Reading head */}
                 <div style={{
                   display: "flex",
@@ -265,6 +349,7 @@ export default function ReadingsDrawer({
                         {para}
                       </p>
                       <button
+                        onMouseDown={(e) => e.preventDefault() /* don't steal selection */}
                         onClick={() => onInsert({ text: para, citation: r.reference })}
                         style={insertBtnStyle}
                         title="Insert this paragraph as a quote"
@@ -278,6 +363,66 @@ export default function ReadingsDrawer({
             );
           })}
         </div>
+
+        {/* Floating Insert-selection action bar */}
+        {selection && (
+          <div style={{
+            position: "absolute",
+            left: 16,
+            right: 16,
+            bottom: 16,
+            background: "var(--ambo-bg)",
+            border: "1px solid var(--ambo-accent)",
+            borderRadius: 14,
+            padding: "10px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            boxShadow: "var(--ambo-shadow-md)",
+            animation: "fadeIn 0.15s ease",
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: "var(--ambo-accent)",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 2,
+              }}>
+                Selection
+              </div>
+              <div style={{
+                fontSize: 12,
+                color: "var(--ambo-text-secondary)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                fontStyle: "italic",
+              }}>
+                “{selection.text}”
+              </div>
+            </div>
+            <button
+              onMouseDown={(e) => e.preventDefault() /* preserve selection until click fires */}
+              onClick={handleInsertSelection}
+              style={{
+                border: "none",
+                background: "var(--ambo-accent)",
+                color: "white",
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "7px 14px",
+                borderRadius: 100,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                flexShrink: 0,
+              }}
+            >
+              Insert selection
+            </button>
+          </div>
+        )}
       </aside>
     </>
   );
