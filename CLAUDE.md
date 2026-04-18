@@ -69,10 +69,12 @@ A sacred writing workspace for Catholic priests. Three modes: Read (liturgical r
 - Adjustable font size (A buttons, 18–36px)
 
 ### Database schema
+See `migrations/` for the SQL history. Current shape:
 ```sql
 create table homilies (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
+  sunday_date date,  -- which Sunday this homily is for (nullable)
   title text not null default '',
   content text not null default '',
   created_at timestamptz default now() not null,
@@ -124,8 +126,8 @@ Supabase's Site URL was also set to the frozen URL, so magic links kept dragging
 2. ~~Multiple homilies~~ — shipped 2026-04-18 (HomilyList drawer, switch/create/delete, Preach syncs by active id)
 3. ~~Preach view Supabase sync~~ — shipped 2026-04-18 (folded into Multiple homilies; PreachView now loads by `currentId`)
 4. **Custom domain** — still on auto-generated Vercel URL
-5. **Writing surface polish** — formatting (bold/italic), paragraph types, rich-text toolbar
-6. **Sermon metadata** — associate each homily with its Sunday / liturgical date so readings auto-match in Preach
+5. ~~Sunday-aware homilies~~ — shipped 2026-04-19 (sunday_date column, date picker, Readings panel in Preach, Sunday chips in list)
+6. **Writing surface polish** — formatting (bold/italic), paragraph types, rich-text toolbar
 
 ## New multi-homily architecture notes
 - `app/page.tsx` owns `currentId: string | null` and persists it to localStorage as `ambo-current-id`
