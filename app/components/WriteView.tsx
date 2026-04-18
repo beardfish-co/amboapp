@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getComingSunday } from "./ReadingView";
 
 interface Paragraph {
   id: string;
@@ -8,6 +9,13 @@ interface Paragraph {
 }
 
 const STORAGE_KEY = "ambo-draft";
+
+function toDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
 
 function generateId() {
   return Math.random().toString(36).slice(2, 9);
@@ -27,6 +35,7 @@ function joinParagraphs(paragraphs: Paragraph[]): string {
 
 export default function WriteView() {
   const [title, setTitle] = useState("");
+  const [sundayName, setSundayName] = useState<string | null>(null);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
     { id: generateId(), text: "" },
   ]);
@@ -38,7 +47,7 @@ export default function WriteView() {
   const [justMoved, setJustMoved] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount + fetch Sunday name
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +62,14 @@ export default function WriteView() {
     } catch {
       // fresh start
     }
+
+    // Fetch coming Sunday name for title suggestion
+    const sunday = getComingSunday();
+    const dateStr = toDateString(sunday);
+    fetch(`/api/readings?date=${dateStr}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.dayName) setSundayName(d.dayName); })
+      .catch(() => {});
   }, []);
 
   // Word count
@@ -201,6 +218,28 @@ export default function WriteView() {
             padding: 0,
           }}
         />
+        {/* Sunday name suggestion — only when title is empty */}
+        {!title && sundayName && (
+          <button
+            onClick={() => handleTitleChange(sundayName)}
+            style={{
+              marginTop: 8,
+              border: "none",
+              background: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontSize: 13,
+              color: "var(--ambo-text-muted)",
+              fontFamily: "inherit",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <span style={{ color: "var(--ambo-accent)", fontWeight: 600 }}>↑</span>
+            Use Sunday: <em style={{ color: "var(--ambo-text-secondary)" }}>{sundayName}</em>
+          </button>
+        )}
         <div style={{
           height: 1,
           background: "var(--ambo-border)",
