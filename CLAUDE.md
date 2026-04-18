@@ -6,7 +6,10 @@
 A sacred writing workspace for Catholic priests. Three modes: Read (liturgical readings), Write (homily editor), Preach (delivery). Commercial side project for Jonathan Stephens (jonathan@beardfish.co). No development budget — Claude builds everything. No AI writing assistance (aligned with Pope Leo XIV's guidance).
 
 ## Live URLs
-- App: https://amboapp-r7rlzfp1h-beardfish-cos-projects.vercel.app
+- App: https://amboapp.vercel.app
+  ⚠️ This is the production alias — always use it. Never use a deployment-specific URL like
+  `amboapp-<9char-hash>-beardfish-cos-projects.vercel.app`: those are frozen single-build
+  snapshots and will never update. If ever unsure, verify at Vercel → Settings → Domains.
 - GitHub: https://github.com/beardfish-co/amboapp
 - Supabase: https://jowbavogcjozxpujwwah.supabase.co
 
@@ -104,28 +107,20 @@ git push origin main
 # NEVER put the PAT in committed files — GitHub push protection will block it
 ```
 
-## ⚠️ OPEN BUG — ReadingView showing hardcoded placeholder readings
+## Past bug (resolved 2026-04-18) — ReadingView showing demo data
 
-**Symptom:** The app shows the initial hardcoded placeholder readings ("EASTER SEASON", Acts 5:27-32, Psalm 30, John 21:1-14) instead of live Universalis data. The Vercel production deployment IS the latest commit (confirmed via Vercel dashboard). Clearing all site data + incognito mode makes no difference.
+**Symptom was:** Production app showed the pre-API demo placeholder readings (Acts 5:27-32 / Psalm 30 / John 21:1-14) instead of live Universalis data, no matter how many times the latest commit was redeployed. Changes to `layout.tsx` (title, etc.) never appeared.
 
-**What we know:**
-- Universalis API works fine — confirmed with curl, returns correct JSON for both Saturday and Sunday dates
-- GitHub has the correct code — confirmed `sundayError` and `showToday` present in ReadingView
-- Vercel production deployment hash matches latest GitHub commit (`578101c` → `8f1a0fb`)
-- The initial commit (`6a0d3707`) had a hardcoded `getTodayReadings()` function with placeholder readings
-- The Universalis ReadingView was added in commit `e54af215`
-- Auth IS working (Supabase magic link, Resend SMTP) — so newer code IS running for auth
-- The ReadingView the user sees has `season: "Easter Season"` as eyebrow, `day` computed from today's local date — this is exactly the initial hardcoded version
-- Changing browser tab title in `layout.tsx` and pushing did NOT change what the user sees — suggests the HTML being served is from an OLD build
+**Root cause was NOT the code.** It was that `CLAUDE.md` listed a deployment-specific URL (`amboapp-r7rlzfp1h-beardfish-cos-projects.vercel.app`) as the app URL. Those URLs are frozen snapshots of a single past build — they never update. The production alias is `amboapp.vercel.app`. Every test was hitting the museum.
 
-**Likely cause:** Next.js 16 may be statically pre-rendering the app shell and caching it at the Vercel CDN edge. Even though the deployment is updated, the pre-rendered HTML might reference old JS chunk hashes. The fix is likely one of:
-1. Add `export const dynamic = "force-dynamic"` to `app/page.tsx` to prevent static generation
-2. Or purge the Vercel CDN cache manually via Vercel dashboard → Deployments → redeploy with "Clear cache" option checked
+Supabase's Site URL was also set to the frozen URL, so magic links kept dragging the user back there after sign-in, reinforcing the illusion that the bug was on production.
 
-**Next step to try:** In Vercel dashboard → Deployments → click the latest deployment → find "Redeploy" → make sure "Use existing build cache" is UNCHECKED → redeploy. This forces a fresh build with no cache.
+**Fix applied:** Updated Supabase Site URL and Redirect URLs to `https://amboapp.vercel.app`. Updated this file to reflect the real URL. Also added `export const dynamic = "force-dynamic"` to `app/layout.tsx` as belt-and-braces against Next.js 16 static pre-rendering; safe to remove if it causes issues — it wasn't the actual cause.
+
+**Lesson for future Claude sessions:** If a deploy 'doesn't propagate,' don't assume a code or cache problem. FIRST go to Vercel → Settings → Domains and confirm what URL the project actually serves at, compare to whatever URL is being tested. A clean `<project>.vercel.app` is production; anything with a 9-character random hash in the middle is a frozen deployment.
 
 ## Pending work (priority order)
-1. **Fix ReadingView bug** (see above) — highest priority
+1. ~~Fix ReadingView bug~~ — resolved 2026-04-18 (see post-mortem above)
 2. **Preach view Supabase sync** — currently reads localStorage only
 3. **Multiple homilies** — priests need to manage more than one draft
 4. **Custom domain** — still on auto-generated Vercel URL
@@ -139,3 +134,9 @@ git push origin main
 - `getComingSunday()` is exported from ReadingView and imported by WriteView — keep it there
 - GitHub push protection blocks PATs committed to files
 - Supabase free tier: ~3 emails/hour rate limit — now bypassed via Resend SMTP
+- Vercel production alias vs deployment URLs: the project's real URL is whatever is listed at
+  Vercel → Settings → Domains (for amboapp, that is `amboapp.vercel.app`). URLs of the form
+  `amboapp-<9char-hash>-beardfish-cos-projects.vercel.app` are single-build snapshots, frozen
+  forever — never link or bookmark them.
+- Supabase Site URL must always match the production domain. If it drifts to a deployment URL,
+  magic links will send users to frozen builds and every 'it's not deploying' symptom will lie.
