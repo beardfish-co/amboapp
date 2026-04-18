@@ -101,7 +101,7 @@ export default function ReadingView() {
           textTransform: "uppercase",
           color: "var(--ambo-accent)",
         }}>
-          {isSunday ? "Today" : `Coming Sunday · fetching ${sundayStr}`}
+          {isSunday ? "Today" : "Coming Sunday"}
         </p>
 
         {sunday ? (

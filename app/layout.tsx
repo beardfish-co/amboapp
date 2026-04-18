@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ambo v2",
+  title: "Ambo — A place to write your homily",
   description: "A sacred writing workspace for priests. Read, pray, and write your homily in a space designed for encounter.",
   manifest: "/manifest.json",
 };
