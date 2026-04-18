@@ -1,0 +1,197 @@
+@import "tailwindcss";
+
+:root {
+  /* Ambo Design System — Apple Glass Aesthetic */
+  --ambo-bg: #EEF2F7;
+  --ambo-surface: rgba(255, 255, 255, 0.72);
+  --ambo-surface-solid: #FFFFFF;
+  --ambo-text-primary: #1C2B3A;
+  --ambo-text-secondary: #5A7184;
+  --ambo-text-muted: #8FA3B1;
+  --ambo-accent: #4A6FA5;
+  --ambo-accent-light: rgba(74, 111, 165, 0.12);
+  --ambo-border: rgba(74, 111, 165, 0.15);
+  --ambo-shadow-sm: 0 1px 4px rgba(28, 43, 58, 0.06), 0 4px 16px rgba(28, 43, 58, 0.04);
+  --ambo-shadow-md: 0 2px 8px rgba(28, 43, 58, 0.08), 0 8px 32px rgba(28, 43, 58, 0.06);
+  --ambo-shadow-lg: 0 4px 16px rgba(28, 43, 58, 0.10), 0 16px 48px rgba(28, 43, 58, 0.08);
+  --ambo-radius: 16px;
+  --ambo-radius-sm: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--ambo-bg);
+  color: var(--ambo-text-primary);
+  font-family: -apple-system, "SF Pro Text", Inter, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Glass card effect */
+.glass-card {
+  background: var(--ambo-surface);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid var(--ambo-border);
+  border-radius: var(--ambo-radius);
+  box-shadow: var(--ambo-shadow-md);
+}
+
+/* Editor surface — clean and minimal */
+.ambo-editor {
+  outline: none;
+  min-height: 400px;
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--ambo-text-primary);
+  caret-color: var(--ambo-accent);
+}
+
+.ambo-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ambo-text-muted);
+  pointer-events: none;
+}
+
+/* Paragraph drag handle — appears on hover */
+.ambo-para-wrapper {
+  position: relative;
+  padding: 2px 0;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.ambo-para-wrapper:hover {
+  background: rgba(74, 111, 165, 0.04);
+}
+
+.ambo-drag-handle {
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  cursor: grab;
+  color: var(--ambo-text-muted);
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+
+.ambo-para-wrapper:hover .ambo-drag-handle {
+  opacity: 1;
+}
+
+.ambo-para-wrapper.dragging {
+  opacity: 0.4;
+}
+
+.ambo-para-wrapper.drag-over {
+  border-top: 2px solid var(--ambo-accent);
+}
+
+/* Scripture display */
+.scripture-text {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--ambo-text-primary);
+  font-style: italic;
+}
+
+.scripture-reference {
+  font-size: 13px;
+  color: var(--ambo-text-muted);
+  font-style: normal;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Preach mode — large calm reading */
+.preach-text {
+  font-size: clamp(20px, 3vw, 28px);
+  line-height: 1.85;
+  color: var(--ambo-text-primary);
+  letter-spacing: 0.01em;
+}
+
+/* Nav pill */
+.mode-pill {
+  background: var(--ambo-surface);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--ambo-border);
+  border-radius: 100px;
+  box-shadow: var(--ambo-shadow-sm);
+  padding: 4px;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.mode-pill-btn {
+  border: none;
+  background: transparent;
+  border-radius: 100px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ambo-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+.mode-pill-btn:hover {
+  color: var(--ambo-text-primary);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.mode-pill-btn.active {
+  background: var(--ambo-surface-solid);
+  color: var(--ambo-accent);
+  box-shadow: 0 1px 4px rgba(28, 43, 58, 0.10);
+}
+
+/* Subtle divider */
+.ambo-divider {
+  height: 1px;
+  background: var(--ambo-border);
+  margin: 0;
+}
+
+/* Smooth fade transition between views */
+.view-fade {
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar — minimal and translucent */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(74, 111, 165, 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 111, 165, 0.4);
+}
