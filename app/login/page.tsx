@@ -27,7 +27,7 @@ export default function LoginPage() {
     setLoading(false);
 
     if (authError) {
-      setError("Something went wrong. Please try again.");
+      setError(authError.message || "Something went wrong. Please try again.");
     } else {
       setSent(true);
     }
