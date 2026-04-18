@@ -127,7 +127,8 @@ Supabase's Site URL was also set to the frozen URL, so magic links kept dragging
 3. ~~Preach view Supabase sync~~ — shipped 2026-04-18 (folded into Multiple homilies; PreachView now loads by `currentId`)
 4. **Custom domain** — still on auto-generated Vercel URL
 5. ~~Sunday-aware homilies~~ — shipped 2026-04-19 (sunday_date column, date picker, Readings panel in Preach, Sunday chips in list)
-6. **Writing surface polish** — formatting (bold/italic), paragraph types, rich-text toolbar
+6. ~~Readings drawer in Write view~~ — shipped 2026-04-19 (right-side drawer, paragraph-level Insert, quote blocks render italic + citation in both Write and Preach)
+7. **Writing surface polish** — formatting (bold/italic), paragraph types, rich-text toolbar
 
 ## New multi-homily architecture notes
 - `app/page.tsx` owns `currentId: string | null` and persists it to localStorage as `ambo-current-id`

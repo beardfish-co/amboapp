@@ -23,8 +23,36 @@ interface PreachViewProps {
   currentId: string | null;
 }
 
+type Block =
+  | { kind: "body"; text: string }
+  | { kind: "quote"; text: string; citation?: string };
+
 function isoToCompact(iso: string): string {
   return iso.replace(/-/g, "");
+}
+
+function parseBlocks(text: string): Block[] {
+  return text
+    .split("\n\n")
+    .map((block) => block.replace(/^\s+|\s+$/g, ""))
+    .filter(Boolean)
+    .map((block): Block => {
+      const lines = block.split("\n");
+      const hasQuoteMarker = lines.some((l) => l.startsWith("> "));
+      if (hasQuoteMarker) {
+        let citation: string | undefined;
+        if (lines.length > 0 && /^—\s+/.test(lines[lines.length - 1])) {
+          citation = lines[lines.length - 1].replace(/^—\s+/, "").trim();
+          lines.pop();
+        }
+        const quoteText = lines
+          .map((l) => l.replace(/^>\s?/, ""))
+          .join("\n")
+          .trim();
+        return { kind: "quote", text: quoteText, citation };
+      }
+      return { kind: "body", text: block };
+    });
 }
 
 export default function PreachView({ currentId }: PreachViewProps) {
@@ -35,8 +63,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
   const [readingsOpen, setReadingsOpen] = useState(false);
   const [expandedReadingId, setExpandedReadingId] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
-  const [currentPara, setCurrentPara] = useState(0);
-  const [paragraphs, setParagraphs] = useState<string[]>([]);
+  const [currentBlock, setCurrentBlock] = useState(0);
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
@@ -92,12 +120,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
       setReadings(null);
       setReadingsOpen(false);
       setExpandedReadingId(null);
-      const paras = loadedContent
-        .split("\n\n")
-        .map((p: string) => p.trim())
-        .filter(Boolean);
-      setParagraphs(paras);
-      setCurrentPara(0);
+      setBlocks(parseBlocks(loadedContent));
+      setCurrentBlock(0);
       setLoading(false);
     })();
 
@@ -197,7 +221,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
             Scroll
           </button>
           <button
-            onClick={() => { setIsScrollMode(false); setCurrentPara(0); }}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); }}
             style={{
               border: "1px solid " + (!isScrollMode ? "var(--ambo-accent)" : "var(--ambo-border)"),
               background: !isScrollMode ? "var(--ambo-accent-light)" : "transparent",
@@ -355,36 +379,52 @@ export default function PreachView({ currentId }: PreachViewProps) {
       {/* Scroll mode */}
       {isScrollMode && (
         <div>
-          {paragraphs.map((para, i) => (
-            <p
-              key={i}
-              style={{
-                fontSize: fontSize,
-                lineHeight: 1.85,
-                color: "var(--ambo-text-primary)",
-                marginBottom: "1.6em",
-                letterSpacing: "0.01em",
-              }}
-            >
-              {para}
-            </p>
-          ))}
+          {blocks.map((block, i) =>
+            block.kind === "quote" ? (
+              <QuoteDisplay key={i} block={block} fontSize={fontSize} />
+            ) : (
+              <p
+                key={i}
+                style={{
+                  fontSize: fontSize,
+                  lineHeight: 1.85,
+                  color: "var(--ambo-text-primary)",
+                  marginBottom: "1.6em",
+                  letterSpacing: "0.01em",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {block.text}
+              </p>
+            )
+          )}
         </div>
       )}
 
       {/* Step mode */}
-      {!isScrollMode && paragraphs.length > 0 && (
+      {!isScrollMode && blocks.length > 0 && (
         <div>
-          <p style={{
-            fontSize: fontSize,
-            lineHeight: 1.85,
-            color: "var(--ambo-text-primary)",
-            letterSpacing: "0.01em",
+          <div style={{
             minHeight: "30vh",
             animation: "fadeIn 0.2s ease",
           }}>
-            {paragraphs[currentPara]}
-          </p>
+            {blocks[currentBlock].kind === "quote" ? (
+              <QuoteDisplay
+                block={blocks[currentBlock] as Extract<Block, { kind: "quote" }>}
+                fontSize={fontSize}
+              />
+            ) : (
+              <p style={{
+                fontSize: fontSize,
+                lineHeight: 1.85,
+                color: "var(--ambo-text-primary)",
+                letterSpacing: "0.01em",
+                whiteSpace: "pre-wrap",
+              }}>
+                {blocks[currentBlock].text}
+              </p>
+            )}
+          </div>
 
           <div style={{
             display: "flex",
@@ -393,23 +433,70 @@ export default function PreachView({ currentId }: PreachViewProps) {
             marginTop: 48,
           }}>
             <button
-              onClick={() => setCurrentPara((c) => Math.max(0, c - 1))}
-              disabled={currentPara === 0}
-              style={stepBtnStyle(currentPara === 0)}
+              onClick={() => setCurrentBlock((c) => Math.max(0, c - 1))}
+              disabled={currentBlock === 0}
+              style={stepBtnStyle(currentBlock === 0)}
             >
               ← Previous
             </button>
             <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
-              {currentPara + 1} of {paragraphs.length}
+              {currentBlock + 1} of {blocks.length}
             </span>
             <button
-              onClick={() => setCurrentPara((c) => Math.min(paragraphs.length - 1, c + 1))}
-              disabled={currentPara === paragraphs.length - 1}
-              style={stepBtnStyle(currentPara === paragraphs.length - 1)}
+              onClick={() => setCurrentBlock((c) => Math.min(blocks.length - 1, c + 1))}
+              disabled={currentBlock === blocks.length - 1}
+              style={stepBtnStyle(currentBlock === blocks.length - 1)}
             >
               Next →
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuoteDisplay({
+  block,
+  fontSize,
+}: {
+  block: Extract<Block, { kind: "quote" }>;
+  fontSize: number;
+}) {
+  return (
+    <div
+      style={{
+        margin: "0 0 1.6em",
+        borderLeft: "3px solid var(--ambo-accent)",
+        paddingLeft: 18,
+        paddingTop: 4,
+        paddingBottom: 4,
+      }}
+    >
+      <p
+        style={{
+          fontSize: fontSize,
+          lineHeight: 1.85,
+          color: "var(--ambo-text-primary)",
+          letterSpacing: "0.01em",
+          fontStyle: "italic",
+          margin: 0,
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {block.text}
+      </p>
+      {block.citation && (
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: Math.max(13, Math.round(fontSize * 0.6)),
+            color: "var(--ambo-text-muted)",
+            fontStyle: "normal",
+            letterSpacing: "0.01em",
+          }}
+        >
+          — {block.citation}
         </div>
       )}
     </div>

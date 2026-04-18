@@ -3,17 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getComingSunday } from "./ReadingView";
 import { createClient } from "@/lib/supabase/client";
+import ReadingsDrawer from "./ReadingsDrawer";
 
 interface Paragraph {
   id: string;
   text: string;
+  kind?: "quote";
+  citation?: string;
 }
 
-// Legacy single-draft cache — still written so offline fallback keeps working.
-// Always holds whatever homily is currently active.
 const STORAGE_KEY = "ambo-draft";
 
-// In-memory cache of Sunday names keyed by ISO date (YYYY-MM-DD), shared with the list drawer.
+// Shared Sunday-name cache
 const sundayNameCache: Map<string, string> = (globalThis as typeof globalThis & {
   __amboSundayNameCache?: Map<string, string>;
 }).__amboSundayNameCache ??= new Map<string, string>();
@@ -26,13 +27,6 @@ interface WriteViewProps {
   onOpenList: () => void;
 }
 
-function toCompactDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}${m}${day}`;
-}
-
 function toIsoDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -41,7 +35,6 @@ function toIsoDate(d: Date): string {
 }
 
 function parseIsoDate(iso: string): Date {
-  // Parse as local date — avoid UTC time-zone shift
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
@@ -70,7 +63,6 @@ async function fetchSundayName(iso: string): Promise<string | null> {
 }
 
 function listSundayOptions(anchor: Date = new Date(), pastCount = 4, futureCount = 12): Date[] {
-  // Build list of Sundays: pastCount Sundays before the anchor's coming Sunday, then futureCount future ones (inclusive of coming)
   const coming = getComingSunday(anchor);
   const out: Date[] = [];
   for (let i = -pastCount; i < futureCount; i++) {
@@ -85,16 +77,42 @@ function generateId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+// Parse the stored content string into Paragraphs, recognising quote blocks.
 function parseParagraphs(text: string): Paragraph[] {
   return text
     .split("\n\n")
-    .map((t) => t.trim())
+    .map((block) => block.replace(/^\s+|\s+$/g, ""))
     .filter(Boolean)
-    .map((t) => ({ id: generateId(), text: t }));
+    .map((block) => {
+      const lines = block.split("\n");
+      const hasQuoteMarker = lines.some((l) => l.startsWith("> "));
+      if (hasQuoteMarker) {
+        let citation: string | undefined;
+        if (lines.length > 0 && /^—\s+/.test(lines[lines.length - 1])) {
+          citation = lines[lines.length - 1].replace(/^—\s+/, "").trim();
+          lines.pop();
+        }
+        const quoteText = lines
+          .map((l) => l.replace(/^>\s?/, ""))
+          .join("\n")
+          .trim();
+        return { id: generateId(), text: quoteText, kind: "quote" as const, citation };
+      }
+      return { id: generateId(), text: block };
+    });
 }
 
 function joinParagraphs(paragraphs: Paragraph[]): string {
-  return paragraphs.map((p) => p.text).join("\n\n");
+  return paragraphs
+    .map((p) => {
+      if (p.kind === "quote") {
+        const lines = (p.text ?? "").split("\n").map((l) => "> " + l).join("\n");
+        const citationLine = p.citation ? "— " + p.citation : "";
+        return citationLine ? lines + "\n" + citationLine : lines;
+      }
+      return p.text;
+    })
+    .join("\n\n");
 }
 
 export default function WriteView({
@@ -105,9 +123,10 @@ export default function WriteView({
   onOpenList,
 }: WriteViewProps) {
   const [title, setTitle] = useState("");
-  const [sundayDate, setSundayDate] = useState<string | null>(null); // ISO "YYYY-MM-DD"
+  const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [sundayName, setSundayName] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [readingsOpen, setReadingsOpen] = useState(false);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
     { id: generateId(), text: "" },
   ]);
@@ -117,6 +136,9 @@ export default function WriteView({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
   const [justMoved, setJustMoved] = useState(false);
+
+  // Track most-recently-focused paragraph so Insert knows where to drop a quote.
+  const lastFocusedParaIdRef = useRef<string | null>(null);
 
   // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,7 +151,6 @@ export default function WriteView({
   const draftIdRef = useRef<string | null>(null);
   const loadedIdRef = useRef<string | null | undefined>(undefined);
 
-  // Flush any pending debounced save immediately.
   const flushPendingSave = useCallback(async () => {
     if (autoSaveRef.current) {
       clearTimeout(autoSaveRef.current);
@@ -172,7 +193,6 @@ export default function WriteView({
     } catch { /* offline — localStorage still has it */ }
   }, [onCurrentIdChange]);
 
-  // Load content for the current homily.
   useEffect(() => {
     if (loadedIdRef.current === currentId) return;
 
@@ -183,7 +203,6 @@ export default function WriteView({
         await flushPendingSave();
       }
 
-      // Start-fresh case
       if (currentId === null) {
         if (cancelled) return;
         const defaultSunday = toIsoDate(getComingSunday(new Date()));
@@ -248,7 +267,6 @@ export default function WriteView({
     return () => { cancelled = true; };
   }, [currentId, flushPendingSave, onLoaded]);
 
-  // Fetch the Sunday name whenever sundayDate changes
   useEffect(() => {
     if (!sundayDate) {
       setSundayName(null);
@@ -265,7 +283,6 @@ export default function WriteView({
     return () => { cancelled = true; };
   }, [sundayDate]);
 
-  // Flush pending save when tab is hidden / closed
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flushPendingSave();
@@ -278,7 +295,6 @@ export default function WriteView({
     };
   }, [flushPendingSave]);
 
-  // Close picker on Escape
   useEffect(() => {
     if (!pickerOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPickerOpen(false); };
@@ -286,14 +302,12 @@ export default function WriteView({
     return () => window.removeEventListener("keydown", onKey);
   }, [pickerOpen]);
 
-  // Word count
   useEffect(() => {
     const allText = paragraphs.map((p) => p.text).join(" ");
     const words = allText.trim().split(/\s+/).filter(Boolean).length;
     setWordCount(words);
   }, [paragraphs]);
 
-  // Auto-save
   const save = useCallback(
     (t: string, paras: Paragraph[], sd: string | null) => {
       const content = joinParagraphs(paras);
@@ -344,7 +358,7 @@ export default function WriteView({
           }
           setLastSaved(new Date());
           onSaved?.();
-        } catch { /* network error — localStorage already saved */ }
+        } catch { /* ignore */ }
       }, 1200);
     },
     [onCurrentIdChange, onSaved]
@@ -361,17 +375,82 @@ export default function WriteView({
     save(title, updated, sundayDate);
   };
 
+  const handleParaCitationChange = (id: string, val: string) => {
+    const updated = paragraphs.map((p) => (p.id === id ? { ...p, citation: val } : p));
+    setParagraphs(updated);
+    save(title, updated, sundayDate);
+  };
+
   const handleSundayChange = (iso: string | null) => {
     setSundayDate(iso);
     setPickerOpen(false);
     save(title, paragraphs, iso);
   };
 
+  const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
+    // Find the insertion index: after the last-focused paragraph, or at the end.
+    setParagraphs((prev) => {
+      let insertAfter = prev.length - 1;
+      const focusedId = lastFocusedParaIdRef.current;
+      if (focusedId) {
+        const idx = prev.findIndex((p) => p.id === focusedId);
+        if (idx >= 0) insertAfter = idx;
+      }
+
+      const quoteP: Paragraph = {
+        id: generateId(),
+        text: payload.text,
+        kind: "quote",
+        citation: payload.citation,
+      };
+
+      // If the focused paragraph is empty body text, replace it rather than shoving it down.
+      const focused = focusedId ? prev.find((p) => p.id === focusedId) : null;
+      let next: Paragraph[];
+      if (focused && !focused.kind && focused.text.trim() === "") {
+        next = prev.map((p) => (p.id === focused.id ? quoteP : p));
+        insertAfter = prev.findIndex((p) => p.id === focused.id);
+      } else {
+        next = [
+          ...prev.slice(0, insertAfter + 1),
+          quoteP,
+          ...prev.slice(insertAfter + 1),
+        ];
+      }
+
+      // Ensure there's a body paragraph after the quote so the user can keep typing.
+      const afterIdx = next.findIndex((p) => p.id === quoteP.id) + 1;
+      let nextFocusId: string;
+      if (afterIdx >= next.length) {
+        const newBody: Paragraph = { id: generateId(), text: "" };
+        next = [...next, newBody];
+        nextFocusId = newBody.id;
+      } else {
+        nextFocusId = next[afterIdx].id;
+      }
+
+      save(title, next, sundayDate);
+      // Focus the body paragraph after the quote on next frame
+      setTimeout(() => {
+        const el = document.getElementById(`para-${nextFocusId}`);
+        if (el) (el as HTMLTextAreaElement).focus();
+      }, 20);
+
+      return next;
+    });
+
+    setReadingsOpen(false);
+  }, [save, title, sundayDate]);
+
+  const handleParaFocus = (id: string) => {
+    lastFocusedParaIdRef.current = id;
+  };
+
   const handleParaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const idx = paragraphs.findIndex((p) => p.id === id);
-      const newPara = { id: generateId(), text: "" };
+      const newPara: Paragraph = { id: generateId(), text: "" };
       const updated = [
         ...paragraphs.slice(0, idx + 1),
         newPara,
@@ -406,7 +485,6 @@ export default function WriteView({
     }
   };
 
-  // Drag-and-drop reordering
   const handleDragStart = (id: string, before: Paragraph[]) => {
     setUndoStack((s) => [...s, before]);
     setDragId(id);
@@ -456,29 +534,29 @@ export default function WriteView({
   return (
     <div className="view-fade" style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px 120px" }}>
 
-      {/* Top bar: My homilies button */}
-      <div style={{ marginBottom: 16, display: "flex", justifyContent: "flex-start" }}>
+      {/* Top bar: My homilies + Readings */}
+      <div style={{
+        marginBottom: 16,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 8,
+      }}>
         <button
           onClick={onOpenList}
-          style={{
-            border: "1px solid var(--ambo-border)",
-            background: "transparent",
-            color: "var(--ambo-text-secondary)",
-            fontSize: 12,
-            fontWeight: 500,
-            padding: "6px 12px",
-            borderRadius: 100,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            transition: "all 0.15s",
-          }}
+          style={pillBtnStyle(false)}
           title="My homilies"
         >
           <StackIcon />
           My homilies
+        </button>
+        <button
+          onClick={() => setReadingsOpen(true)}
+          style={pillBtnStyle(readingsOpen)}
+          title="Open today's readings"
+        >
+          <BookIcon />
+          Readings
         </button>
       </div>
 
@@ -502,7 +580,7 @@ export default function WriteView({
           }}
         />
 
-        {/* Sunday picker pill + use-as-title suggestion */}
+        {/* Sunday pill + use-as-title */}
         <div style={{
           marginTop: 10,
           display: "flex",
@@ -706,13 +784,25 @@ export default function WriteView({
             <div className="ambo-drag-handle" title="Drag to reorder">
               <DragIcon />
             </div>
-            <AutoTextarea
-              id={`para-${para.id}`}
-              value={para.text}
-              onChange={(val) => handleParaChange(para.id, val)}
-              onKeyDown={(e) => handleParaKeyDown(e, para.id)}
-              placeholder={paragraphs.indexOf(para) === 0 ? "Begin writing your homily…" : ""}
-            />
+
+            {para.kind === "quote" ? (
+              <QuoteBlock
+                para={para}
+                onTextChange={(val) => handleParaChange(para.id, val)}
+                onCitationChange={(val) => handleParaCitationChange(para.id, val)}
+                onKeyDown={(e) => handleParaKeyDown(e, para.id)}
+                onFocus={() => handleParaFocus(para.id)}
+              />
+            ) : (
+              <AutoTextarea
+                id={`para-${para.id}`}
+                value={para.text}
+                onChange={(val) => handleParaChange(para.id, val)}
+                onKeyDown={(e) => handleParaKeyDown(e, para.id)}
+                onFocus={() => handleParaFocus(para.id)}
+                placeholder={paragraphs.indexOf(para) === 0 ? "Begin writing your homily…" : ""}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -743,22 +833,117 @@ export default function WriteView({
           </span>
         )}
       </div>
+
+      {/* Readings drawer */}
+      <ReadingsDrawer
+        open={readingsOpen}
+        sundayDate={sundayDate}
+        onClose={() => setReadingsOpen(false)}
+        onInsert={handleInsertReading}
+      />
     </div>
   );
 }
 
-// Auto-growing textarea
+function QuoteBlock({
+  para,
+  onTextChange,
+  onCitationChange,
+  onKeyDown,
+  onFocus,
+}: {
+  para: Paragraph;
+  onTextChange: (val: string) => void;
+  onCitationChange: (val: string) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus: () => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = ref.current.scrollHeight + "px";
+    }
+  }, [para.text]);
+
+  return (
+    <div style={{
+      borderLeft: "3px solid var(--ambo-accent)",
+      paddingLeft: 16,
+      margin: "6px 0",
+    }}>
+      <textarea
+        id={`para-${para.id}`}
+        ref={ref}
+        value={para.text}
+        onChange={(e) => onTextChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        onFocus={onFocus}
+        rows={1}
+        style={{
+          width: "100%",
+          border: "none",
+          outline: "none",
+          resize: "none",
+          background: "transparent",
+          fontFamily: "inherit",
+          fontSize: 16,
+          fontStyle: "italic",
+          lineHeight: 1.7,
+          color: "var(--ambo-text-primary)",
+          padding: "4px 0",
+          overflowY: "hidden",
+          display: "block",
+        }}
+      />
+      {/* Citation */}
+      <div style={{
+        marginTop: 4,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+      }}>
+        <span style={{
+          fontSize: 14,
+          color: "var(--ambo-text-muted)",
+          lineHeight: 1,
+        }}>—</span>
+        <input
+          value={para.citation ?? ""}
+          onChange={(e) => onCitationChange(e.target.value)}
+          onFocus={onFocus}
+          placeholder="Citation"
+          style={{
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            fontSize: 12,
+            fontStyle: "italic",
+            color: "var(--ambo-text-muted)",
+            fontFamily: "inherit",
+            padding: 0,
+            flex: 1,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function AutoTextarea({
   id,
   value,
   onChange,
   onKeyDown,
+  onFocus,
   placeholder,
 }: {
   id: string;
   value: string;
   onChange: (val: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onFocus?: () => void;
   placeholder?: string;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -777,6 +962,7 @@ function AutoTextarea({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={onKeyDown}
+      onFocus={onFocus}
       placeholder={placeholder}
       rows={1}
       style={{
@@ -797,6 +983,22 @@ function AutoTextarea({
   );
 }
 
+const pillBtnStyle = (active: boolean): React.CSSProperties => ({
+  border: "1px solid " + (active ? "var(--ambo-accent)" : "var(--ambo-border)"),
+  background: active ? "var(--ambo-accent-light)" : "transparent",
+  color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+  fontSize: 12,
+  fontWeight: 500,
+  padding: "6px 12px",
+  borderRadius: 100,
+  cursor: "pointer",
+  fontFamily: "inherit",
+  display: "flex",
+  alignItems: "center",
+  gap: 6,
+  transition: "all 0.15s",
+});
+
 function DragIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -816,6 +1018,17 @@ function StackIcon() {
       <rect x="3" y="3" width="14" height="4" rx="1" />
       <rect x="3" y="9" width="14" height="4" rx="1" />
       <rect x="3" y="15" width="14" height="2.5" rx="1" />
+    </svg>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h5a2 2 0 0 1 2 2v11" />
+      <path d="M16 4h-5a2 2 0 0 0-2 2v11" />
+      <path d="M4 4v13h5" />
+      <path d="M16 4v13h-5" />
     </svg>
   );
 }
