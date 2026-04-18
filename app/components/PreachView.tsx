@@ -1,38 +1,98 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const STORAGE_KEY = "ambo-draft";
 
-export default function PreachView() {
+interface PreachViewProps {
+  // The homily to show. null means "show the most recently edited".
+  currentId: string | null;
+}
+
+export default function PreachView({ currentId }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [fontSize, setFontSize] = useState(24);
   const [currentPara, setCurrentPara] = useState(0);
   const [paragraphs, setParagraphs] = useState<string[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
+  const [loading, setLoading] = useState(true);
 
+  // Load from Supabase (by id, or most-recent if currentId is null), fall back to localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const { title: t, content: c } = JSON.parse(saved);
-        if (t) setTitle(t);
-        if (c) {
-          setContent(c);
-          const paras = c
-            .split("\n\n")
-            .map((p: string) => p.trim())
-            .filter(Boolean);
-          setParagraphs(paras);
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      let loadedTitle = "";
+      let loadedContent = "";
+      let gotIt = false;
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const base = supabase
+            .from("homilies")
+            .select("title, content")
+            .eq("user_id", user.id);
+
+          const { data } = currentId
+            ? await base.eq("id", currentId).single()
+            : await base.order("updated_at", { ascending: false }).limit(1).single();
+
+          if (data) {
+            loadedTitle = data.title ?? "";
+            loadedContent = data.content ?? "";
+            gotIt = true;
+          }
         }
+      } catch { /* fall through to localStorage */ }
+
+      if (!gotIt) {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            loadedTitle = parsed.title ?? "";
+            loadedContent = parsed.content ?? "";
+          }
+        } catch { /* ignore */ }
       }
-    } catch {
-      // no saved draft
-    }
-  }, []);
+
+      if (cancelled) return;
+
+      setTitle(loadedTitle);
+      setContent(loadedContent);
+      const paras = loadedContent
+        .split("\n\n")
+        .map((p: string) => p.trim())
+        .filter(Boolean);
+      setParagraphs(paras);
+      setCurrentPara(0);
+      setLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [currentId]);
 
   const hasContent = content.trim().length > 0;
+
+  if (loading) {
+    return (
+      <div className="view-fade" style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "40vh",
+        color: "var(--ambo-text-muted)",
+        fontSize: 14,
+      }}>
+        Loading…
+      </div>
+    );
+  }
 
   if (!hasContent) {
     return (

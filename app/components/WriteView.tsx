@@ -9,7 +9,22 @@ interface Paragraph {
   text: string;
 }
 
+// Legacy single-draft cache — still written so older Preach clients and offline
+// fallback keep working. Always holds whatever homily is currently active.
 const STORAGE_KEY = "ambo-draft";
+
+interface WriteViewProps {
+  // The homily to load. null means "start fresh — first save will create a row".
+  currentId: string | null;
+  // Called when a brand-new homily row is created so the parent can track it.
+  onCurrentIdChange: (id: string) => void;
+  // Called when an autosave completes; lets the parent know list ordering/titles may have changed.
+  onSaved?: () => void;
+  // Called when a homily is loaded; lets the parent update its cached title for the drawer.
+  onLoaded?: (info: { id: string | null; title: string }) => void;
+  // Open the homily list drawer.
+  onOpenList: () => void;
+}
 
 function toDateString(d: Date): string {
   const y = d.getFullYear();
@@ -34,7 +49,13 @@ function joinParagraphs(paragraphs: Paragraph[]): string {
   return paragraphs.map((p) => p.text).join("\n\n");
 }
 
-export default function WriteView() {
+export default function WriteView({
+  currentId,
+  onCurrentIdChange,
+  onSaved,
+  onLoaded,
+  onOpenList,
+}: WriteViewProps) {
   const [title, setTitle] = useState("");
   const [sundayName, setSundayName] = useState<string | null>(null);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
@@ -46,14 +67,80 @@ export default function WriteView() {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
   const [justMoved, setJustMoved] = useState(false);
+
+  // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ id: string | null; title: string; content: string } | null>(null);
+  // draftIdRef is the DB row id for whatever is currently in state.
+  // It can differ from props.currentId briefly (when currentId is null and
+  // we've just created a row on first save).
   const draftIdRef = useRef<string | null>(null);
+  // Which currentId (prop) have we already loaded into state?
+  const loadedIdRef = useRef<string | null | undefined>(undefined);
 
-  // Load draft on mount: try Supabase first, fall back to localStorage
+  // Flush any pending debounced save immediately. Cancels the timer.
+  const flushPendingSave = useCallback(async () => {
+    if (autoSaveRef.current) {
+      clearTimeout(autoSaveRef.current);
+      autoSaveRef.current = null;
+    }
+    const pending = pendingSaveRef.current;
+    pendingSaveRef.current = null;
+    if (!pending) return;
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      if (pending.id) {
+        await supabase
+          .from("homilies")
+          .update({ title: pending.title, content: pending.content, updated_at: new Date().toISOString() })
+          .eq("id", pending.id)
+          .eq("user_id", user.id);
+      } else {
+        const { data } = await supabase
+          .from("homilies")
+          .insert({ user_id: user.id, title: pending.title, content: pending.content })
+          .select("id")
+          .single();
+        if (data?.id) {
+          draftIdRef.current = data.id;
+          onCurrentIdChange(data.id);
+        }
+      }
+    } catch { /* offline — localStorage already has it */ }
+  }, [onCurrentIdChange]);
+
+  // Load content for the current homily. Runs on mount and whenever currentId changes.
   useEffect(() => {
-    async function load() {
-      let loaded = false;
+    // If we've already loaded this exact id (including null), skip.
+    if (loadedIdRef.current === currentId) return;
 
+    let cancelled = false;
+
+    (async () => {
+      // Flush any pending save for the previously-loaded homily before we swap.
+      if (loadedIdRef.current !== undefined) {
+        await flushPendingSave();
+      }
+
+      // Start-fresh case
+      if (currentId === null) {
+        if (cancelled) return;
+        setTitle("");
+        setParagraphs([{ id: generateId(), text: "" }]);
+        setLastSaved(null);
+        draftIdRef.current = null;
+        loadedIdRef.current = null;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: "", content: "" }));
+        } catch { /* ignore */ }
+        onLoaded?.({ id: null, title: "" });
+        return;
+      }
+
+      // Load by id — Supabase first, localStorage as last-resort fallback
+      let loaded = false;
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -62,42 +149,46 @@ export default function WriteView() {
           const { data } = await supabase
             .from("homilies")
             .select("id, title, content")
+            .eq("id", currentId)
             .eq("user_id", user.id)
-            .order("updated_at", { ascending: false })
-            .limit(1)
             .single();
 
           if (data) {
+            if (cancelled) return;
             draftIdRef.current = data.id;
-            if (data.title) setTitle(data.title);
-            if (data.content) {
-              const parsed = parseParagraphs(data.content);
-              setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
-            }
+            const nextTitle = data.title ?? "";
+            setTitle(nextTitle);
+            const parsed = data.content ? parseParagraphs(data.content) : [];
+            setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
+            try {
+              localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({ title: nextTitle, content: data.content ?? "" })
+              );
+            } catch { /* ignore */ }
+            onLoaded?.({ id: data.id, title: nextTitle });
             loaded = true;
           }
         }
-      } catch { /* fall through to localStorage */ }
+      } catch { /* fall through */ }
 
-      // Fall back to localStorage if Supabase had nothing
-      if (!loaded) {
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const { title: t, content } = JSON.parse(saved);
-            if (t) setTitle(t);
-            if (content) {
-              const parsed = parseParagraphs(content);
-              setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
-            }
-          }
-        } catch { /* fresh start */ }
+      if (!loaded && !cancelled) {
+        // Couldn't fetch — show the blank slate for this id so the user can still type
+        draftIdRef.current = currentId;
+        setTitle("");
+        setParagraphs([{ id: generateId(), text: "" }]);
+        setLastSaved(null);
+        onLoaded?.({ id: currentId, title: "" });
       }
-    }
 
-    load();
+      if (!cancelled) loadedIdRef.current = currentId;
+    })();
 
-    // Fetch coming Sunday name for title suggestion
+    return () => { cancelled = true; };
+  }, [currentId, flushPendingSave, onLoaded]);
+
+  // Fetch coming Sunday name for title suggestion (once on mount)
+  useEffect(() => {
     const sunday = getComingSunday();
     const dateStr = toDateString(sunday);
     fetch(`/api/readings?date=${dateStr}`)
@@ -105,6 +196,22 @@ export default function WriteView() {
       .then((d) => { if (d.dayName) setSundayName(d.dayName); })
       .catch(() => {});
   }, []);
+
+  // Flush pending save when the tab is hidden / closed
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        // Best-effort — use the pending ref directly since flush is async
+        flushPendingSave();
+      }
+    };
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("beforeunload", onVisibility);
+    return () => {
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("beforeunload", onVisibility);
+    };
+  }, [flushPendingSave]);
 
   // Word count
   useEffect(() => {
@@ -123,35 +230,44 @@ export default function WriteView() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: t, content }));
       } catch { /* ignore */ }
 
+      // Stage the save — latest wins
+      pendingSaveRef.current = { id: draftIdRef.current, title: t, content };
+
       // Debounce the Supabase save
       if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
       autoSaveRef.current = setTimeout(async () => {
+        autoSaveRef.current = null;
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        if (!pending) return;
         try {
           const supabase = createClient();
           const { data: { user } } = await supabase.auth.getUser();
           if (!user) return;
 
-          if (draftIdRef.current) {
-            // Update existing draft
+          if (pending.id) {
             await supabase
               .from("homilies")
-              .update({ title: t, content, updated_at: new Date().toISOString() })
-              .eq("id", draftIdRef.current)
+              .update({ title: pending.title, content: pending.content, updated_at: new Date().toISOString() })
+              .eq("id", pending.id)
               .eq("user_id", user.id);
           } else {
-            // Create new draft
             const { data } = await supabase
               .from("homilies")
-              .insert({ user_id: user.id, title: t, content })
+              .insert({ user_id: user.id, title: pending.title, content: pending.content })
               .select("id")
               .single();
-            if (data?.id) draftIdRef.current = data.id;
+            if (data?.id) {
+              draftIdRef.current = data.id;
+              onCurrentIdChange(data.id);
+            }
           }
           setLastSaved(new Date());
+          onSaved?.();
         } catch { /* network error — localStorage already saved */ }
       }, 1200);
     },
-    []
+    [onCurrentIdChange, onSaved]
   );
 
   const handleTitleChange = (val: string) => {
@@ -254,6 +370,32 @@ export default function WriteView() {
 
   return (
     <div className="view-fade" style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px 120px" }}>
+
+      {/* My homilies button — subtle, top */}
+      <div style={{ marginBottom: 16, display: "flex", justifyContent: "flex-start" }}>
+        <button
+          onClick={onOpenList}
+          style={{
+            border: "1px solid var(--ambo-border)",
+            background: "transparent",
+            color: "var(--ambo-text-secondary)",
+            fontSize: 12,
+            fontWeight: 500,
+            padding: "6px 12px",
+            borderRadius: 100,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            transition: "all 0.15s",
+          }}
+          title="My homilies"
+        >
+          <StackIcon />
+          My homilies
+        </button>
+      </div>
 
       {/* Title */}
       <div style={{ marginBottom: 32 }}>
@@ -462,6 +604,16 @@ function DragIcon() {
       <circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none" />
       <circle cx="9" cy="19" r="1.5" fill="currentColor" stroke="none" />
       <circle cx="15" cy="19" r="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function StackIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="14" height="4" rx="1" />
+      <rect x="3" y="9" width="14" height="4" rx="1" />
+      <rect x="3" y="15" width="14" height="2.5" rx="1" />
     </svg>
   );
 }

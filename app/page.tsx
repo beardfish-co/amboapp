@@ -1,25 +1,121 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import ReadingView from "./components/ReadingView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
+import HomilyList from "./components/HomilyList";
 
 type Mode = "read" | "write" | "preach";
+
+const CURRENT_ID_KEY = "ambo-current-id";
 
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("read");
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
+  // Multi-homily state
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Bumped after every autosave so HomilyList refetches next time it opens
+  const [listRefreshKey, setListRefreshKey] = useState(0);
+  // Tracks whether we've resolved the initial currentId (from localStorage or fallback)
+  const [idHydrated, setIdHydrated] = useState(false);
+
+  // Resolve the starting homily id on mount:
+  //  1. localStorage ambo-current-id, if it still exists for this user
+  //  2. Most recently edited homily for this user
+  //  3. null — fresh blank draft (first save will create a row)
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      let resolved: string | null = null;
+      let candidate: string | null = null;
+      try {
+        candidate = localStorage.getItem(CURRENT_ID_KEY);
+      } catch { /* ignore */ }
+
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          if (candidate) {
+            const { data } = await supabase
+              .from("homilies")
+              .select("id")
+              .eq("id", candidate)
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (data?.id) resolved = data.id;
+          }
+          if (!resolved) {
+            const { data } = await supabase
+              .from("homilies")
+              .select("id")
+              .eq("user_id", user.id)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (data?.id) resolved = data.id;
+          }
+        }
+      } catch { /* offline — leave resolved as null */ }
+
+      if (cancelled) return;
+
+      if (resolved) {
+        setCurrentId(resolved);
+        try { localStorage.setItem(CURRENT_ID_KEY, resolved); } catch { /* ignore */ }
+      } else {
+        try { localStorage.removeItem(CURRENT_ID_KEY); } catch { /* ignore */ }
+      }
+      setIdHydrated(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const persistCurrentId = useCallback((id: string | null) => {
+    setCurrentId(id);
+    try {
+      if (id) localStorage.setItem(CURRENT_ID_KEY, id);
+      else localStorage.removeItem(CURRENT_ID_KEY);
+    } catch { /* ignore */ }
+  }, []);
+
   const handleSignOut = async () => {
     setSigningOut(true);
     const supabase = createClient();
     await supabase.auth.signOut();
+    try {
+      localStorage.removeItem(CURRENT_ID_KEY);
+      localStorage.removeItem("ambo-draft");
+    } catch { /* ignore */ }
     router.push("/login");
   };
+
+  const handleSelectHomily = useCallback((id: string) => {
+    persistCurrentId(id);
+    setDrawerOpen(false);
+    // If the user was on Read, drop them into Write so they see their selection
+    if (mode === "read") setMode("write");
+  }, [persistCurrentId, mode]);
+
+  const handleCreateHomily = useCallback(() => {
+    persistCurrentId(null);
+    setDrawerOpen(false);
+    setMode("write");
+  }, [persistCurrentId]);
+
+  const handleSaved = useCallback(() => {
+    setListRefreshKey((k) => k + 1);
+  }, []);
+
+  const openDrawer = useCallback(() => setDrawerOpen(true), []);
 
   return (
     <div style={{
@@ -101,9 +197,26 @@ export default function AmboApp() {
         padding: "36px 0",
       }}>
         {mode === "read" && <ReadingView />}
-        {mode === "write" && <WriteView />}
-        {mode === "preach" && <PreachView />}
+        {mode === "write" && idHydrated && (
+          <WriteView
+            currentId={currentId}
+            onCurrentIdChange={persistCurrentId}
+            onSaved={handleSaved}
+            onOpenList={openDrawer}
+          />
+        )}
+        {mode === "preach" && idHydrated && <PreachView currentId={currentId} />}
       </main>
+
+      {/* Homily drawer */}
+      <HomilyList
+        open={drawerOpen}
+        currentId={currentId}
+        onClose={() => setDrawerOpen(false)}
+        onSelect={handleSelectHomily}
+        onCreate={handleCreateHomily}
+        refreshKey={listRefreshKey}
+      />
     </div>
   );
 }
