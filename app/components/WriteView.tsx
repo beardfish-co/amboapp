@@ -127,6 +127,9 @@ export default function WriteView({
   const [sundayName, setSundayName] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [readingsOpen, setReadingsOpen] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notesSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
     { id: generateId(), text: "" },
   ]);
@@ -211,6 +214,7 @@ export default function WriteView({
         setParagraphs([{ id: generateId(), text: "" }]);
         setLastSaved(null);
         setSundayDate(defaultSunday);
+        setNotes("");
         draftIdRef.current = null;
         loadedIdRef.current = null;
         try {
@@ -228,7 +232,7 @@ export default function WriteView({
         if (user) {
           const { data } = await supabase
             .from("homilies")
-            .select("id, title, content, sunday_date")
+            .select("id, title, content, sunday_date, notes")
             .eq("id", currentId)
             .eq("user_id", user.id)
             .single();
@@ -239,6 +243,7 @@ export default function WriteView({
             const nextTitle = data.title ?? "";
             setTitle(nextTitle);
             setSundayDate((data.sunday_date as string | null) ?? null);
+            setNotes((data.notes as string | null) ?? "");
             const parsed = data.content ? parseParagraphs(data.content) : [];
             setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
             try {
@@ -259,6 +264,7 @@ export default function WriteView({
         setSundayDate(null);
         setParagraphs([{ id: generateId(), text: "" }]);
         setLastSaved(null);
+        setNotes("");
         onLoaded?.({ id: currentId, title: "" });
       }
 
@@ -450,6 +456,30 @@ export default function WriteView({
     setReadingsOpen(false);
   }, [save, title, sundayDate]);
 
+  // Notes are saved independently from the main content save path —
+  // they share the debounce pattern but their own timer and their own
+  // DB update call. Prevents notes edits from racing with content edits.
+  const handleNotesChange = (v: string) => {
+    setNotes(v);
+    if (notesSaveRef.current) clearTimeout(notesSaveRef.current);
+    notesSaveRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const id = draftIdRef.current;
+        if (!id) return;
+        await supabase
+          .from("homilies")
+          .update({ notes: v })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      } catch {
+        /* ignore */
+      }
+    }, 1200);
+  };
+
   const handleParaFocus = (id: string) => {
     lastFocusedParaIdRef.current = id;
   };
@@ -560,15 +590,81 @@ export default function WriteView({
           <StackIcon />
           My homilies
         </button>
-        <button
-          onClick={() => setReadingsOpen(true)}
-          style={pillBtnStyle(readingsOpen)}
-          title="Open today's readings"
-        >
-          <BookIcon />
-          Readings
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {notes.trim().length > 0 && (
+            <button
+              onClick={() => setNotesOpen((v) => !v)}
+              style={pillBtnStyle(notesOpen)}
+              title="Show notes from Reflect"
+            >
+              <span style={{ fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
+                Notes
+              </span>
+            </button>
+          )}
+          <button
+            onClick={() => setReadingsOpen(true)}
+            style={pillBtnStyle(readingsOpen)}
+            title="Open today's readings"
+          >
+            <BookIcon />
+            Readings
+          </button>
+        </div>
       </div>
+
+      {/* Notes panel (from Reflect) */}
+      {notesOpen && (
+        <div style={{
+          marginBottom: 16,
+          border: "1px solid var(--ambo-border)",
+          borderRadius: 12,
+          background: "var(--ambo-surface)",
+          overflow: "hidden",
+          animation: "fadeIn 0.15s ease",
+        }}>
+          <div style={{
+            padding: "10px 14px",
+            borderBottom: "1px solid var(--ambo-border)",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+          }}>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-secondary)",
+            }}>
+              Notes
+            </span>
+            <span style={{ fontSize: 11, color: "var(--ambo-text-muted)" }}>
+              private — doesn't print
+            </span>
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => handleNotesChange(e.target.value)}
+            placeholder="Your notes from Reflect. Edit freely."
+            style={{
+              width: "100%",
+              minHeight: 140,
+              maxHeight: 280,
+              border: "none",
+              outline: "none",
+              resize: "vertical",
+              padding: 14,
+              background: "transparent",
+              color: "var(--ambo-text-primary)",
+              fontFamily: "inherit",
+              fontSize: 14,
+              lineHeight: 1.6,
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+      )}
 
       {/* Title */}
       <div style={{ marginBottom: 20 }}>

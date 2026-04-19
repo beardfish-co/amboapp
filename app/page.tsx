@@ -3,17 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import ReadingView from "./components/ReadingView";
+import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList from "./components/HomilyList";
 
-type Mode = "read" | "write" | "preach";
+type Mode = "reflect" | "write" | "preach";
 
 const CURRENT_ID_KEY = "ambo-current-id";
 
 export default function AmboApp() {
-  const [mode, setMode] = useState<Mode>("read");
+  const [mode, setMode] = useState<Mode>("reflect");
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
@@ -101,9 +101,8 @@ export default function AmboApp() {
   const handleSelectHomily = useCallback((id: string) => {
     persistCurrentId(id);
     setDrawerOpen(false);
-    // If the user was on Read, drop them into Write so they see their selection
-    if (mode === "read") setMode("write");
-  }, [persistCurrentId, mode]);
+    // Stay on whatever tab they were on — Reflect is a valid landing place
+  }, [persistCurrentId]);
 
   const handleCreateHomily = useCallback(() => {
     persistCurrentId(null);
@@ -159,7 +158,7 @@ export default function AmboApp() {
 
           {/* Mode switcher */}
           <nav className="mode-pill">
-            {(["read", "write", "preach"] as Mode[]).map((m) => (
+            {(["reflect", "write", "preach"] as Mode[]).map((m) => (
               <button
                 key={m}
                 className={`mode-pill-btn ${mode === m ? "active" : ""}`}
@@ -196,7 +195,13 @@ export default function AmboApp() {
         flex: 1,
         padding: "36px 0",
       }}>
-        {mode === "read" && <ReadingView />}
+        {mode === "reflect" && idHydrated && (
+          <ReflectView
+            currentId={currentId}
+            onOpenList={openDrawer}
+            onGoWrite={() => setMode("write")}
+          />
+        )}
         {mode === "write" && idHydrated && (
           <WriteView
             currentId={currentId}
