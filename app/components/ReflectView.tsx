@@ -510,8 +510,9 @@ export default function ReflectView({
 
                   {/* Reading body */}
                   <div style={{
-                    fontSize: 17,
-                    lineHeight: 1.85,
+                    fontFamily: "var(--ambo-font-reading)",
+                    fontSize: "var(--ambo-size-xl)",
+                    lineHeight: "var(--ambo-lh-reading)",
                     color: "var(--ambo-text-primary)",
                     fontStyle: r.id === "ps" ? "italic" : "normal",
                     whiteSpace: "pre-wrap",

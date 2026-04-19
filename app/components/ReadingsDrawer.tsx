@@ -340,8 +340,9 @@ export default function ReadingsDrawer({
                       }}
                     >
                       <p style={{
-                        fontSize: 14,
-                        lineHeight: 1.65,
+                        fontFamily: "var(--ambo-font-reading)",
+                        fontSize: "var(--ambo-size-lg)",
+                        lineHeight: "var(--ambo-lh-reading)",
                         color: "var(--ambo-text-primary)",
                         margin: 0,
                         whiteSpace: "pre-wrap",

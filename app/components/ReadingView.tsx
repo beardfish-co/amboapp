@@ -351,8 +351,9 @@ function ReadingCard({
           )}
           <p style={{
             margin: 0,
-            fontSize: 15,
-            lineHeight: 1.85,
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: "var(--ambo-size-lg)",
+            lineHeight: "var(--ambo-lh-reading)",
             color: "var(--ambo-text-primary)",
             fontStyle: isPsalm ? "italic" : "normal",
             whiteSpace: "pre-line",

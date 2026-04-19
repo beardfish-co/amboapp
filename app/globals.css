@@ -1,21 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,300;1,6..72,400;1,6..72,500;1,6..72,600&display=swap");
 @import "tailwindcss";
 
+/* =============================================================
+   Ambo — Design tokens
+   North-light paper, editorial restraint, a single ecclesial
+   blue used with discipline. Tokens named for ROLE, not value.
+   ============================================================= */
+
 :root {
-  /* Ambo Design System — Apple Glass Aesthetic */
-  --ambo-bg: #EEF2F7;
-  --ambo-surface: rgba(255, 255, 255, 0.72);
-  --ambo-surface-solid: #FFFFFF;
-  --ambo-text-primary: #1C2B3A;
-  --ambo-text-secondary: #5A7184;
-  --ambo-text-muted: #8FA3B1;
-  --ambo-accent: #4A6FA5;
-  --ambo-accent-light: rgba(74, 111, 165, 0.12);
-  --ambo-border: rgba(74, 111, 165, 0.15);
-  --ambo-shadow-sm: 0 1px 4px rgba(28, 43, 58, 0.06), 0 4px 16px rgba(28, 43, 58, 0.04);
-  --ambo-shadow-md: 0 2px 8px rgba(28, 43, 58, 0.08), 0 8px 32px rgba(28, 43, 58, 0.06);
-  --ambo-shadow-lg: 0 4px 16px rgba(28, 43, 58, 0.10), 0 16px 48px rgba(28, 43, 58, 0.08);
-  --ambo-radius: 16px;
-  --ambo-radius-sm: 10px;
+  /* ---------- Palette ---------- */
+  --ambo-bg:               #EEF2F7;
+  --ambo-surface:          rgba(255, 255, 255, 0.72);
+  --ambo-surface-solid:    #FFFFFF;
+  --ambo-surface-raised:   rgba(255, 255, 255, 0.85);
+
+  --ambo-accent:           #4A6FA5;
+  --ambo-accent-light:     rgba(74, 111, 165, 0.12);
+  --ambo-accent-hover:     #3E5F90;
+  --ambo-accent-faint:     rgba(74, 111, 165, 0.06);
+
+  --ambo-border:           rgba(74, 111, 165, 0.15);
+  --ambo-border-strong:    rgba(74, 111, 165, 0.15);
+  --ambo-rule-subtle:      rgba(74, 111, 165, 0.09);
+
+  /* ---------- Text (three levels, no more) ---------- */
+  --ambo-text-primary:     #273548;
+  --ambo-text-secondary:   #5F6D7C;
+  --ambo-text-muted:       #8A96A3;
+  --ambo-text-inverse-soft:#F7FAFC;
+
+  /* ---------- Shadows — atmospheric, blue-tinted ---------- */
+  --ambo-shadow-sm: 0 2px 8px rgba(58, 89, 132, 0.06), 0 1px 2px rgba(58, 89, 132, 0.05);
+  --ambo-shadow-md: 0 10px 30px rgba(58, 89, 132, 0.08), 0 2px 8px rgba(58, 89, 132, 0.05);
+  --ambo-shadow-lg: 0 18px 48px rgba(58, 89, 132, 0.10), 0 6px 18px rgba(58, 89, 132, 0.06);
+
+  /* ---------- Radii ---------- */
+  --ambo-radius-sm:   10px;
+  --ambo-radius:      16px;
+  --ambo-radius-lg:   20px;
+  --ambo-radius-pill: 100px;
+
+  /* ---------- Glass material ---------- */
+  --ambo-blur:        blur(24px) saturate(1.4);
+  --ambo-blur-chrome: blur(20px);
+
+  /* ---------- Motion ---------- */
+  --ambo-ease:        cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ambo-dur-fast:    150ms;
+  --ambo-dur:         200ms;
+  --ambo-dur-slow:    250ms;
+
+  /* ---------- Typefaces ---------- */
+  --ambo-font-ui:      "Inter", -apple-system, "SF Pro Text", BlinkMacSystemFont,
+                       "Segoe UI", system-ui, sans-serif;
+  --ambo-font-reading: "Newsreader", "Source Serif Pro", "Iowan Old Style",
+                       "Apple Garamond", Georgia, serif;
+  --ambo-font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
+
+  /* ---------- Type scale ---------- */
+  --ambo-size-micro:      10px;
+  --ambo-size-xs:         11px;
+  --ambo-size-sm:         12px;
+  --ambo-size-base:       13px;
+  --ambo-size-md:         14px;
+  --ambo-size-lg:         15px;
+  --ambo-size-xl:         17px;
+  --ambo-size-2xl:        19px;
+  --ambo-size-3xl:        26px;
+  --ambo-size-preach-min: 20px;
+  --ambo-size-preach-max: 32px;
+
+  /* ---------- Weights ---------- */
+  --ambo-weight-body:    400;
+  --ambo-weight-medium:  500;
+  --ambo-weight-semi:    600;
+  --ambo-weight-bold:    700;
+
+  /* ---------- Line heights ---------- */
+  --ambo-lh-tight:   1.2;
+  --ambo-lh-snug:    1.45;
+  --ambo-lh-body:    1.6;
+  --ambo-lh-loose:   1.75;
+  --ambo-lh-reading: 1.85;
+
+  /* ---------- Letter-spacing ---------- */
+  --ambo-tracking-tight:        -0.02em;
+  --ambo-tracking-body:         0;
+  --ambo-tracking-eyebrow:      0.08em;
+  --ambo-tracking-eyebrow-wide: 0.12em;
 }
 
 * {
@@ -31,16 +103,136 @@ html, body {
 body {
   background-color: var(--ambo-bg);
   color: var(--ambo-text-primary);
-  font-family: -apple-system, "SF Pro Text", Inter, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-md);
+  line-height: var(--ambo-lh-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* =============================================================
+   Semantic typography — use these classes on the element that
+   carries the role. Each class is complete; no cascade surprises.
+   ============================================================= */
+
+.ambo-display,
+.ambo-h1 {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-3xl);
+  font-weight: var(--ambo-weight-semi);
+  letter-spacing: var(--ambo-tracking-tight);
+  color: var(--ambo-text-primary);
+  line-height: var(--ambo-lh-tight);
+  margin: 0;
+}
+
+.ambo-h2 {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-2xl);
+  font-weight: var(--ambo-weight-semi);
+  letter-spacing: var(--ambo-tracking-tight);
+  color: var(--ambo-text-primary);
+  line-height: var(--ambo-lh-snug);
+  margin: 0;
+}
+
+/* Eyebrow — uppercase, wide-tracked, always muted, always announcing quietly. */
+.ambo-eyebrow {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-xs);
+  font-weight: var(--ambo-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--ambo-tracking-eyebrow);
+  color: var(--ambo-text-muted);
+  line-height: 1;
+}
+.ambo-eyebrow--accent { color: var(--ambo-accent); }
+.ambo-eyebrow--secondary { color: var(--ambo-text-secondary); }
+
+/* Readings — the calmest type on the page. Serif, generous, slow. */
+.ambo-reading {
+  font-family: var(--ambo-font-reading);
+  font-size: var(--ambo-size-xl);
+  font-weight: var(--ambo-weight-body);
+  line-height: var(--ambo-lh-reading);
+  color: var(--ambo-text-primary);
+  font-feature-settings: "kern", "liga", "onum";
+}
+.ambo-reading--psalm { font-style: italic; }
+
+/* Preach — larger still. Adjusted by the priest at the ambo. */
+.ambo-preach {
+  font-family: var(--ambo-font-reading);
+  font-size: clamp(var(--ambo-size-preach-min), 3vw, var(--ambo-size-preach-max));
+  line-height: var(--ambo-lh-reading);
+  letter-spacing: 0.01em;
+  color: var(--ambo-text-primary);
+}
+
+/* Draft editor — serif at the same gentle reading voice. */
+.ambo-draft {
+  font-family: var(--ambo-font-reading);
+  font-size: var(--ambo-size-xl);
+  line-height: var(--ambo-lh-loose);
+  color: var(--ambo-text-primary);
+  caret-color: var(--ambo-accent);
+}
+
+/* Affordance — lowercase italic invitation. *fathers*, *reflect*, *begin*. */
+.ambo-affordance {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-sm);
+  font-style: italic;
+  font-weight: var(--ambo-weight-body);
+  color: var(--ambo-text-muted);
+  text-transform: lowercase;
+  letter-spacing: 0.01em;
+}
+
+/* Meta — references, counts, hints. */
+.ambo-meta {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-sm);
+  color: var(--ambo-text-muted);
+  line-height: var(--ambo-lh-snug);
+}
+.ambo-meta--italic { font-style: italic; }
+
+/* Prompt — the phenomenological question. Italic, in-set. */
+.ambo-prompt {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-md);
+  font-style: italic;
+  color: var(--ambo-text-secondary);
+  line-height: var(--ambo-lh-snug);
+}
+
+/* Scripture reference — small, tracked, italic. */
+.ambo-reference {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-sm);
+  font-style: italic;
+  color: var(--ambo-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Body copy default */
+.ambo-body {
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-md);
+  line-height: var(--ambo-lh-body);
+  color: var(--ambo-text-primary);
+}
+
+/* =============================================================
+   Surfaces and chrome
+   ============================================================= */
+
 /* Glass card effect */
 .glass-card {
   background: var(--ambo-surface);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  backdrop-filter: var(--ambo-blur);
+  -webkit-backdrop-filter: var(--ambo-blur);
   border: 1px solid var(--ambo-border);
   border-radius: var(--ambo-radius);
   box-shadow: var(--ambo-shadow-md);
@@ -50,8 +242,9 @@ body {
 .ambo-editor {
   outline: none;
   min-height: 400px;
-  font-size: 17px;
-  line-height: 1.75;
+  font-family: var(--ambo-font-reading);
+  font-size: var(--ambo-size-xl);
+  line-height: var(--ambo-lh-loose);
   color: var(--ambo-text-primary);
   caret-color: var(--ambo-accent);
 }
@@ -67,11 +260,11 @@ body {
   position: relative;
   padding: 2px 0;
   border-radius: 6px;
-  transition: background 0.15s ease;
+  transition: background var(--ambo-dur-fast) var(--ambo-ease);
 }
 
 .ambo-para-wrapper:hover {
-  background: rgba(74, 111, 165, 0.04);
+  background: var(--ambo-accent-faint);
 }
 
 .ambo-drag-handle {
@@ -87,7 +280,7 @@ body {
   opacity: 0;
   cursor: grab;
   color: var(--ambo-text-muted);
-  transition: opacity 0.15s ease;
+  transition: opacity var(--ambo-dur-fast) var(--ambo-ease);
   user-select: none;
 }
 
@@ -103,8 +296,9 @@ body {
   border-top: 2px solid var(--ambo-accent);
 }
 
-/* Scripture display */
+/* Scripture display (legacy — prefer .ambo-reading) */
 .scripture-text {
+  font-family: var(--ambo-font-reading);
   font-size: 16px;
   line-height: 1.8;
   color: var(--ambo-text-primary);
@@ -112,17 +306,19 @@ body {
 }
 
 .scripture-reference {
-  font-size: 13px;
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-sm);
   color: var(--ambo-text-muted);
   font-style: normal;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-/* Preach mode — large calm reading */
+/* Preach mode — large calm reading (legacy — prefer .ambo-preach) */
 .preach-text {
-  font-size: clamp(20px, 3vw, 28px);
-  line-height: 1.85;
+  font-family: var(--ambo-font-reading);
+  font-size: clamp(var(--ambo-size-preach-min), 3vw, var(--ambo-size-preach-max));
+  line-height: var(--ambo-lh-reading);
   color: var(--ambo-text-primary);
   letter-spacing: 0.01em;
 }
@@ -130,10 +326,10 @@ body {
 /* Nav pill */
 .mode-pill {
   background: var(--ambo-surface);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: var(--ambo-blur-chrome) saturate(1.4);
+  -webkit-backdrop-filter: var(--ambo-blur-chrome) saturate(1.4);
   border: 1px solid var(--ambo-border);
-  border-radius: 100px;
+  border-radius: var(--ambo-radius-pill);
   box-shadow: var(--ambo-shadow-sm);
   padding: 4px;
   display: inline-flex;
@@ -143,13 +339,14 @@ body {
 .mode-pill-btn {
   border: none;
   background: transparent;
-  border-radius: 100px;
+  border-radius: var(--ambo-radius-pill);
   padding: 8px 20px;
-  font-size: 14px;
-  font-weight: 500;
+  font-family: var(--ambo-font-ui);
+  font-size: var(--ambo-size-md);
+  font-weight: var(--ambo-weight-medium);
   color: var(--ambo-text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--ambo-dur) var(--ambo-ease);
   letter-spacing: 0.01em;
 }
 
@@ -161,7 +358,7 @@ body {
 .mode-pill-btn.active {
   background: var(--ambo-surface-solid);
   color: var(--ambo-accent);
-  box-shadow: 0 1px 4px rgba(28, 43, 58, 0.10);
+  box-shadow: 0 1px 4px rgba(58, 89, 132, 0.10);
 }
 
 /* Subtle divider */
@@ -173,7 +370,7 @@ body {
 
 /* Smooth fade transition between views */
 .view-fade {
-  animation: fadeIn 0.25s ease;
+  animation: fadeIn var(--ambo-dur-slow) var(--ambo-ease);
 }
 
 @keyframes fadeIn {

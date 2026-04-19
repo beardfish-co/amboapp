@@ -418,8 +418,9 @@ export default function PreachView({ currentId }: PreachViewProps) {
               <p
                 key={i}
                 style={{
+                  fontFamily: "var(--ambo-font-reading)",
                   fontSize: fontSize,
-                  lineHeight: 1.85,
+                  lineHeight: "var(--ambo-lh-reading)",
                   color: "var(--ambo-text-primary)",
                   marginBottom: "1.6em",
                   letterSpacing: "0.01em",
@@ -451,8 +452,9 @@ export default function PreachView({ currentId }: PreachViewProps) {
                 <QuoteDisplay block={active} fontSize={fontSize} />
               ) : (
                 <p style={{
+                  fontFamily: "var(--ambo-font-reading)",
                   fontSize: fontSize,
-                  lineHeight: 1.85,
+                  lineHeight: "var(--ambo-lh-reading)",
                   color: "var(--ambo-text-primary)",
                   letterSpacing: "0.01em",
                   whiteSpace: "pre-wrap",
@@ -512,8 +514,9 @@ function QuoteDisplay({
     >
       <p
         style={{
+          fontFamily: "var(--ambo-font-reading)",
           fontSize: fontSize,
-          lineHeight: 1.85,
+          lineHeight: "var(--ambo-lh-reading)",
           color: "var(--ambo-text-primary)",
           letterSpacing: "0.01em",
           fontStyle: "italic",
