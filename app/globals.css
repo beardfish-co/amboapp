@@ -324,7 +324,7 @@ body {
 
 /* Nav pill */
 .mode-pill {
-  background: var(--ambo-surface);
+  background: var(--ambo-surface-raised);
   backdrop-filter: var(--ambo-blur-chrome) saturate(1.4);
   -webkit-backdrop-filter: var(--ambo-blur-chrome) saturate(1.4);
   border: 1px solid var(--ambo-border);

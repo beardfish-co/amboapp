@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { selectPrompts, detectSeason } from "@/lib/prompts";
 import type { CatenaBlock } from "@/lib/catena";
+import { SlideReveal } from "@/lib/ui/slide-reveal";
+import { PillButton } from "@/lib/ui/pill-button";
+import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 
 interface Reading {
   id: string;
@@ -315,39 +318,35 @@ export default function ReflectView({
         margin: "0 auto",
         padding: "0 24px 120px",
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 320px",
+        gridTemplateColumns: "minmax(0, 760fr) minmax(0, 320fr)",
         gap: 32,
         alignItems: "start",
       }}
     >
       {/* Primary column: the readings */}
       <div>
-        {/* Sunday chip */}
-        <div style={{ marginBottom: 28, display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+        {/* Top strip — chrome row with My homilies (left) and the Sunday pill (right).
+            Matches the chrome row on Write, so the priest feels the same horizon
+            whether they're reading or writing. */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 32,
+          flexWrap: "wrap",
+        }}>
+          <PillButton variant="ghost" icon={<StackIcon />} onClick={onOpenList}>
+            My homilies
+          </PillButton>
+          <div style={{ flex: 1 }} />
           {sundayDate ? (
-            <>
-              <span style={{
-                fontSize: 12,
-                fontWeight: 600,
-                color: "var(--ambo-accent)",
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}>
-                {readings?.dayName ?? "Readings"}
-              </span>
-              <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
-                · {fmtSundayShort(sundayDate)}
-              </span>
-              {title && (
-                <span style={{ fontSize: 12, color: "var(--ambo-text-muted)", marginLeft: "auto" }}>
-                  {title}
-                </span>
-              )}
-            </>
+            <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
+              {readings?.dayName ?? "Readings"} · {fmtSundayShort(sundayDate)}
+            </PillButton>
           ) : (
-            <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
+            <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
               No Sunday yet
-            </span>
+            </PillButton>
           )}
         </div>
 
@@ -409,9 +408,8 @@ export default function ReflectView({
               key={r.id}
               className="glass-card reflect-reading-card"
               style={{
-                marginBottom: 20,
+                marginBottom: 32,
                 overflow: "hidden",
-                border: isGospel ? "1px solid rgba(74, 111, 165, 0.3)" : undefined,
               }}
             >
               {/* Clickable header — title / reference / heading */}
@@ -427,49 +425,44 @@ export default function ReflectView({
                 }}
                 aria-expanded={bodyOpen}
                 style={{
-                  padding: "16px 20px",
+                  padding: bodyOpen ? "20px 24px" : "18px 24px",
                   cursor: "pointer",
                   display: "flex",
-                  alignItems: "center",
                   justifyContent: "space-between",
-                  gap: 12,
+                  alignItems: "baseline",
+                  gap: 16,
+                  transition: "padding 200ms var(--ambo-ease)",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}>
-                    <h3 style={{
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+                  {/* Line 1: eyebrow + inline ref chip */}
+                  <div>
+                    <span style={{
                       fontSize: 11,
                       fontWeight: 700,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
                       color: isGospel ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
-                      margin: 0,
                     }}>
                       {r.title}
-                    </h3>
+                    </span>
                     <span style={{
                       fontSize: 12,
                       fontStyle: "italic",
                       color: "var(--ambo-text-muted)",
-                      whiteSpace: "nowrap",
+                      marginLeft: 10,
                     }}>
                       {r.reference}
                     </span>
                   </div>
-                  {r.heading && !bodyOpen && (
+                  {/* Line 2: italic Newsreader subhead — always visible, reading or closed */}
+                  {r.heading && (
                     <div style={{
-                      marginTop: 4,
+                      fontFamily: "var(--ambo-font-reading)",
                       fontSize: 13,
                       fontStyle: "italic",
-                      color: "var(--ambo-text-muted)",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      color: "var(--ambo-text-secondary)",
+                      lineHeight: 1.5,
                     }}>
                       {r.heading}
                     </div>
@@ -478,9 +471,9 @@ export default function ReflectView({
                 <span
                   aria-hidden="true"
                   style={{
-                    fontSize: 14,
+                    fontSize: 16,
                     color: "var(--ambo-text-muted)",
-                    transition: "transform 0.2s ease",
+                    transition: "transform 200ms var(--ambo-ease)",
                     transform: bodyOpen ? "rotate(90deg)" : "rotate(0deg)",
                     flexShrink: 0,
                   }}
@@ -489,36 +482,20 @@ export default function ReflectView({
                 </span>
               </div>
 
-              {bodyOpen && (
-                <div style={{ padding: "0 20px 20px", animation: "fadeIn 0.15s ease" }}>
-                  <div style={{
-                    height: 1,
-                    background: "var(--ambo-border)",
-                    marginBottom: 16,
-                  }} />
-                  {r.heading && (
-                    <div style={{
-                      marginBottom: 14,
-                      fontSize: 13,
-                      fontStyle: "italic",
-                      color: "var(--ambo-text-secondary)",
-                      lineHeight: 1.55,
-                    }}>
-                      {r.heading}
-                    </div>
-                  )}
-
-                  {/* Reading body */}
+              <SlideReveal open={bodyOpen}>
+                <div style={{ height: 1, background: "var(--ambo-rule-subtle)" }} />
+                <div style={{ padding: "26px 24px 28px", animation: "fadeIn 0.15s ease" }}>
+                  {/* Reading body — the calmest type on the page. 17/2.05, 28px between paragraphs. */}
                   <div style={{
                     fontFamily: "var(--ambo-font-reading)",
-                    fontSize: "var(--ambo-size-xl)",
-                    lineHeight: "var(--ambo-lh-reading)",
+                    fontSize: 17,
+                    lineHeight: 2.05,
                     color: "var(--ambo-text-primary)",
                     fontStyle: r.id === "ps" ? "italic" : "normal",
                     whiteSpace: "pre-wrap",
                   }}>
                     {paragraphs.map((para, i) => (
-                      <p key={i} style={{ margin: "0 0 1em" }}>{para}</p>
+                      <p key={i} style={{ margin: "0 0 28px" }}>{para}</p>
                     ))}
                   </div>
 
@@ -681,7 +658,7 @@ export default function ReflectView({
                 </div>
               )}
                 </div>
-              )}
+              </SlideReveal>
             </section>
           );
         })}
@@ -707,7 +684,7 @@ export default function ReflectView({
           style={{
             border: "1px solid var(--ambo-border)",
             borderRadius: 14,
-            background: "var(--ambo-surface)",
+            background: "var(--ambo-bg)",
             overflow: "hidden",
             flexShrink: 0,
           }}
@@ -832,7 +809,7 @@ export default function ReflectView({
             flexDirection: "column",
             border: "1px solid var(--ambo-border)",
             borderRadius: 14,
-            background: "var(--ambo-surface)",
+            background: "var(--ambo-bg)",
             overflow: "hidden",
           }}
         >
