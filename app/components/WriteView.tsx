@@ -723,12 +723,15 @@ export default function WriteView({
         )}
       </div>
 
-      {/* Notes panel (from Reflect) — shared SlideReveal */}
+      {/* Notes panel (from Reflect) — shared SlideReveal, matches glass panels */}
       <SlideReveal open={notesOpen} marginBottom={notesOpen ? 16 : 0}>
         <div style={{
           border: "1px solid var(--ambo-border)",
-          borderRadius: 12,
+          borderRadius: "var(--ambo-radius)",
           background: "var(--ambo-surface)",
+          backdropFilter: "var(--ambo-blur)",
+          WebkitBackdropFilter: "var(--ambo-blur)",
+          boxShadow: "var(--ambo-shadow-md)",
           overflow: "hidden",
         }}>
           <div style={{
@@ -774,12 +777,15 @@ export default function WriteView({
         </div>
       </SlideReveal>
 
-      {/* Examine panel — five gentle questions before preaching, shared SlideReveal */}
+      {/* Examine panel — five gentle questions before preaching, matches glass panels */}
       <SlideReveal open={examineOpen} marginBottom={examineOpen ? 16 : 0}>
         <div style={{
           border: "1px solid var(--ambo-border)",
-          borderRadius: 12,
+          borderRadius: "var(--ambo-radius)",
           background: "var(--ambo-surface)",
+          backdropFilter: "var(--ambo-blur)",
+          WebkitBackdropFilter: "var(--ambo-blur)",
+          boxShadow: "var(--ambo-shadow-md)",
           overflow: "hidden",
         }}>
           <div style={{

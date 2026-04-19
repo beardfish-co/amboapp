@@ -16,8 +16,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
-const DURATION_MS = 420;
-const OPACITY_MS = 300;
+const DURATION_MS = 640;
+const OPACITY_MS = 460;
 
 type Props = {
   open: boolean;

@@ -369,7 +369,7 @@ body {
 
 /* Smooth fade transition between views — calm 420ms ease, matches SlideReveal */
 .view-fade {
-  animation: fadeIn 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: fadeIn 640ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes fadeIn {
