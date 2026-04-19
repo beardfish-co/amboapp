@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import ReadingsDrawer from "./ReadingsDrawer";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
-import { StackIcon as StackIconShared, BookIcon as BookIconShared } from "@/lib/ui/icons";
+import { StackIcon as StackIconShared, BookIcon as BookIconShared, NoteIcon, ExamineIcon } from "@/lib/ui/icons";
 
 interface Paragraph {
   id: string;
@@ -683,6 +683,16 @@ export default function WriteView({
           My homilies
         </PillButton>
         <div style={{ flex: 1 }} />
+        {lastSaved && (
+          <span style={{
+            fontSize: 11,
+            fontStyle: "italic",
+            color: "var(--ambo-text-muted)",
+            marginRight: 4,
+          }}>
+            saved · {lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
         <PillButton
           variant={readingsOpen ? "active" : "ghost"}
           icon={<BookIconShared />}
@@ -694,6 +704,7 @@ export default function WriteView({
         {notes.trim().length > 0 && (
           <PillButton
             variant={notesOpen ? "active" : "ghost"}
+            icon={<NoteIcon />}
             onClick={() => setNotesOpen((v) => !v)}
             title="Show notes from Reflect"
           >
@@ -703,6 +714,7 @@ export default function WriteView({
         {wordCount >= 30 && (
           <PillButton
             variant={examineOpen ? "active" : "ghost"}
+            icon={<ExamineIcon />}
             onClick={() => setExamineOpen((v) => !v)}
             title="A gentle last look before preaching"
           >
@@ -842,7 +854,8 @@ export default function WriteView({
         </div>
       </SlideReveal>
 
-      {/* Seed reminder — from Reflect, read-only here */}
+      {/* Seed reminder — eyebrow + italic Newsreader, above the glass Panel.
+          Clickable to return to Reflect. */}
       {seed.trim().length > 0 && (
         <div
           onClick={onGoReflect}
@@ -851,15 +864,9 @@ export default function WriteView({
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGoReflect?.(); } }}
           title="Edit in Reflect"
           style={{
-            marginBottom: 18,
-            padding: "10px 14px",
-            borderLeft: "2px solid var(--ambo-accent-light)",
-            background: "transparent",
+            marginBottom: 14,
+            padding: "0 4px",
             cursor: onGoReflect ? "pointer" : "default",
-            fontSize: 14,
-            fontStyle: "italic",
-            lineHeight: 1.55,
-            color: "var(--ambo-text-secondary)",
           }}
         >
           <span style={{
@@ -869,14 +876,37 @@ export default function WriteView({
             letterSpacing: "0.08em",
             textTransform: "uppercase",
             color: "var(--ambo-text-muted)",
-            fontStyle: "normal",
-            marginBottom: 4,
+            marginBottom: 6,
           }}>
             Seed
           </span>
-          {seed}
+          <div style={{
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: 14,
+            fontStyle: "italic",
+            lineHeight: 1.55,
+            color: "var(--ambo-text-secondary)",
+            maxWidth: 560,
+          }}>
+            {seed}
+          </div>
         </div>
       )}
+
+      {/* Glass Panel: title + body live on one surface, a single sheet
+          of paper inside the Ambo room. 72% glass, blur+saturate chrome. */}
+      <div
+        className="ambo-write-panel"
+        style={{
+          background: "var(--ambo-surface)",
+          backdropFilter: "blur(24px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+          border: "1px solid var(--ambo-border)",
+          borderRadius: "var(--ambo-radius-md)",
+          boxShadow: "var(--ambo-shadow-md)",
+          padding: "44px 56px 56px",
+        }}
+      >
 
       {/* Title */}
       <div style={{ marginBottom: 20 }}>
@@ -1128,6 +1158,8 @@ export default function WriteView({
           </div>
         ))}
       </div>
+      </div>
+      {/* /Glass Panel */}
 
       {/* Status bar */}
       <div style={{
