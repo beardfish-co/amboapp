@@ -60,6 +60,8 @@ export default function ReflectView({
   const [loading, setLoading] = useState(true);
   const [readingsLoading, setReadingsLoading] = useState(false);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  // Which reading cards are expanded (body shown). Default: gospel open.
+  const [openBodies, setOpenBodies] = useState<Set<string>>(new Set(["gospel"]));
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
   const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
   const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
@@ -167,7 +169,11 @@ export default function ReflectView({
         const res = await fetch(`/api/readings?date=${isoToCompact(sundayDate)}`);
         if (!res.ok) return;
         const d: DayReadings = await res.json();
-        if (!cancelled) setReadings(d);
+        if (!cancelled) {
+          setReadings(d);
+          // Default: gospel open, others closed. Priest can expand as needed.
+          setOpenBodies(new Set(["gospel"]));
+        }
       } catch {
         /* ignore */
       } finally {
@@ -387,58 +393,133 @@ export default function ReflectView({
             : [];
           const expanded = expandedSlot === r.id;
 
+          const bodyOpen = openBodies.has(r.id);
+          const isGospel = r.id === "gospel";
+          const toggleBody = () => {
+            setOpenBodies((prev) => {
+              const next = new Set(prev);
+              if (next.has(r.id)) next.delete(r.id);
+              else next.add(r.id);
+              return next;
+            });
+          };
+
           return (
-            <section key={r.id} style={{ marginBottom: 56 }}>
-              {/* Reading heading */}
-              <div style={{
-                display: "flex",
-                alignItems: "baseline",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 6,
-              }}>
-                <h3 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "var(--ambo-accent)",
-                  margin: 0,
-                }}>
-                  {r.title}
-                </h3>
-                <span style={{
-                  fontSize: 12,
-                  fontStyle: "italic",
-                  color: "var(--ambo-text-muted)",
-                }}>
-                  {r.reference}
+            <section
+              key={r.id}
+              className="glass-card reflect-reading-card"
+              style={{
+                marginBottom: 20,
+                overflow: "hidden",
+                border: isGospel ? "1px solid rgba(74, 111, 165, 0.3)" : undefined,
+              }}
+            >
+              {/* Clickable header — title / reference / heading */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={toggleBody}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleBody();
+                  }
+                }}
+                aria-expanded={bodyOpen}
+                style={{
+                  padding: "16px 20px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}>
+                    <h3 style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: isGospel ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                      margin: 0,
+                    }}>
+                      {r.title}
+                    </h3>
+                    <span style={{
+                      fontSize: 12,
+                      fontStyle: "italic",
+                      color: "var(--ambo-text-muted)",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {r.reference}
+                    </span>
+                  </div>
+                  {r.heading && !bodyOpen && (
+                    <div style={{
+                      marginTop: 4,
+                      fontSize: 13,
+                      fontStyle: "italic",
+                      color: "var(--ambo-text-muted)",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}>
+                      {r.heading}
+                    </div>
+                  )}
+                </div>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    fontSize: 14,
+                    color: "var(--ambo-text-muted)",
+                    transition: "transform 0.2s ease",
+                    transform: bodyOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    flexShrink: 0,
+                  }}
+                >
+                  ›
                 </span>
               </div>
 
-              {r.heading && (
-                <div style={{
-                  fontSize: 14,
-                  fontStyle: "italic",
-                  color: "var(--ambo-text-secondary)",
-                  marginBottom: 18,
-                  lineHeight: 1.5,
-                }}>
-                  {r.heading}
-                </div>
-              )}
+              {bodyOpen && (
+                <div style={{ padding: "0 20px 20px", animation: "fadeIn 0.15s ease" }}>
+                  <div style={{
+                    height: 1,
+                    background: "var(--ambo-border)",
+                    marginBottom: 16,
+                  }} />
+                  {r.heading && (
+                    <div style={{
+                      marginBottom: 14,
+                      fontSize: 13,
+                      fontStyle: "italic",
+                      color: "var(--ambo-text-secondary)",
+                      lineHeight: 1.55,
+                    }}>
+                      {r.heading}
+                    </div>
+                  )}
 
-              {/* Reading body */}
-              <div style={{
-                fontSize: 18,
-                lineHeight: 1.85,
-                color: "var(--ambo-text-primary)",
-                whiteSpace: "pre-wrap",
-              }}>
-                {paragraphs.map((p, i) => (
-                  <p key={i} style={{ margin: "0 0 1em" }}>{p}</p>
-                ))}
-              </div>
+                  {/* Reading body */}
+                  <div style={{
+                    fontSize: 17,
+                    lineHeight: 1.85,
+                    color: "var(--ambo-text-primary)",
+                    fontStyle: r.id === "ps" ? "italic" : "normal",
+                    whiteSpace: "pre-wrap",
+                  }}>
+                    {paragraphs.map((para, i) => (
+                      <p key={i} style={{ margin: "0 0 1em" }}>{para}</p>
+                    ))}
+                  </div>
 
               {/* Discreet affordance row */}
               {prompts.length > 0 && (
@@ -596,6 +677,8 @@ export default function ReflectView({
                   color: "var(--ambo-text-muted)",
                 }}>
                   <span style={{ opacity: 0.6 }}>loading patristic commentary…</span>
+                </div>
+              )}
                 </div>
               )}
             </section>
