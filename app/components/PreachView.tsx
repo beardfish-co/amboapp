@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
+import { SlideReveal } from "@/lib/ui/slide-reveal";
 
 const STORAGE_KEY = "ambo-draft";
 
@@ -300,7 +301,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
               {readingsOpen ? "Hide ▴" : "Show ▾"}
             </span>
           </button>
-          {readingsOpen && (
+          <SlideReveal open={readingsOpen}>
             <div style={{ padding: "4px 16px 16px" }}>
               {readings.readings.map((r) => {
                 const isOpen = expandedReadingId === r.id;
@@ -340,7 +341,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
                         {r.reference}
                       </span>
                     </button>
-                    {isOpen && (
+                    <SlideReveal open={isOpen}>
                       <div style={{
                         marginTop: 10,
                         fontSize: 15,
@@ -360,12 +361,12 @@ export default function PreachView({ currentId }: PreachViewProps) {
                         )}
                         {r.text}
                       </div>
-                    )}
+                    </SlideReveal>
                   </div>
                 );
               })}
             </div>
-          )}
+          </SlideReveal>
         </div>
       )}
 

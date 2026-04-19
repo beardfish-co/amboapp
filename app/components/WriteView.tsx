@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getComingSunday } from "./ReadingView";
 import { createClient } from "@/lib/supabase/client";
 import ReadingsDrawer from "./ReadingsDrawer";
+import { SlideReveal } from "@/lib/ui/slide-reveal";
+import { PillButton } from "@/lib/ui/pill-button";
+import { StackIcon as StackIconShared, BookIcon as BookIconShared } from "@/lib/ui/icons";
 
 interface Paragraph {
   id: string;
@@ -666,67 +669,55 @@ export default function WriteView({
     : "Pick a Sunday";
 
   return (
-    <div className="view-fade" style={{ maxWidth: 680, margin: "0 auto", padding: "0 24px 120px" }}>
+    <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px 120px" }}>
 
-      {/* Top bar: My homilies + Readings */}
+      {/* Chrome row: matches Reflect — My homilies + Readings/Notes/Examine */}
       <div style={{
-        marginBottom: 16,
         display: "flex",
-        justifyContent: "space-between",
         alignItems: "center",
-        gap: 8,
+        gap: 10,
+        marginBottom: 24,
+        flexWrap: "wrap",
       }}>
-        <button
-          onClick={onOpenList}
-          style={pillBtnStyle(false)}
-          title="My homilies"
-        >
-          <StackIcon />
+        <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies">
           My homilies
-        </button>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {notes.trim().length > 0 && (
-            <button
-              onClick={() => setNotesOpen((v) => !v)}
-              style={pillBtnStyle(notesOpen)}
-              title="Show notes from Reflect"
-            >
-              <span style={{ fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
-                Notes
-              </span>
-            </button>
-          )}
-          {wordCount >= 30 && (
-            <button
-              onClick={() => setExamineOpen((v) => !v)}
-              style={pillBtnStyle(examineOpen)}
-              title="A gentle last look before preaching"
-            >
-              <span style={{ fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
-                Examine
-              </span>
-            </button>
-          )}
-          <button
-            onClick={() => setReadingsOpen(true)}
-            style={pillBtnStyle(readingsOpen)}
-            title="Open today's readings"
+        </PillButton>
+        <div style={{ flex: 1 }} />
+        <PillButton
+          variant={readingsOpen ? "active" : "ghost"}
+          icon={<BookIconShared />}
+          onClick={() => setReadingsOpen(true)}
+          title="Open today's readings"
+        >
+          Readings
+        </PillButton>
+        {notes.trim().length > 0 && (
+          <PillButton
+            variant={notesOpen ? "active" : "ghost"}
+            onClick={() => setNotesOpen((v) => !v)}
+            title="Show notes from Reflect"
           >
-            <BookIcon />
-            Readings
-          </button>
-        </div>
+            Notes
+          </PillButton>
+        )}
+        {wordCount >= 30 && (
+          <PillButton
+            variant={examineOpen ? "active" : "ghost"}
+            onClick={() => setExamineOpen((v) => !v)}
+            title="A gentle last look before preaching"
+          >
+            Examine
+          </PillButton>
+        )}
       </div>
 
-      {/* Notes panel (from Reflect) */}
-      {notesOpen && (
+      {/* Notes panel (from Reflect) — shared SlideReveal */}
+      <SlideReveal open={notesOpen} marginBottom={notesOpen ? 16 : 0}>
         <div style={{
-          marginBottom: 16,
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
           background: "var(--ambo-surface)",
           overflow: "hidden",
-          animation: "fadeIn 0.15s ease",
         }}>
           <div style={{
             padding: "10px 14px",
@@ -769,17 +760,15 @@ export default function WriteView({
             }}
           />
         </div>
-      )}
+      </SlideReveal>
 
-      {/* Examine panel — five gentle questions before preaching */}
-      {examineOpen && (
+      {/* Examine panel — five gentle questions before preaching, shared SlideReveal */}
+      <SlideReveal open={examineOpen} marginBottom={examineOpen ? 16 : 0}>
         <div style={{
-          marginBottom: 16,
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
           background: "var(--ambo-surface)",
           overflow: "hidden",
-          animation: "fadeIn 0.15s ease",
         }}>
           <div style={{
             padding: "12px 14px",
@@ -851,7 +840,7 @@ export default function WriteView({
             ))}
           </div>
         </div>
-      )}
+      </SlideReveal>
 
       {/* Seed reminder — from Reflect, read-only here */}
       {seed.trim().length > 0 && (
@@ -900,11 +889,12 @@ export default function WriteView({
             border: "none",
             outline: "none",
             background: "transparent",
-            fontSize: 26,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: 32,
+            fontStyle: "italic",
+            fontWeight: 400,
+            letterSpacing: "-0.01em",
             color: "var(--ambo-text-primary)",
-            fontFamily: "inherit",
             padding: 0,
           }}
         />
@@ -1341,8 +1331,8 @@ function AutoTextarea({
         resize: "none",
         background: "transparent",
         fontFamily: "var(--ambo-font-reading)",
-        fontSize: "var(--ambo-size-xl)",
-        lineHeight: "var(--ambo-lh-loose)",
+        fontSize: "var(--ambo-size-2xl)",
+        lineHeight: 1.8,
         color: "var(--ambo-text-primary)",
         caretColor: "var(--ambo-accent)",
         padding: "4px 0",
