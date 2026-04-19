@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,300;1,6..72,400;1,6..72,500;1,6..72,600&display=swap");
 @import "tailwindcss";
 
 /* =============================================================
@@ -51,9 +50,9 @@
   --ambo-dur-slow:    250ms;
 
   /* ---------- Typefaces ---------- */
-  --ambo-font-ui:      "Inter", -apple-system, "SF Pro Text", BlinkMacSystemFont,
+  --ambo-font-ui:      var(--font-inter), -apple-system, "SF Pro Text", BlinkMacSystemFont,
                        "Segoe UI", system-ui, sans-serif;
-  --ambo-font-reading: "Newsreader", "Source Serif Pro", "Iowan Old Style",
+  --ambo-font-reading: var(--font-newsreader), "Iowan Old Style",
                        "Apple Garamond", Georgia, serif;
   --ambo-font-mono:    ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
 
