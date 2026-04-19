@@ -62,6 +62,10 @@ export default function ReflectView({
   const [readings, setReadings] = useState<DayReadings | null>(null);
   const [loading, setLoading] = useState(true);
   const [readingsLoading, setReadingsLoading] = useState(false);
+  // Today's weekday readings — shown below the Sunday set when today isn't Sunday.
+  const [todayReadings, setTodayReadings] = useState<DayReadings | null>(null);
+  const [showTodayReadings, setShowTodayReadings] = useState<boolean>(false);
+  const [todayOpenBodies, setTodayOpenBodies] = useState<Set<string>>(new Set());
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
   // Which reading cards are expanded (body shown). Default: gospel open.
   const [openBodies, setOpenBodies] = useState<Set<string>>(new Set(["gospel"]));
@@ -185,6 +189,35 @@ export default function ReflectView({
     })();
     return () => { cancelled = true; };
   }, [sundayDate]);
+
+  // Fetch today's weekday readings (only when today isn't Sunday).
+  // Kept separate from the Sunday fetch so the Sunday homily prep doesn't
+  // wait on the weekday lookup.
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const isSunday = today.getDay() === 0;
+    if (isSunday) {
+      setTodayReadings(null);
+      return;
+    }
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    const todayIso = `${y}-${m}-${d}`;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/readings?date=${isoToCompact(todayIso)}`);
+        if (!res.ok) return;
+        const data: DayReadings = await res.json();
+        if (!cancelled) setTodayReadings(data);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch Catena Aurea when the Gospel reading arrives
   useEffect(() => {
@@ -658,6 +691,158 @@ export default function ReflectView({
             </section>
           );
         })}
+
+        {/* ── Today's weekday readings — quiet secondary section below Sunday ──
+            Not the Sunday set the priest is preparing; just a prayerful
+            ground note for the day itself, collapsed by default. */}
+        {todayReadings && todayReadings.readings.length > 0 && (
+          <section style={{ marginTop: 16, marginBottom: 24 }}>
+            <button
+              onClick={() => setShowTodayReadings((v) => !v)}
+              style={{
+                border: "none",
+                background: "transparent",
+                padding: "6px 0",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "var(--ambo-text-muted)",
+              }}
+              aria-expanded={showTodayReadings}
+            >
+              <span style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}>
+                Today — {todayReadings.dayName}
+              </span>
+              <span style={{
+                display: "inline-block",
+                transform: showTodayReadings ? "rotate(90deg)" : "rotate(0deg)",
+                transition: "transform 200ms var(--ambo-ease)",
+                fontSize: 11,
+                lineHeight: 1,
+              }}>
+                ›
+              </span>
+            </button>
+
+            <SlideReveal open={showTodayReadings} marginTop={showTodayReadings ? 16 : 0}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {todayReadings.readings.map((r) => {
+                  const isOpen = todayOpenBodies.has(r.id);
+                  const isGospel = r.id === "gospel";
+                  const toggle = () => {
+                    setTodayOpenBodies((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(r.id)) next.delete(r.id);
+                      else next.add(r.id);
+                      return next;
+                    });
+                  };
+                  return (
+                    <section
+                      key={r.id}
+                      className="glass-card"
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={toggle}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggle();
+                          }
+                        }}
+                        aria-expanded={isOpen}
+                        style={{
+                          padding: isOpen ? "18px 24px" : "16px 24px",
+                          cursor: "pointer",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          gap: 16,
+                          transition: "padding 200ms var(--ambo-ease)",
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+                          <div>
+                            <span style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: isGospel ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                            }}>
+                              {r.title}
+                            </span>
+                            <span style={{
+                              fontSize: 11,
+                              fontStyle: "italic",
+                              color: "var(--ambo-text-muted)",
+                              marginLeft: 10,
+                            }}>
+                              {r.reference}
+                            </span>
+                          </div>
+                          {r.heading && (
+                            <div style={{
+                              fontFamily: "var(--ambo-font-reading)",
+                              fontSize: 13,
+                              fontStyle: "italic",
+                              lineHeight: 1.5,
+                              color: "var(--ambo-text-secondary)",
+                            }}>
+                              {r.heading}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{
+                          display: "inline-block",
+                          transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                          transition: "transform 200ms var(--ambo-ease)",
+                          fontSize: 13,
+                          color: "var(--ambo-text-muted)",
+                          lineHeight: 1,
+                        }}>
+                          ›
+                        </span>
+                      </div>
+
+                      <SlideReveal open={isOpen}>
+                        <div style={{
+                          height: 1,
+                          background: "var(--ambo-border)",
+                          margin: "0 24px",
+                        }} />
+                        <div style={{ padding: "20px 24px 24px" }}>
+                          {splitReadingParagraphs(r.text).map((p, i) => (
+                            <p key={i} style={{
+                              fontFamily: "var(--ambo-font-reading)",
+                              fontSize: 16,
+                              lineHeight: 1.95,
+                              color: "var(--ambo-text-primary)",
+                              fontStyle: r.id === "psalm" ? "italic" : "normal",
+                              margin: "0 0 22px",
+                            }}>
+                              {p}
+                            </p>
+                          ))}
+                        </div>
+                      </SlideReveal>
+                    </section>
+                  );
+                })}
+              </div>
+            </SlideReveal>
+          </section>
+        )}
       </div>
 
       {/* Right column: seed panel + notes pad */}
