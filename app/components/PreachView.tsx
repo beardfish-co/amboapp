@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { renderInline } from "@/lib/inline-markdown";
 
 const STORAGE_KEY = "ambo-draft";
 
@@ -25,6 +26,7 @@ interface PreachViewProps {
 
 type Block =
   | { kind: "body"; text: string }
+  | { kind: "breath" }
   | { kind: "quote"; text: string; citation?: string };
 
 function isoToCompact(iso: string): string {
@@ -34,9 +36,9 @@ function isoToCompact(iso: string): string {
 function parseBlocks(text: string): Block[] {
   return text
     .split("\n\n")
-    .map((block) => block.replace(/^\s+|\s+$/g, ""))
-    .filter(Boolean)
+    .map((block) => block.replace(/[ \t]+$|^[ \t]+/g, ""))
     .map((block): Block => {
+      if (block === "") return { kind: "breath" };
       const lines = block.split("\n");
       const hasQuoteMarker = lines.some((l) => l.startsWith("> "));
       if (hasQuoteMarker) {
@@ -398,10 +400,21 @@ export default function PreachView({ currentId }: PreachViewProps) {
       {/* Scroll mode */}
       {isScrollMode && (
         <div>
-          {blocks.map((block, i) =>
-            block.kind === "quote" ? (
-              <QuoteDisplay key={i} block={block} fontSize={fontSize} />
-            ) : (
+          {blocks.map((block, i) => {
+            if (block.kind === "quote") {
+              return <QuoteDisplay key={i} block={block} fontSize={fontSize} />;
+            }
+            if (block.kind === "breath") {
+              // A kept-blank paragraph becomes visible room to breathe.
+              return (
+                <div
+                  key={i}
+                  aria-hidden
+                  style={{ height: "1.8em", marginBottom: "1.6em" }}
+                />
+              );
+            }
+            return (
               <p
                 key={i}
                 style={{
@@ -413,64 +426,69 @@ export default function PreachView({ currentId }: PreachViewProps) {
                   whiteSpace: "pre-wrap",
                 }}
               >
-                {block.text}
+                {renderInline(block.text)}
               </p>
-            )
-          )}
+            );
+          })}
         </div>
       )}
 
-      {/* Step mode */}
-      {!isScrollMode && blocks.length > 0 && (
-        <div>
-          <div style={{
-            minHeight: "30vh",
-            animation: "fadeIn 0.2s ease",
-          }}>
-            {blocks[currentBlock].kind === "quote" ? (
-              <QuoteDisplay
-                block={blocks[currentBlock] as Extract<Block, { kind: "quote" }>}
-                fontSize={fontSize}
-              />
-            ) : (
-              <p style={{
-                fontSize: fontSize,
-                lineHeight: 1.85,
-                color: "var(--ambo-text-primary)",
-                letterSpacing: "0.01em",
-                whiteSpace: "pre-wrap",
-              }}>
-                {blocks[currentBlock].text}
-              </p>
-            )}
-          </div>
+      {/* Step mode — breath blocks are skipped, they don't merit their own step */}
+      {!isScrollMode && (() => {
+        const stepBlocks = blocks.filter(
+          (b): b is Extract<Block, { kind: "body" | "quote" }> => b.kind !== "breath",
+        );
+        if (stepBlocks.length === 0) return null;
+        const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
+        const active = stepBlocks[safeIdx];
+        return (
+          <div>
+            <div style={{
+              minHeight: "30vh",
+              animation: "fadeIn 0.2s ease",
+            }}>
+              {active.kind === "quote" ? (
+                <QuoteDisplay block={active} fontSize={fontSize} />
+              ) : (
+                <p style={{
+                  fontSize: fontSize,
+                  lineHeight: 1.85,
+                  color: "var(--ambo-text-primary)",
+                  letterSpacing: "0.01em",
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {renderInline(active.text)}
+                </p>
+              )}
+            </div>
 
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginTop: 48,
-          }}>
-            <button
-              onClick={() => setCurrentBlock((c) => Math.max(0, c - 1))}
-              disabled={currentBlock === 0}
-              style={stepBtnStyle(currentBlock === 0)}
-            >
-              ← Previous
-            </button>
-            <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
-              {currentBlock + 1} of {blocks.length}
-            </span>
-            <button
-              onClick={() => setCurrentBlock((c) => Math.min(blocks.length - 1, c + 1))}
-              disabled={currentBlock === blocks.length - 1}
-              style={stepBtnStyle(currentBlock === blocks.length - 1)}
-            >
-              Next →
-            </button>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 48,
+            }}>
+              <button
+                onClick={() => setCurrentBlock((c) => Math.max(0, c - 1))}
+                disabled={safeIdx === 0}
+                style={stepBtnStyle(safeIdx === 0)}
+              >
+                ← Previous
+              </button>
+              <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
+                {safeIdx + 1} of {stepBlocks.length}
+              </span>
+              <button
+                onClick={() => setCurrentBlock((c) => Math.min(stepBlocks.length - 1, c + 1))}
+                disabled={safeIdx === stepBlocks.length - 1}
+                style={stepBtnStyle(safeIdx === stepBlocks.length - 1)}
+              >
+                Next →
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
@@ -503,7 +521,7 @@ function QuoteDisplay({
           whiteSpace: "pre-wrap",
         }}
       >
-        {block.text}
+        {renderInline(block.text)}
       </p>
       {block.citation && (
         <div

@@ -78,13 +78,62 @@ function generateId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
+// Wrap/unwrap the current textarea selection with a markdown mark.
+// Minimal and forgiving: if selection already wrapped, unwrap; otherwise wrap.
+// Empty selection inserts the markers with cursor between them.
+function applyInlineMark(
+  ta: HTMLTextAreaElement,
+  mark: string,
+): { value: string; selStart: number; selEnd: number } {
+  const value = ta.value;
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  const selected = value.slice(start, end);
+  const len = mark.length;
+
+  // Case A: selection is wrapped from outside — unwrap.
+  const before = value.slice(Math.max(0, start - len), start);
+  const after = value.slice(end, end + len);
+  if (selected.length > 0 && before === mark && after === mark) {
+    return {
+      value: value.slice(0, start - len) + selected + value.slice(end + len),
+      selStart: start - len,
+      selEnd: end - len,
+    };
+  }
+
+  // Case B: selection already wraps itself — unwrap inside.
+  if (
+    selected.startsWith(mark) &&
+    selected.endsWith(mark) &&
+    selected.length >= len * 2
+  ) {
+    return {
+      value:
+        value.slice(0, start) +
+        selected.slice(len, selected.length - len) +
+        value.slice(end),
+      selStart: start,
+      selEnd: end - len * 2,
+    };
+  }
+
+  // Case C: wrap (or insert empty markers if no selection).
+  return {
+    value: value.slice(0, start) + mark + selected + mark + value.slice(end),
+    selStart: start + len,
+    selEnd: end + len,
+  };
+}
+
 // Parse the stored content string into Paragraphs, recognising quote blocks.
+// Empty blocks are preserved — they read as "breath" in Preach.
 function parseParagraphs(text: string): Paragraph[] {
   return text
     .split("\n\n")
-    .map((block) => block.replace(/^\s+|\s+$/g, ""))
-    .filter(Boolean)
+    .map((block) => block.replace(/[ \t]+$|^[ \t]+/g, ""))
     .map((block) => {
+      if (block === "") return { id: generateId(), text: "" };
       const lines = block.split("\n");
       const hasQuoteMarker = lines.some((l) => l.startsWith("> "));
       if (hasQuoteMarker) {
@@ -144,7 +193,7 @@ export default function WriteView({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
-  const [recentAction, setRecentAction] = useState<"moved" | "inserted" | null>(null);
+  const [recentAction, setRecentAction] = useState<"moved" | "inserted" | "removed" | null>(null);
   const recentActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track most-recently-focused paragraph so Insert knows where to drop a quote.
@@ -494,6 +543,28 @@ export default function WriteView({
   };
 
   const handleParaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
+    // Cmd/Ctrl + B or I — inline emphasis. Keyboard-only, no toolbar.
+    const isMod = e.metaKey || e.ctrlKey;
+    if (isMod && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) {
+      e.preventDefault();
+      const ta = e.currentTarget;
+      const mark = (e.key === "b" || e.key === "B") ? "**" : "*";
+      const para = paragraphs.find((p) => p.id === id);
+      if (!para) return;
+      const { value, selStart, selEnd } = applyInlineMark(ta, mark);
+      // Figure out which field on the paragraph is being edited (quote body vs citation vs body).
+      // Only the text field has the asterisk syntax applied here. Citation is plain.
+      if (para.kind === "quote" && ta.tagName.toLowerCase() === "input") {
+        // citation input — do nothing special
+        return;
+      }
+      handleParaChange(id, value);
+      setTimeout(() => {
+        ta.focus();
+        ta.setSelectionRange(selStart, selEnd);
+      }, 0);
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       const idx = paragraphs.findIndex((p) => p.id === id);
@@ -531,6 +602,20 @@ export default function WriteView({
       }
     }
   };
+
+  const handleRemoveQuote = useCallback((id: string) => {
+    setParagraphs((prev) => {
+      setUndoStack((s) => [...s, prev]);
+      const next = prev.filter((p) => p.id !== id);
+      // Ensure at least one paragraph remains, so the user has somewhere to type.
+      const ensured = next.length === 0 ? [{ id: generateId(), text: "" }] : next;
+      save(title, ensured, sundayDate);
+      return ensured;
+    });
+    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
+    setRecentAction("removed");
+    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 6000);
+  }, [save, title, sundayDate]);
 
   const handleDragStart = (id: string, before: Paragraph[]) => {
     setUndoStack((s) => [...s, before]);
@@ -993,7 +1078,7 @@ export default function WriteView({
           animation: "fadeIn 0.2s ease",
         }}>
           <span style={{ fontSize: 14, color: "var(--ambo-text-secondary)" }}>
-            {recentAction === "moved" ? "Paragraph moved" : "Quote inserted"}
+            {recentAction === "moved" ? "Paragraph moved" : recentAction === "removed" ? "Quote removed" : "Quote inserted"}
           </span>
           <button
             onClick={handleUndoLast}
@@ -1038,6 +1123,7 @@ export default function WriteView({
                 onCitationChange={(val) => handleParaCitationChange(para.id, val)}
                 onKeyDown={(e) => handleParaKeyDown(e, para.id)}
                 onFocus={() => handleParaFocus(para.id)}
+                onRemove={() => handleRemoveQuote(para.id)}
               />
             ) : (
               <AutoTextarea
@@ -1097,14 +1183,17 @@ function QuoteBlock({
   onCitationChange,
   onKeyDown,
   onFocus,
+  onRemove,
 }: {
   para: Paragraph;
   onTextChange: (val: string) => void;
   onCitationChange: (val: string) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onFocus: () => void;
+  onRemove: () => void;
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (ref.current) {
@@ -1114,11 +1203,44 @@ function QuoteBlock({
   }, [para.text]);
 
   return (
-    <div style={{
-      borderLeft: "3px solid var(--ambo-accent)",
-      paddingLeft: 16,
-      margin: "6px 0",
-    }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative",
+        borderLeft: "3px solid var(--ambo-accent)",
+        paddingLeft: 16,
+        margin: "6px 0",
+      }}
+    >
+      <button
+        onClick={onRemove}
+        title="Remove quote"
+        aria-label="Remove quote"
+        style={{
+          position: "absolute",
+          top: 2,
+          right: 0,
+          border: "none",
+          background: "transparent",
+          color: "var(--ambo-text-muted)",
+          fontSize: 16,
+          lineHeight: 1,
+          width: 22,
+          height: 22,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          borderRadius: 4,
+          opacity: hovered ? 0.7 : 0,
+          transition: "opacity 0.15s ease",
+          fontFamily: "inherit",
+          padding: 0,
+        }}
+      >
+        ×
+      </button>
       <textarea
         id={`para-${para.id}`}
         ref={ref}
