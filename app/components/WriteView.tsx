@@ -133,6 +133,8 @@ export default function WriteView({
   // Seed — primary line only (unfolding lives in Reflect). Read-only here.
   const [seed, setSeed] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
+  // Preflight "examine" — a gentle last look before preaching
+  const [examineOpen, setExamineOpen] = useState(false);
   const notesSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
     { id: generateId(), text: "" },
@@ -609,6 +611,17 @@ export default function WriteView({
               </span>
             </button>
           )}
+          {wordCount >= 30 && (
+            <button
+              onClick={() => setExamineOpen((v) => !v)}
+              style={pillBtnStyle(examineOpen)}
+              title="A gentle last look before preaching"
+            >
+              <span style={{ fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 700 }}>
+                Examine
+              </span>
+            </button>
+          )}
           <button
             onClick={() => setReadingsOpen(true)}
             style={pillBtnStyle(readingsOpen)}
@@ -670,6 +683,88 @@ export default function WriteView({
               boxSizing: "border-box",
             }}
           />
+        </div>
+      )}
+
+      {/* Examine panel — five gentle questions before preaching */}
+      {examineOpen && (
+        <div style={{
+          marginBottom: 16,
+          border: "1px solid var(--ambo-border)",
+          borderRadius: 12,
+          background: "var(--ambo-surface)",
+          overflow: "hidden",
+          animation: "fadeIn 0.15s ease",
+        }}>
+          <div style={{
+            padding: "12px 14px",
+            borderBottom: "1px solid var(--ambo-border)",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+          }}>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-secondary)",
+            }}>
+              Examine
+            </span>
+            <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic" }}>
+              a last quiet look — nothing to answer
+            </span>
+          </div>
+          <div style={{ padding: "14px 18px 16px" }}>
+            {[
+              {
+                q: "One thread, or many?",
+                s: "A homily serves the people better with one clear summons than with several tidy ideas.",
+              },
+              {
+                q: "Have you slipped into a lecture?",
+                s: "The homily is proclamation within worship, not exegesis at a desk.",
+              },
+              {
+                q: "Is the Good News audible before the demand?",
+                s: "What God has done in Christ precedes what he asks of us.",
+              },
+              {
+                q: "Has a personal grievance or hobby found its way in?",
+                s: "The Word of God should eclipse the preacher, not the other way round.",
+              },
+              {
+                q: "Is this ecclesial, or has it narrowed to a faction?",
+                s: "You speak with the Church, not against a party. Attentive to the signs of the times, but not partisan.",
+              },
+            ].map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "10px 0",
+                  borderTop: i === 0 ? "none" : "1px solid var(--ambo-border)",
+                }}
+              >
+                <div style={{
+                  fontSize: 14,
+                  fontStyle: "italic",
+                  color: "var(--ambo-text-primary)",
+                  lineHeight: 1.5,
+                  marginBottom: 4,
+                }}>
+                  {item.q}
+                </div>
+                <div style={{
+                  fontSize: 12,
+                  color: "var(--ambo-text-muted)",
+                  lineHeight: 1.55,
+                }}>
+                  {item.s}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
