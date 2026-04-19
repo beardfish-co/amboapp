@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { selectPrompts, detectSeason } from "@/lib/prompts";
+import type { CatenaBlock } from "@/lib/catena";
 
 interface Reading {
   id: string;
@@ -59,6 +60,9 @@ export default function ReflectView({
   const [loading, setLoading] = useState(true);
   const [readingsLoading, setReadingsLoading] = useState(false);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
+  const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
+  const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
   const [notesOpenMobile, setNotesOpenMobile] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
@@ -146,6 +150,38 @@ export default function ReflectView({
     })();
     return () => { cancelled = true; };
   }, [sundayDate]);
+
+  // Fetch Catena Aurea when the Gospel reading arrives
+  useEffect(() => {
+    if (!readings) {
+      setCatenaBlocks(null);
+      return;
+    }
+    const gospel = readings.readings.find((r) => r.id === "gospel");
+    if (!gospel || !gospel.reference) {
+      setCatenaBlocks(null);
+      return;
+    }
+    let cancelled = false;
+    setCatenaLoading(true);
+    setCatenaBlocks(null);
+    setFathersExpanded(false);
+    (async () => {
+      try {
+        const res = await fetch(`/api/catena?ref=${encodeURIComponent(gospel.reference)}`);
+        if (!res.ok) return;
+        const d: { blocks?: CatenaBlock[] } = await res.json();
+        if (!cancelled) setCatenaBlocks(d.blocks ?? []);
+      } catch {
+        /* no catena available — gracefully absent */
+      } finally {
+        if (!cancelled) setCatenaLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [readings]);
 
   // Persist notes (debounced, 1.2s)
   const saveNotes = useCallback((value: string) => {
@@ -402,6 +438,110 @@ export default function ReflectView({
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Fathers (Catena Aurea) — Gospel only, discreet affordance */}
+              {r.id === "gospel" && catenaBlocks && catenaBlocks.length > 0 && (
+                <>
+                  <div style={{
+                    height: 1,
+                    background: "var(--ambo-border)",
+                    margin: prompts.length > 0 ? "4px 0 10px" : "20px 0 10px",
+                  }} />
+                  <button
+                    onClick={() => setFathersExpanded((v) => !v)}
+                    style={affordanceStyle}
+                    aria-expanded={fathersExpanded}
+                  >
+                    <span style={{ fontStyle: "italic" }}>fathers</span>
+                    <span style={{ fontSize: 10, opacity: 0.55 }}>
+                      {catenaBlocks.reduce((n, b) => n + b.entries.length, 0)}
+                    </span>
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{fathersExpanded ? "–" : "+"}</span>
+                  </button>
+
+                  {fathersExpanded && (
+                    <div style={{
+                      marginTop: 12,
+                      paddingLeft: 12,
+                      borderLeft: "2px solid var(--ambo-accent-light)",
+                      animation: "fadeIn 0.15s ease",
+                    }}>
+                      {catenaBlocks.map((block, bi) => (
+                        <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
+                          <div style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            color: "var(--ambo-text-muted)",
+                            marginBottom: 6,
+                          }}>
+                            v. {block.verseStart}{block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}
+                          </div>
+                          {block.entries.map((ent, ei) => (
+                            <div key={ei} style={{
+                              display: "flex",
+                              alignItems: "baseline",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              padding: "6px 0",
+                            }}>
+                              <div style={{
+                                fontSize: 13,
+                                color: "var(--ambo-text-secondary)",
+                                lineHeight: 1.55,
+                                flex: 1,
+                              }}>
+                                <span style={{
+                                  fontWeight: 600,
+                                  color: "var(--ambo-text-primary)",
+                                  marginRight: 6,
+                                }}>
+                                  {ent.father ?? "—"}
+                                </span>
+                                {ent.citation && (
+                                  <span style={{
+                                    fontSize: 11,
+                                    color: "var(--ambo-text-muted)",
+                                    fontStyle: "italic",
+                                    marginRight: 6,
+                                  }}>
+                                    ({ent.citation})
+                                  </span>
+                                )}
+                                <span style={{ fontStyle: "italic" }}>{ent.text}</span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  const cite = ent.father
+                                    ? `${ent.father}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`
+                                    : `${r.reference}`;
+                                  appendToNotes(cite, ent.text);
+                                }}
+                                style={sendToNotesStyle}
+                                title="Add to your notes"
+                              >
+                                → note
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Subtle loading hint for Gospel's fathers (only if fetch is in-flight) */}
+              {r.id === "gospel" && catenaLoading && !catenaBlocks && (
+                <div style={{
+                  marginTop: 12,
+                  fontSize: 11,
+                  color: "var(--ambo-text-muted)",
+                }}>
+                  <span style={{ opacity: 0.6 }}>loading patristic commentary…</span>
+                </div>
               )}
             </section>
           );
