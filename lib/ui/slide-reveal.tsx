@@ -24,12 +24,15 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 // Opening: ease-out — fast arrival, settles calmly. Closing: slightly
 // tighter curve so the tail doesn't drag; also shorter duration, because
 // once you've asked a panel to close, you want it gone.
-const EASE_OPEN = "cubic-bezier(0.22, 1, 0.36, 1)";
+// Opening: ease-in-out weighted toward a slow start — the panel should
+// feel like it's inhaling, not snapping. Closing: a tighter curve and
+// shorter duration so the exit is decisive without being abrupt.
+const EASE_OPEN = "cubic-bezier(0.65, 0, 0.2, 1)";
 const EASE_CLOSE = "cubic-bezier(0.4, 0, 0.6, 1)";
-const MIN_MS = 640;
-const MAX_MS = 1100;
-const PX_PER_MS = 0.55;
-const CLOSE_SCALE = 0.62; // close in ~62% the time of open
+const MIN_MS = 780;
+const MAX_MS = 1250;
+const PX_PER_MS = 0.6;
+const CLOSE_SCALE = 0.58; // close in ~58% the time of open
 
 function openDurationFor(height: number): number {
   const extra = Math.max(0, height - 160) * PX_PER_MS;
@@ -86,7 +89,10 @@ export function SlideReveal({ open, children, marginTop = 0, marginBottom = 0, s
   // Opacity finishes before the box so content feels "arrived" without
   // waiting for the last pixel — on close, it fades faster than the box
   // collapses, which also helps the tail not drag.
-  const opacityMs = Math.round(duration * (open ? 0.72 : 0.55));
+  // Opacity lags on open so content doesn't appear fully-formed before
+  // the box has had a chance to reveal. On close, opacity outruns the
+  // box so the tail collapse isn't visible.
+  const opacityMs = Math.round(duration * (open ? 0.85 : 0.5));
 
   return (
     <div
