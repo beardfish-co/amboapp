@@ -516,12 +516,10 @@ export default function ReflectView({
                     <span style={{ fontSize: 10, opacity: 0.6 }}>{expanded ? "–" : "+"}</span>
                   </button>
 
-                  {expanded && (
+                  <SlideReveal open={expanded} marginTop={expanded ? 12 : 0}>
                     <div style={{
-                      marginTop: 12,
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
-                      animation: "fadeIn 0.15s ease",
                     }}>
                       {prompts.map((text) => (
                         <div key={text} style={{
@@ -550,7 +548,7 @@ export default function ReflectView({
                         </div>
                       ))}
                     </div>
-                  )}
+                  </SlideReveal>
                 </>
               )}
 
@@ -574,12 +572,10 @@ export default function ReflectView({
                     <span style={{ fontSize: 10, opacity: 0.6 }}>{fathersExpanded ? "–" : "+"}</span>
                   </button>
 
-                  {fathersExpanded && (
+                  <SlideReveal open={fathersExpanded} marginTop={fathersExpanded ? 12 : 0}>
                     <div style={{
-                      marginTop: 12,
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
-                      animation: "fadeIn 0.15s ease",
                     }}>
                       {catenaBlocks.map((block, bi) => (
                         <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
@@ -643,7 +639,7 @@ export default function ReflectView({
                         </div>
                       ))}
                     </div>
-                  )}
+                  </SlideReveal>
                 </>
               )}
 
@@ -725,8 +721,8 @@ export default function ReflectView({
             </button>
           </div>
 
-          {seedExpanded && (
-            <div style={{ padding: "12px 14px", animation: "fadeIn 0.15s ease" }}>
+          <SlideReveal open={seedExpanded}>
+            <div style={{ padding: "12px 14px" }}>
               {/* Primary seed — the central grace/mystery */}
               <textarea
                 value={seed}
@@ -784,7 +780,7 @@ export default function ReflectView({
                 />
               ))}
             </div>
-          )}
+          </SlideReveal>
 
           {!seedExpanded && seed && (
             <div style={{

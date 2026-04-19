@@ -155,7 +155,7 @@ export default function ReadingsDrawer({
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
-          animation: "fadeIn 0.15s ease",
+          animation: "fadeIn 300ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
 
@@ -175,7 +175,7 @@ export default function ReadingsDrawer({
           display: "flex",
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
-          animation: "slideInRight 0.2s ease",
+          animation: "slideInRight 420ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {/* Header */}
@@ -380,7 +380,7 @@ export default function ReadingsDrawer({
             alignItems: "center",
             gap: 10,
             boxShadow: "var(--ambo-shadow-md)",
-            animation: "fadeIn 0.15s ease",
+            animation: "fadeIn 300ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{

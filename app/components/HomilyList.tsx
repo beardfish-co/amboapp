@@ -198,7 +198,7 @@ export default function HomilyList({
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
-          animation: "fadeIn 0.15s ease",
+          animation: "fadeIn 300ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
 
@@ -218,7 +218,7 @@ export default function HomilyList({
           display: "flex",
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
-          animation: "slideInLeft 0.2s ease",
+          animation: "slideInLeft 420ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         <div style={{

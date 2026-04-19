@@ -902,7 +902,7 @@ export default function WriteView({
           backdropFilter: "blur(24px) saturate(1.4)",
           WebkitBackdropFilter: "blur(24px) saturate(1.4)",
           border: "1px solid var(--ambo-border)",
-          borderRadius: "var(--ambo-radius-md)",
+          borderRadius: "var(--ambo-radius)",
           boxShadow: "var(--ambo-shadow-md)",
           padding: "44px 56px 56px",
         }}
