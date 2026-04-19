@@ -63,11 +63,19 @@ export default function ReflectView({
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
   const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
   const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
+  // Seed — the Directory's "one principal grace" externalised as 4 lines
+  const [seed, setSeed] = useState<string>("");
+  const [seedWhyNow, setSeedWhyNow] = useState<string>("");
+  const [seedEucharist, setSeedEucharist] = useState<string>("");
+  const [seedResponse, setSeedResponse] = useState<string>("");
+  const [seedExpanded, setSeedExpanded] = useState<boolean>(false);
   const [notesOpenMobile, setNotesOpenMobile] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
   const loadedIdRef = useRef<string | null | undefined>(undefined);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-column debounced save timers — used by seed fields and any future single-column saves
+  const fieldTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const draftIdRef = useRef<string | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -82,6 +90,10 @@ export default function ReflectView({
       let loadedSunday: string | null = null;
       let loadedNotes = "";
       let loadedTitle = "";
+      let loadedSeed = "";
+      let loadedSeedWhy = "";
+      let loadedSeedEu = "";
+      let loadedSeedResp = "";
 
       try {
         const supabase = createClient();
@@ -89,7 +101,7 @@ export default function ReflectView({
         if (user && currentId) {
           const { data } = await supabase
             .from("homilies")
-            .select("title, notes, sunday_date")
+            .select("title, notes, sunday_date, seed, seed_why_now, seed_eucharist, seed_response")
             .eq("id", currentId)
             .eq("user_id", user.id)
             .single();
@@ -97,11 +109,15 @@ export default function ReflectView({
             loadedTitle = data.title ?? "";
             loadedNotes = data.notes ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
+            loadedSeed = (data.seed as string | null) ?? "";
+            loadedSeedWhy = (data.seed_why_now as string | null) ?? "";
+            loadedSeedEu = (data.seed_eucharist as string | null) ?? "";
+            loadedSeedResp = (data.seed_response as string | null) ?? "";
           }
         } else if (user && !currentId) {
           const { data } = await supabase
             .from("homilies")
-            .select("id, title, notes, sunday_date")
+            .select("id, title, notes, sunday_date, seed, seed_why_now, seed_eucharist, seed_response")
             .eq("user_id", user.id)
             .order("updated_at", { ascending: false })
             .limit(1)
@@ -110,6 +126,10 @@ export default function ReflectView({
             loadedTitle = data.title ?? "";
             loadedNotes = data.notes ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
+            loadedSeed = (data.seed as string | null) ?? "";
+            loadedSeedWhy = (data.seed_why_now as string | null) ?? "";
+            loadedSeedEu = (data.seed_eucharist as string | null) ?? "";
+            loadedSeedResp = (data.seed_response as string | null) ?? "";
           }
         }
       } catch {
@@ -120,6 +140,12 @@ export default function ReflectView({
       setTitle(loadedTitle);
       setNotes(loadedNotes);
       setSundayDate(loadedSunday);
+      setSeed(loadedSeed);
+      setSeedWhyNow(loadedSeedWhy);
+      setSeedEucharist(loadedSeedEu);
+      setSeedResponse(loadedSeedResp);
+      // open the seed panel automatically only if the priest has started writing one
+      setSeedExpanded(Boolean(loadedSeed || loadedSeedWhy || loadedSeedEu || loadedSeedResp));
       loadedIdRef.current = currentId ?? null;
       draftIdRef.current = currentId ?? null;
       setLoading(false);
@@ -204,13 +230,42 @@ export default function ReflectView({
     }, 1200);
   }, []);
 
+  // Generic per-column debounced save (used for seed fields).
+  const saveField = useCallback((column: string, value: string) => {
+    const timers = fieldTimerRef.current;
+    const existing = timers.get(column);
+    if (existing) clearTimeout(existing);
+    const t = setTimeout(async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const id = draftIdRef.current;
+        if (!id) return;
+        await supabase
+          .from("homilies")
+          .update({ [column]: value })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      } catch {
+        /* ignore */
+      } finally {
+        timers.delete(column);
+      }
+    }, 1200);
+    timers.set(column, t);
+  }, []);
+
   // Flush any pending save when the component unmounts or id swaps
   useEffect(() => {
+    const fieldTimers = fieldTimerRef.current;
     return () => {
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = null;
       }
+      fieldTimers.forEach((t) => clearTimeout(t));
+      fieldTimers.clear();
     };
   }, []);
 
@@ -548,9 +603,9 @@ export default function ReflectView({
         })}
       </div>
 
-      {/* Notes pad (right column on desktop, bottom sheet on mobile) */}
-      <aside
-        className="reflect-notes"
+      {/* Right column: seed panel + notes pad */}
+      <div
+        className="reflect-side"
         style={{
           position: "sticky",
           top: 80,
@@ -558,12 +613,145 @@ export default function ReflectView({
           maxHeight: "calc(100vh - 110px)",
           display: "flex",
           flexDirection: "column",
-          border: "1px solid var(--ambo-border)",
-          borderRadius: 14,
-          background: "var(--ambo-surface)",
+          gap: 12,
           overflow: "hidden",
         }}
       >
+        {/* Seed panel — the Directory's "one principal grace", discreet and optional */}
+        <div
+          className="reflect-seed"
+          style={{
+            border: "1px solid var(--ambo-border)",
+            borderRadius: 14,
+            background: "var(--ambo-surface)",
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{
+            padding: "12px 14px",
+            borderBottom: seedExpanded ? "1px solid var(--ambo-border)" : "none",
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            gap: 8,
+          }}>
+            <span style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-secondary)",
+            }}>
+              Seed
+            </span>
+            <button
+              onClick={() => setSeedExpanded((v) => !v)}
+              disabled={!currentId}
+              style={{
+                border: "none",
+                background: "transparent",
+                fontSize: 11,
+                color: "var(--ambo-text-muted)",
+                cursor: currentId ? "pointer" : "default",
+                padding: 0,
+                fontStyle: "italic",
+                fontFamily: "inherit",
+              }}
+              aria-expanded={seedExpanded}
+            >
+              {seedExpanded ? "hide" : (seed ? "show" : "begin")}
+            </button>
+          </div>
+
+          {seedExpanded && (
+            <div style={{ padding: "12px 14px", animation: "fadeIn 0.15s ease" }}>
+              {/* Primary seed — the central grace/mystery */}
+              <textarea
+                value={seed}
+                onChange={(e) => { setSeed(e.target.value); saveField("seed", e.target.value); }}
+                placeholder="What is the central grace or mystery of this Sunday?"
+                disabled={!currentId}
+                rows={2}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  resize: "none",
+                  background: "transparent",
+                  color: "var(--ambo-text-primary)",
+                  fontFamily: "inherit",
+                  fontSize: 15,
+                  fontStyle: "italic",
+                  lineHeight: 1.55,
+                  padding: 0,
+                }}
+              />
+
+              <div style={{
+                height: 1,
+                background: "var(--ambo-border)",
+                margin: "10px 0 6px",
+                opacity: 0.6,
+              }} />
+
+              {/* Three quieter unfolding questions */}
+              {[
+                { value: seedWhyNow, set: setSeedWhyNow, col: "seed_why_now", placeholder: "Why do these people need this now?" },
+                { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this prepare them for the Eucharist?" },
+                { value: seedResponse, set: setSeedResponse, col: "seed_response", placeholder: "What concrete response is the Lord asking?" },
+              ].map((f) => (
+                <textarea
+                  key={f.col}
+                  value={f.value}
+                  onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
+                  placeholder={f.placeholder}
+                  disabled={!currentId}
+                  rows={1}
+                  style={{
+                    width: "100%",
+                    border: "none",
+                    outline: "none",
+                    resize: "none",
+                    background: "transparent",
+                    color: "var(--ambo-text-secondary)",
+                    fontFamily: "inherit",
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    padding: "4px 0",
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {!seedExpanded && seed && (
+            <div style={{
+              padding: "8px 14px 12px",
+              fontSize: 13,
+              fontStyle: "italic",
+              color: "var(--ambo-text-secondary)",
+              lineHeight: 1.5,
+            }}>
+              {seed}
+            </div>
+          )}
+        </div>
+
+        {/* Notes pad */}
+        <aside
+          className="reflect-notes"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            border: "1px solid var(--ambo-border)",
+            borderRadius: 14,
+            background: "var(--ambo-surface)",
+            overflow: "hidden",
+          }}
+        >
         <div style={{
           padding: "12px 14px",
           borderBottom: "1px solid var(--ambo-border)",
@@ -620,7 +808,8 @@ export default function ReflectView({
             Added to notes
           </div>
         )}
-      </aside>
+        </aside>
+      </div>
 
       {/* Mobile toggle for notes */}
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
@@ -630,14 +819,13 @@ export default function ReflectView({
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
           }
+          .reflect-side {
+            position: static !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
           .reflect-notes {
-            position: fixed !important;
-            left: 16px;
-            right: 16px;
-            bottom: 16px;
-            top: auto !important;
-            max-height: 40vh !important;
-            z-index: 40;
+            min-height: 280px;
           }
         }
       `}</style>

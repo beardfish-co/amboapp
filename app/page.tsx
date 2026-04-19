@@ -208,6 +208,7 @@ export default function AmboApp() {
             onCurrentIdChange={persistCurrentId}
             onSaved={handleSaved}
             onOpenList={openDrawer}
+            onGoReflect={() => setMode("reflect")}
           />
         )}
         {mode === "preach" && idHydrated && <PreachView currentId={currentId} />}

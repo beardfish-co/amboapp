@@ -25,6 +25,7 @@ interface WriteViewProps {
   onSaved?: () => void;
   onLoaded?: (info: { id: string | null; title: string }) => void;
   onOpenList: () => void;
+  onGoReflect?: () => void;
 }
 
 function toIsoDate(d: Date): string {
@@ -121,6 +122,7 @@ export default function WriteView({
   onSaved,
   onLoaded,
   onOpenList,
+  onGoReflect,
 }: WriteViewProps) {
   const [title, setTitle] = useState("");
   const [sundayDate, setSundayDate] = useState<string | null>(null);
@@ -128,6 +130,8 @@ export default function WriteView({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [readingsOpen, setReadingsOpen] = useState(false);
   const [notes, setNotes] = useState("");
+  // Seed — primary line only (unfolding lives in Reflect). Read-only here.
+  const [seed, setSeed] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
   const notesSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [paragraphs, setParagraphs] = useState<Paragraph[]>([
@@ -215,6 +219,7 @@ export default function WriteView({
         setLastSaved(null);
         setSundayDate(defaultSunday);
         setNotes("");
+        setSeed("");
         draftIdRef.current = null;
         loadedIdRef.current = null;
         try {
@@ -232,7 +237,7 @@ export default function WriteView({
         if (user) {
           const { data } = await supabase
             .from("homilies")
-            .select("id, title, content, sunday_date, notes")
+            .select("id, title, content, sunday_date, notes, seed")
             .eq("id", currentId)
             .eq("user_id", user.id)
             .single();
@@ -244,6 +249,7 @@ export default function WriteView({
             setTitle(nextTitle);
             setSundayDate((data.sunday_date as string | null) ?? null);
             setNotes((data.notes as string | null) ?? "");
+            setSeed((data.seed as string | null) ?? "");
             const parsed = data.content ? parseParagraphs(data.content) : [];
             setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
             try {
@@ -265,6 +271,7 @@ export default function WriteView({
         setParagraphs([{ id: generateId(), text: "" }]);
         setLastSaved(null);
         setNotes("");
+        setSeed("");
         onLoaded?.({ id: currentId, title: "" });
       }
 
@@ -663,6 +670,42 @@ export default function WriteView({
               boxSizing: "border-box",
             }}
           />
+        </div>
+      )}
+
+      {/* Seed reminder — from Reflect, read-only here */}
+      {seed.trim().length > 0 && (
+        <div
+          onClick={onGoReflect}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGoReflect?.(); } }}
+          title="Edit in Reflect"
+          style={{
+            marginBottom: 18,
+            padding: "10px 14px",
+            borderLeft: "2px solid var(--ambo-accent-light)",
+            background: "transparent",
+            cursor: onGoReflect ? "pointer" : "default",
+            fontSize: 14,
+            fontStyle: "italic",
+            lineHeight: 1.55,
+            color: "var(--ambo-text-secondary)",
+          }}
+        >
+          <span style={{
+            display: "block",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--ambo-text-muted)",
+            fontStyle: "normal",
+            marginBottom: 4,
+          }}>
+            Seed
+          </span>
+          {seed}
         </div>
       )}
 

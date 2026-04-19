@@ -57,6 +57,7 @@ function parseBlocks(text: string): Block[] {
 
 export default function PreachView({ currentId }: PreachViewProps) {
   const [title, setTitle] = useState("");
+  const [seed, setSeed] = useState("");
   const [content, setContent] = useState("");
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [readings, setReadings] = useState<DayReadings | null>(null);
@@ -77,6 +78,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       let loadedTitle = "";
       let loadedContent = "";
       let loadedSunday: string | null = null;
+      let loadedSeed = "";
       let gotIt = false;
 
       try {
@@ -85,7 +87,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         if (user) {
           const base = supabase
             .from("homilies")
-            .select("title, content, sunday_date")
+            .select("title, content, sunday_date, seed")
             .eq("user_id", user.id);
 
           const { data } = currentId
@@ -96,6 +98,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
             loadedTitle = data.title ?? "";
             loadedContent = data.content ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
+            loadedSeed = (data.seed as string | null) ?? "";
             gotIt = true;
           }
         }
@@ -117,6 +120,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       setTitle(loadedTitle);
       setContent(loadedContent);
       setSundayDate(loadedSunday);
+      setSeed(loadedSeed);
       setReadings(null);
       setReadingsOpen(false);
       setExpandedReadingId(null);
@@ -360,6 +364,21 @@ export default function PreachView({ currentId }: PreachViewProps) {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Seed — quiet glance before the ambo */}
+      {seed.trim().length > 0 && (
+        <div style={{
+          marginBottom: title ? 16 : 40,
+          paddingLeft: 14,
+          borderLeft: "2px solid var(--ambo-accent-light)",
+          fontSize: 15,
+          fontStyle: "italic",
+          lineHeight: 1.55,
+          color: "var(--ambo-text-secondary)",
+        }}>
+          {seed}
         </div>
       )}
 
