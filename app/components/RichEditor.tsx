@@ -108,22 +108,20 @@ export default function RichEditor({
 
     const onMove = (e: MouseEvent) => {
       const target = e.target;
-      // If the cursor is on (or inside) the handle itself, keep the
-      // current position — otherwise the act of reaching for the handle
-      // makes it vanish. We listen on the scroller (not editorEl) so
-      // events over the handle still fire.
+      // Ignore events over the handle itself (keep position) — otherwise
+      // reaching for the handle would make it vanish.
       if (target instanceof HTMLElement && target.closest(".ambo-drag-handle")) {
         return;
       }
+      // If the cursor is in the left-margin gap between the editor text
+      // and the handle (target is the scroller background), keep the
+      // current position so the handle stays reachable. We only clear
+      // on full mouseleave of the scroller (see onLeave below).
       if (!(target instanceof Node) || !editorEl.contains(target)) {
-        setHandlePos(null);
         return;
       }
       const block = findTopLevelBlock(target, editorEl);
-      if (!block) {
-        setHandlePos(null);
-        return;
-      }
+      if (!block) return;
       const blockRect = block.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
       // Align handle with the first line of the block (roughly: top of
