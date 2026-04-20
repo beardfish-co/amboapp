@@ -214,6 +214,29 @@ export default function AmboApp() {
         {mode === "preach" && idHydrated && <PreachView currentId={currentId} />}
       </main>
 
+      {/* Attribution footer — present on every view */}
+      <footer style={{
+        padding: "20px 24px 28px",
+        textAlign: "center",
+      }}>
+        <p style={{
+          fontSize: 11,
+          color: "var(--ambo-text-muted)",
+          letterSpacing: "0.02em",
+          margin: 0,
+        }}>
+          Scripture readings provided by{" "}
+          <a
+            href="https://universalis.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "var(--ambo-accent)", textDecoration: "none" }}
+          >
+            Universalis
+          </a>
+        </p>
+      </footer>
+
       {/* Homily drawer */}
       <HomilyList
         open={drawerOpen}
