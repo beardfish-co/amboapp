@@ -156,6 +156,16 @@ export default function WriteView({
   // remounts with fresh content when switching homilies.
   const [initialHtml, setInitialHtml] = useState<string>("<p></p>");
   const editorRef = useRef<Editor | null>(null);
+  // editorInstance mirrors editorRef into state so effects re-run when the
+  // editor mounts. Set in onReady alongside the ref. Used by the citation
+  // helper to track whether the cursor is inside a quote.
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  // Citation helper state — drives the ribbon's citation button.
+  // 'none' → cursor not in a quote, button hidden.
+  // 'add'  → in quote, no citation yet → clicking inserts "— " on a new line.
+  // 'edit' → in quote, last paragraph already starts with "— " → clicking
+  //          puts the cursor at the end of that line.
+  const [citationMode, setCitationMode] = useState<"none" | "add" | "edit">("none");
 
   // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -464,6 +474,44 @@ export default function WriteView({
     }, 1200);
   };
 
+  // Citation-mode syncer. Subscribes to the editor's selection/update
+  // events and computes whether the current selection sits inside a quote
+  // block (and whether that quote already has a "— " citation line).
+  useEffect(() => {
+    const editor = editorInstance;
+    if (!editor) return;
+    const sync = () => {
+      if (!editor.isActive("blockquote")) {
+        setCitationMode("none");
+        return;
+      }
+      const { $from } = editor.state.selection;
+      let quoteDepth = -1;
+      for (let d = $from.depth; d >= 0; d--) {
+        if ($from.node(d).type.name === "blockquote") {
+          quoteDepth = d;
+          break;
+        }
+      }
+      if (quoteDepth === -1) {
+        setCitationMode("none");
+        return;
+      }
+      const quoteNode = $from.node(quoteDepth);
+      const lastPara = quoteNode.lastChild;
+      const lastText = lastPara?.textContent ?? "";
+      const hasCitation = /^\u2014\s/.test(lastText);
+      setCitationMode(hasCitation ? "edit" : "add");
+    };
+    editor.on("selectionUpdate", sync);
+    editor.on("update", sync);
+    sync();
+    return () => {
+      editor.off("selectionUpdate", sync);
+      editor.off("update", sync);
+    };
+  }, [editorInstance]);
+
   // Ribbon handlers — surface ⌘B / ⌘I / toggle-blockquote as buttons for
   // priests who don't know the keyboard shortcuts. StarterKit also wires the
   // shortcuts natively in the editor, so the buttons are a second way in.
@@ -481,6 +529,52 @@ export default function WriteView({
     const editor = editorRef.current;
     if (!editor) return;
     editor.chain().focus().toggleBlockquote().run();
+  };
+
+  // Citation helper — add a "— " line to the current quote, or move the
+  // cursor to the existing citation if one is already present. Storage
+  // stays the Phase 1 format (trailing "— Source" paragraph inside the
+  // blockquote); we're only adding an explicit affordance so priests
+  // don't have to know the typing convention.
+  const onCitationClick = () => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (!editor.isActive("blockquote")) return;
+    const { $from } = editor.state.selection;
+    let quoteDepth = -1;
+    for (let d = $from.depth; d >= 0; d--) {
+      if ($from.node(d).type.name === "blockquote") {
+        quoteDepth = d;
+        break;
+      }
+    }
+    if (quoteDepth === -1) return;
+    const quoteStart = $from.before(quoteDepth);
+    const quoteNode = $from.node(quoteDepth);
+    const quoteEnd = quoteStart + quoteNode.nodeSize;
+    const lastPara = quoteNode.lastChild;
+    const lastText = lastPara?.textContent ?? "";
+    const hasCitation = /^\u2014\s/.test(lastText);
+    if (hasCitation) {
+      // Put cursor at the end of the existing citation line.
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(quoteEnd - 2)
+        .run();
+    } else {
+      // Insert a new paragraph "— " as the last child of the blockquote.
+      // quoteEnd - 1 is the position just before the closing tag of the
+      // blockquote (i.e. after the current last paragraph).
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(quoteEnd - 1, {
+          type: "paragraph",
+          content: [{ type: "text", text: "\u2014 " }],
+        })
+        .run();
+    }
   };
 
   const estimatedMinutes = Math.round(wordCount / 130);
@@ -962,6 +1056,14 @@ export default function WriteView({
         >
           <QuoteGlyph />
         </RibbonButton>
+        {citationMode !== "none" && (
+          <RibbonButton
+            label={citationMode === "edit" ? "Edit citation" : "Add citation"}
+            onClick={onCitationClick}
+          >
+            <CitationGlyph />
+          </RibbonButton>
+        )}
         </div>
       </div>
 
@@ -974,6 +1076,7 @@ export default function WriteView({
           initialHtml={initialHtml}
           onReady={(editor) => {
             editorRef.current = editor;
+            setEditorInstance(editor);
           }}
           onUpdate={(editor) => {
             const next = paragraphsFromDoc(editor.getJSON());
@@ -1149,3 +1252,15 @@ function QuoteGlyph() {
     </svg>
   );
 }
+
+// CitationGlyph — em-dash paired with a short underscore. Visually echoes
+// the "— Source" convention so priests recognise what the button will do.
+function CitationGlyph() {
+  return (
+    <svg width="14" height="10" viewBox="0 0 20 14" fill="none" aria-hidden>
+      <line x1="3" y1="5" x2="10" y2="5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="4" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.55" />
+    </svg>
+  );
+}
+
