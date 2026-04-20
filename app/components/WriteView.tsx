@@ -8,13 +8,13 @@ import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon as StackIconShared, BookIcon as BookIconShared, NoteIcon, ExamineIcon } from "@/lib/ui/icons";
 import { loadDayName } from "@/lib/readings";
-
-interface Paragraph {
-  id: string;
-  text: string;
-  kind?: "quote";
-  citation?: string;
-}
+import type { Editor } from "@tiptap/react";
+import RichEditor from "./RichEditor";
+import {
+  paragraphsToHtml,
+  paragraphsFromDoc,
+  type Paragraph,
+} from "@/lib/paragraph-tiptap";
 
 const STORAGE_KEY = "ambo-draft";
 
@@ -87,54 +87,6 @@ function generateId() {
   return Math.random().toString(36).slice(2, 9);
 }
 
-// Wrap/unwrap the current textarea selection with a markdown mark.
-// Minimal and forgiving: if selection already wrapped, unwrap; otherwise wrap.
-// Empty selection inserts the markers with cursor between them.
-function applyInlineMark(
-  ta: HTMLTextAreaElement,
-  mark: string,
-): { value: string; selStart: number; selEnd: number } {
-  const value = ta.value;
-  const start = ta.selectionStart;
-  const end = ta.selectionEnd;
-  const selected = value.slice(start, end);
-  const len = mark.length;
-
-  // Case A: selection is wrapped from outside — unwrap.
-  const before = value.slice(Math.max(0, start - len), start);
-  const after = value.slice(end, end + len);
-  if (selected.length > 0 && before === mark && after === mark) {
-    return {
-      value: value.slice(0, start - len) + selected + value.slice(end + len),
-      selStart: start - len,
-      selEnd: end - len,
-    };
-  }
-
-  // Case B: selection already wraps itself — unwrap inside.
-  if (
-    selected.startsWith(mark) &&
-    selected.endsWith(mark) &&
-    selected.length >= len * 2
-  ) {
-    return {
-      value:
-        value.slice(0, start) +
-        selected.slice(len, selected.length - len) +
-        value.slice(end),
-      selStart: start,
-      selEnd: end - len * 2,
-    };
-  }
-
-  // Case C: wrap (or insert empty markers if no selection).
-  return {
-    value: value.slice(0, start) + mark + selected + mark + value.slice(end),
-    selStart: start + len,
-    selEnd: end + len,
-  };
-}
-
 // Parse the stored content string into Paragraphs, recognising quote blocks.
 // Empty blocks are preserved — they read as "breath" in Preach.
 function parseParagraphs(text: string): Paragraph[] {
@@ -199,14 +151,11 @@ export default function WriteView({
   ]);
   const [wordCount, setWordCount] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [undoStack, setUndoStack] = useState<Paragraph[][]>([]);
-  const [recentAction, setRecentAction] = useState<"moved" | "inserted" | "removed" | null>(null);
-  const recentActionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Track most-recently-focused paragraph so Insert knows where to drop a quote.
-  const lastFocusedParaIdRef = useRef<string | null>(null);
+  // Seed HTML for the Tiptap editor. Refreshed on load; the editor owns its
+  // content after that. We re-key <RichEditor> on currentId so the editor
+  // remounts with fresh content when switching homilies.
+  const [initialHtml, setInitialHtml] = useState<string>("<p></p>");
+  const editorRef = useRef<Editor | null>(null);
 
   // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -275,7 +224,9 @@ export default function WriteView({
         if (cancelled) return;
         const defaultSunday = toIsoDate(getComingSunday(new Date()));
         setTitle("");
-        setParagraphs([{ id: generateId(), text: "" }]);
+        const emptyDraft: Paragraph[] = [{ id: generateId(), text: "" }];
+        setParagraphs(emptyDraft);
+        setInitialHtml(paragraphsToHtml(emptyDraft));
         setLastSaved(null);
         setSundayDate(defaultSunday);
         setNotes("");
@@ -311,7 +262,9 @@ export default function WriteView({
             setNotes((data.notes as string | null) ?? "");
             setSeed((data.seed as string | null) ?? "");
             const parsed = data.content ? parseParagraphs(data.content) : [];
-            setParagraphs(parsed.length ? parsed : [{ id: generateId(), text: "" }]);
+            const seeded = parsed.length ? parsed : [{ id: generateId(), text: "" }];
+            setParagraphs(seeded);
+            setInitialHtml(paragraphsToHtml(seeded));
             try {
               localStorage.setItem(
                 STORAGE_KEY,
@@ -328,7 +281,9 @@ export default function WriteView({
         draftIdRef.current = currentId;
         setTitle("");
         setSundayDate(null);
-        setParagraphs([{ id: generateId(), text: "" }]);
+        const emptyDraft: Paragraph[] = [{ id: generateId(), text: "" }];
+        setParagraphs(emptyDraft);
+        setInitialHtml(paragraphsToHtml(emptyDraft));
         setLastSaved(null);
         setNotes("");
         setSeed("");
@@ -443,18 +398,6 @@ export default function WriteView({
     save(val, paragraphs, sundayDate);
   };
 
-  const handleParaChange = (id: string, val: string) => {
-    const updated = paragraphs.map((p) => (p.id === id ? { ...p, text: val } : p));
-    setParagraphs(updated);
-    save(title, updated, sundayDate);
-  };
-
-  const handleParaCitationChange = (id: string, val: string) => {
-    const updated = paragraphs.map((p) => (p.id === id ? { ...p, citation: val } : p));
-    setParagraphs(updated);
-    save(title, updated, sundayDate);
-  };
-
   const handleSundayChange = (iso: string | null) => {
     setSundayDate(iso);
     setPickerOpen(false);
@@ -462,66 +405,40 @@ export default function WriteView({
   };
 
   const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
-    // Snapshot for undo (captured synchronously; setState below will use the same prev).
-    setParagraphs((prev) => {
-      setUndoStack((s) => [...s, prev]);
+    const editor = editorRef.current;
+    if (!editor) {
+      setReadingsOpen(false);
+      return;
+    }
 
-      let insertAfter = prev.length - 1;
-      const focusedId = lastFocusedParaIdRef.current;
-      if (focusedId) {
-        const idx = prev.findIndex((p) => p.id === focusedId);
-        if (idx >= 0) insertAfter = idx;
-      }
+    // Build the blockquote fragment directly — a single reusable helper
+    // (paragraphsToHtml) already knows how to render a quote Paragraph,
+    // including the "— citation" last line. An empty paragraph after the
+    // blockquote gives the priest somewhere to keep typing.
+    const quoteP: Paragraph = {
+      id: generateId(),
+      text: payload.text,
+      kind: "quote",
+      citation: payload.citation,
+    };
+    const quoteHtml = paragraphsToHtml([quoteP]) + "<p></p>";
 
-      const quoteP: Paragraph = {
-        id: generateId(),
-        text: payload.text,
-        kind: "quote",
-        citation: payload.citation,
-      };
+    // Insert at the end of the current block. If the current block is an
+    // empty paragraph, insertContentAt will splice cleanly; otherwise the
+    // new blockquote lands after the cursor's current block.
+    const { $to } = editor.state.selection;
+    const insertPos = $to.after($to.depth);
 
-      // If the focused paragraph is empty body text, replace it rather than shoving it down.
-      const focused = focusedId ? prev.find((p) => p.id === focusedId) : null;
-      let next: Paragraph[];
-      if (focused && !focused.kind && focused.text.trim() === "") {
-        next = prev.map((p) => (p.id === focused.id ? quoteP : p));
-        insertAfter = prev.findIndex((p) => p.id === focused.id);
-      } else {
-        next = [
-          ...prev.slice(0, insertAfter + 1),
-          quoteP,
-          ...prev.slice(insertAfter + 1),
-        ];
-      }
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(insertPos, quoteHtml)
+      .run();
 
-      // Ensure there's a body paragraph after the quote so the user can keep typing.
-      const afterIdx = next.findIndex((p) => p.id === quoteP.id) + 1;
-      let nextFocusId: string;
-      if (afterIdx >= next.length) {
-        const newBody: Paragraph = { id: generateId(), text: "" };
-        next = [...next, newBody];
-        nextFocusId = newBody.id;
-      } else {
-        nextFocusId = next[afterIdx].id;
-      }
-
-      save(title, next, sundayDate);
-      // Focus the body paragraph after the quote on next frame
-      setTimeout(() => {
-        const el = document.getElementById(`para-${nextFocusId}`);
-        if (el) (el as HTMLTextAreaElement).focus();
-      }, 20);
-
-      return next;
-    });
-
-    // Show undo toast for ~6 seconds
-    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
-    setRecentAction("inserted");
-    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 6000);
-
+    // The onUpdate handler fires from the insertContent and will sync
+    // paragraphs + save; no manual setParagraphs needed here.
     setReadingsOpen(false);
-  }, [save, title, sundayDate]);
+  }, []);
 
   // Notes are saved independently from the main content save path —
   // they share the debounce pattern but their own timer and their own
@@ -547,185 +464,23 @@ export default function WriteView({
     }, 1200);
   };
 
-  const handleParaFocus = (id: string) => {
-    lastFocusedParaIdRef.current = id;
-  };
-
-  // Ribbon handlers — same effect as the ⌘B / ⌘I keyboard shortcuts,
-  // surfaced as small buttons so priests who don't know the shortcuts
-  // still have discoverable formatting. Operate on the currently-focused
-  // paragraph textarea. If nothing is focused, the buttons are no-ops.
+  // Ribbon handlers — surface ⌘B / ⌘I / toggle-blockquote as buttons for
+  // priests who don't know the keyboard shortcuts. StarterKit also wires the
+  // shortcuts natively in the editor, so the buttons are a second way in.
   const applyRibbonMark = (mark: "**" | "*") => {
-    const focusedId = lastFocusedParaIdRef.current;
-    if (!focusedId) return;
-    const ta = document.getElementById(`para-${focusedId}`) as HTMLTextAreaElement | null;
-    if (!ta || ta.tagName.toLowerCase() !== "textarea") return;
-    const para = paragraphs.find((p) => p.id === focusedId);
-    if (!para) return;
-    const { value, selStart, selEnd } = applyInlineMark(ta, mark);
-    handleParaChange(focusedId, value);
-    setTimeout(() => {
-      ta.focus();
-      ta.setSelectionRange(selStart, selEnd);
-    }, 0);
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (mark === "**") {
+      editor.chain().focus().toggleBold().run();
+    } else {
+      editor.chain().focus().toggleItalic().run();
+    }
   };
 
   const insertRibbonQuote = () => {
-    const focusedId = lastFocusedParaIdRef.current;
-    setParagraphs((prev) => {
-      setUndoStack((s) => [...s, prev]);
-      const quoteP: Paragraph = {
-        id: generateId(),
-        text: "",
-        kind: "quote",
-        citation: "",
-      };
-      let insertAfter = prev.length - 1;
-      if (focusedId) {
-        const idx = prev.findIndex((p) => p.id === focusedId);
-        if (idx >= 0) insertAfter = idx;
-      }
-      const focused = focusedId ? prev.find((p) => p.id === focusedId) : null;
-      let next: Paragraph[];
-      if (focused && !focused.kind && focused.text.trim() === "") {
-        // Replace empty body paragraph with the quote block
-        next = prev.map((pp) => (pp.id === focused.id ? quoteP : pp));
-      } else {
-        next = [
-          ...prev.slice(0, insertAfter + 1),
-          quoteP,
-          ...prev.slice(insertAfter + 1),
-        ];
-      }
-      // Ensure there's a body paragraph after the quote so typing can continue
-      const afterIdx = next.findIndex((pp) => pp.id === quoteP.id) + 1;
-      if (afterIdx >= next.length) {
-        next = [...next, { id: generateId(), text: "" }];
-      }
-      save(title, next, sundayDate);
-      setTimeout(() => {
-        const el = document.getElementById(`para-${quoteP.id}`);
-        if (el) (el as HTMLTextAreaElement).focus();
-      }, 0);
-      return next;
-    });
-  };
-
-  const handleParaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
-    // Cmd/Ctrl + B or I — inline emphasis. Keyboard-only, no toolbar.
-    const isMod = e.metaKey || e.ctrlKey;
-    if (isMod && (e.key === "b" || e.key === "B" || e.key === "i" || e.key === "I")) {
-      e.preventDefault();
-      const ta = e.currentTarget;
-      const mark = (e.key === "b" || e.key === "B") ? "**" : "*";
-      const para = paragraphs.find((p) => p.id === id);
-      if (!para) return;
-      const { value, selStart, selEnd } = applyInlineMark(ta, mark);
-      // Figure out which field on the paragraph is being edited (quote body vs citation vs body).
-      // Only the text field has the asterisk syntax applied here. Citation is plain.
-      if (para.kind === "quote" && ta.tagName.toLowerCase() === "input") {
-        // citation input — do nothing special
-        return;
-      }
-      handleParaChange(id, value);
-      setTimeout(() => {
-        ta.focus();
-        ta.setSelectionRange(selStart, selEnd);
-      }, 0);
-      return;
-    }
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      const idx = paragraphs.findIndex((p) => p.id === id);
-      const newPara: Paragraph = { id: generateId(), text: "" };
-      const updated = [
-        ...paragraphs.slice(0, idx + 1),
-        newPara,
-        ...paragraphs.slice(idx + 1),
-      ];
-      setParagraphs(updated);
-      save(title, updated, sundayDate);
-      setTimeout(() => {
-        const el = document.getElementById(`para-${newPara.id}`);
-        if (el) el.focus();
-      }, 10);
-    }
-    if (e.key === "Backspace") {
-      const para = paragraphs.find((p) => p.id === id);
-      if (para && para.text === "" && paragraphs.length > 1) {
-        e.preventDefault();
-        const idx = paragraphs.findIndex((p) => p.id === id);
-        const updated = paragraphs.filter((p) => p.id !== id);
-        setParagraphs(updated);
-        save(title, updated, sundayDate);
-        const prevId = updated[Math.max(0, idx - 1)]?.id;
-        if (prevId) {
-          setTimeout(() => {
-            const el = document.getElementById(`para-${prevId}`) as HTMLTextAreaElement;
-            if (el) {
-              el.focus();
-              el.setSelectionRange(el.value.length, el.value.length);
-            }
-          }, 10);
-        }
-      }
-    }
-  };
-
-  const handleRemoveQuote = useCallback((id: string) => {
-    setParagraphs((prev) => {
-      setUndoStack((s) => [...s, prev]);
-      const next = prev.filter((p) => p.id !== id);
-      // Ensure at least one paragraph remains, so the user has somewhere to type.
-      const ensured = next.length === 0 ? [{ id: generateId(), text: "" }] : next;
-      save(title, ensured, sundayDate);
-      return ensured;
-    });
-    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
-    setRecentAction("removed");
-    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 6000);
-  }, [save, title, sundayDate]);
-
-  const handleDragStart = (id: string, before: Paragraph[]) => {
-    setUndoStack((s) => [...s, before]);
-    setDragId(id);
-  };
-  const handleDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    setDragOverId(id);
-  };
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!dragId || dragId === targetId) {
-      setDragId(null);
-      setDragOverId(null);
-      return;
-    }
-    const fromIdx = paragraphs.findIndex((p) => p.id === dragId);
-    const toIdx = paragraphs.findIndex((p) => p.id === targetId);
-    const updated = [...paragraphs];
-    const [moved] = updated.splice(fromIdx, 1);
-    updated.splice(toIdx, 0, moved);
-    setParagraphs(updated);
-    save(title, updated, sundayDate);
-    setDragId(null);
-    setDragOverId(null);
-    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
-    setRecentAction("moved");
-    recentActionTimerRef.current = setTimeout(() => setRecentAction(null), 4000);
-  };
-  const handleUndoLast = () => {
-    if (undoStack.length === 0) return;
-    const prev = undoStack[undoStack.length - 1];
-    setParagraphs(prev);
-    setUndoStack((s) => s.slice(0, -1));
-    save(title, prev, sundayDate);
-    if (recentActionTimerRef.current) clearTimeout(recentActionTimerRef.current);
-    setRecentAction(null);
-  };
-  const handleDragEnd = () => {
-    setDragId(null);
-    setDragOverId(null);
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.chain().focus().toggleBlockquote().run();
   };
 
   const estimatedMinutes = Math.round(wordCount / 130);
@@ -1149,48 +904,6 @@ export default function WriteView({
         }} />
       </div>
 
-      {/* Undo toast — shared between paragraph move and quote insert */}
-      {recentAction && (
-        <div style={{
-          position: "fixed",
-          bottom: 100,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "var(--ambo-surface)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid var(--ambo-border)",
-          borderRadius: 100,
-          padding: "10px 20px",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          boxShadow: "var(--ambo-shadow-md)",
-          zIndex: 100,
-          animation: "fadeIn 0.2s ease",
-        }}>
-          <span style={{ fontSize: 14, color: "var(--ambo-text-secondary)" }}>
-            {recentAction === "moved" ? "Paragraph moved" : recentAction === "removed" ? "Quote removed" : "Quote inserted"}
-          </span>
-          <button
-            onClick={handleUndoLast}
-            style={{
-              border: "none",
-              background: "var(--ambo-accent-light)",
-              color: "var(--ambo-accent)",
-              fontSize: 13,
-              fontWeight: 600,
-              padding: "4px 12px",
-              borderRadius: 100,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            Undo
-          </button>
-        </div>
-      )}
-
       {/* Formatting ribbon — a pill holding bold / italic / quote. Matches the
           pill language the rest of the app uses (Sunday pill, drawer toggles).
           Sits inside the panel above the paragraphs; pins just below the page
@@ -1252,44 +965,23 @@ export default function WriteView({
         </div>
       </div>
 
-      {/* Paragraphs */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {paragraphs.map((para) => (
-          <div
-            key={para.id}
-            className={`ambo-para-wrapper ${dragId === para.id ? "dragging" : ""} ${dragOverId === para.id && dragId !== para.id ? "drag-over" : ""}`}
-            draggable
-            onDragStart={() => handleDragStart(para.id, paragraphs)}
-            onDragOver={(e) => handleDragOver(e, para.id)}
-            onDrop={(e) => handleDrop(e, para.id)}
-            onDragEnd={handleDragEnd}
-            style={{ paddingLeft: 30 }}
-          >
-            <div className="ambo-drag-handle" title="Drag to reorder">
-              <DragIcon />
-            </div>
-
-            {para.kind === "quote" ? (
-              <QuoteBlock
-                para={para}
-                onTextChange={(val) => handleParaChange(para.id, val)}
-                onCitationChange={(val) => handleParaCitationChange(para.id, val)}
-                onKeyDown={(e) => handleParaKeyDown(e, para.id)}
-                onFocus={() => handleParaFocus(para.id)}
-                onRemove={() => handleRemoveQuote(para.id)}
-              />
-            ) : (
-              <AutoTextarea
-                id={`para-${para.id}`}
-                value={para.text}
-                onChange={(val) => handleParaChange(para.id, val)}
-                onKeyDown={(e) => handleParaKeyDown(e, para.id)}
-                onFocus={() => handleParaFocus(para.id)}
-                placeholder={paragraphs.indexOf(para) === 0 ? "Begin writing your homily…" : ""}
-              />
-            )}
-          </div>
-        ))}
+      {/* Paragraphs — single Tiptap editor owns all paragraph flow now.
+          Re-keyed on currentId so switching homilies remounts with fresh
+          content. StarterKit wires ⌘B / ⌘I / Enter / Backspace natively. */}
+      <div className="ambo-rich-editor-wrap">
+        <RichEditor
+          key={currentId ?? "new"}
+          initialHtml={initialHtml}
+          onReady={(editor) => {
+            editorRef.current = editor;
+          }}
+          onUpdate={(editor) => {
+            const next = paragraphsFromDoc(editor.getJSON());
+            setParagraphs(next);
+            save(title, next, sundayDate);
+          }}
+          placeholder="Begin writing your homily…"
+        />
       </div>
       </div>
       {/* /Glass Panel */}
@@ -1333,182 +1025,6 @@ export default function WriteView({
   );
 }
 
-function QuoteBlock({
-  para,
-  onTextChange,
-  onCitationChange,
-  onKeyDown,
-  onFocus,
-  onRemove,
-}: {
-  para: Paragraph;
-  onTextChange: (val: string) => void;
-  onCitationChange: (val: string) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onFocus: () => void;
-  onRemove: () => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const [hovered, setHovered] = useState(false);
-
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.style.height = "auto";
-      ref.current.style.height = ref.current.scrollHeight + "px";
-    }
-  }, [para.text]);
-
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        position: "relative",
-        borderLeft: "3px solid var(--ambo-accent)",
-        paddingLeft: 16,
-        margin: "6px 0",
-      }}
-    >
-      <button
-        onClick={onRemove}
-        title="Remove quote"
-        aria-label="Remove quote"
-        style={{
-          position: "absolute",
-          top: 2,
-          right: 0,
-          border: "none",
-          background: "transparent",
-          color: "var(--ambo-text-muted)",
-          fontSize: 16,
-          lineHeight: 1,
-          width: 22,
-          height: 22,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          borderRadius: 4,
-          opacity: hovered ? 0.7 : 0,
-          transition: "opacity 0.15s ease",
-          fontFamily: "inherit",
-          padding: 0,
-        }}
-      >
-        ×
-      </button>
-      <textarea
-        id={`para-${para.id}`}
-        ref={ref}
-        value={para.text}
-        onChange={(e) => onTextChange(e.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={onFocus}
-        rows={1}
-        style={{
-          width: "100%",
-          border: "none",
-          outline: "none",
-          resize: "none",
-          background: "transparent",
-          fontFamily: "var(--ambo-font-reading)",
-          fontSize: "var(--ambo-size-xl)",
-          fontStyle: "italic",
-          lineHeight: "var(--ambo-lh-reading)",
-          color: "var(--ambo-text-primary)",
-          caretColor: "var(--ambo-accent)",
-          padding: "4px 0",
-          overflowY: "hidden",
-          display: "block",
-        }}
-      />
-      {/* Citation */}
-      <div style={{
-        marginTop: 4,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-      }}>
-        <span style={{
-          fontSize: 14,
-          color: "var(--ambo-text-muted)",
-          lineHeight: 1,
-        }}>—</span>
-        <input
-          value={para.citation ?? ""}
-          onChange={(e) => onCitationChange(e.target.value)}
-          onFocus={onFocus}
-          placeholder="Citation"
-          style={{
-            border: "none",
-            outline: "none",
-            background: "transparent",
-            fontSize: 12,
-            fontStyle: "italic",
-            color: "var(--ambo-text-muted)",
-            fontFamily: "inherit",
-            padding: 0,
-            flex: 1,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AutoTextarea({
-  id,
-  value,
-  onChange,
-  onKeyDown,
-  onFocus,
-  placeholder,
-}: {
-  id: string;
-  value: string;
-  onChange: (val: string) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  onFocus?: () => void;
-  placeholder?: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (ref.current) {
-      ref.current.style.height = "auto";
-      ref.current.style.height = ref.current.scrollHeight + "px";
-    }
-  }, [value]);
-
-  return (
-    <textarea
-      id={id}
-      ref={ref}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      onFocus={onFocus}
-      placeholder={placeholder}
-      rows={1}
-      style={{
-        width: "100%",
-        border: "none",
-        outline: "none",
-        resize: "none",
-        background: "transparent",
-        fontFamily: "var(--ambo-font-reading)",
-        fontSize: "var(--ambo-size-2xl)",
-        lineHeight: 1.8,
-        color: "var(--ambo-text-primary)",
-        caretColor: "var(--ambo-accent)",
-        padding: "4px 0",
-        overflowY: "hidden",
-        display: "block",
-      }}
-    />
-  );
-}
-
 const pillBtnStyle = (active: boolean): React.CSSProperties => ({
   border: "1px solid " + (active ? "var(--ambo-accent)" : "var(--ambo-border)"),
   background: active ? "var(--ambo-accent-light)" : "transparent",
@@ -1524,19 +1040,6 @@ const pillBtnStyle = (active: boolean): React.CSSProperties => ({
   gap: 6,
   transition: "all 0.15s",
 });
-
-function DragIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="9" cy="5" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="5" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="9" cy="19" r="1.5" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="19" r="1.5" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 function StackIcon() {
   return (

@@ -254,45 +254,56 @@ body {
   pointer-events: none;
 }
 
-/* Paragraph drag handle — appears on hover */
-.ambo-para-wrapper {
-  position: relative;
-  padding: 2px 0;
-  border-radius: 6px;
-  transition: background var(--ambo-dur-fast) var(--ambo-ease);
+/* Rich-text editor surface (Tiptap). Matches the typography the old
+   per-paragraph <textarea> rendered, so switching to the editor doesn't
+   shift the visual weight of the page. */
+.ambo-rich-editor-wrap .ambo-rich-editor {
+  outline: none;
+  caret-color: var(--ambo-accent);
+  color: var(--ambo-text-primary);
+  font-family: var(--ambo-font-reading);
 }
 
-.ambo-para-wrapper:hover {
-  background: var(--ambo-accent-faint);
+.ambo-rich-editor-wrap .ambo-rich-editor p {
+  font-size: var(--ambo-size-2xl);
+  line-height: 1.8;
+  margin: 0;
+  padding: 4px 0;
+  min-height: 1.8em;
 }
 
-.ambo-drag-handle {
-  position: absolute;
-  left: -28px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  cursor: grab;
+.ambo-rich-editor-wrap .ambo-rich-editor blockquote {
+  border-left: 3px solid var(--ambo-accent);
+  padding-left: 16px;
+  margin: 6px 0;
+}
+
+.ambo-rich-editor-wrap .ambo-rich-editor blockquote p {
+  font-size: var(--ambo-size-xl);
+  font-style: italic;
+  line-height: var(--ambo-lh-reading);
+  margin: 0;
+  padding: 4px 0;
+}
+
+/* Subdued "— Citation" line inside a blockquote. When a blockquote has
+   more than one paragraph, style the last one as the citation — matches
+   how joinParagraphs serialises it. For a single-line quote with no
+   citation this has no effect. */
+.ambo-rich-editor-wrap .ambo-rich-editor blockquote p:not(:only-child):last-child {
+  font-size: 12px;
+  font-style: italic;
   color: var(--ambo-text-muted);
-  transition: opacity var(--ambo-dur-fast) var(--ambo-ease);
-  user-select: none;
 }
 
-.ambo-para-wrapper:hover .ambo-drag-handle {
-  opacity: 1;
-}
-
-.ambo-para-wrapper.dragging {
-  opacity: 0.4;
-}
-
-.ambo-para-wrapper.drag-over {
-  border-top: 2px solid var(--ambo-accent);
+/* Tiptap Placeholder — shows on an empty editor until the priest starts
+   writing. See @tiptap/extension-placeholder. */
+.ambo-rich-editor-wrap .ambo-rich-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ambo-text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
 
 /* Scripture display (legacy — prefer .ambo-reading) */
