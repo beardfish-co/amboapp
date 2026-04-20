@@ -56,8 +56,24 @@ async function fetchSundayName(iso: string, homilyId?: string | null): Promise<s
   return name;
 }
 
-function listSundayOptions(anchor: Date = new Date(), pastCount = 2, futureCount = 8): Date[] {
+// Universalis publishes readings exactly 9 days ahead. Offering Sundays
+// beyond that window is friction — the picker promises a date we can't honor.
+// Count how many future Sundays fall inside the 9-day window (always at
+// least next Sunday) and stop there. Mid-week the second future Sunday
+// quietly appears once it enters the window.
+const UNIVERSALIS_LOOKAHEAD_DAYS = 9;
+
+function listSundayOptions(anchor: Date = new Date(), pastCount = 2): Date[] {
   const coming = getComingSunday(anchor);
+  const today = new Date(anchor);
+  today.setHours(0, 0, 0, 0);
+  const daysUntilComing = Math.round(
+    (coming.getTime() - today.getTime()) / 86_400_000,
+  );
+  let futureCount = 1; // always offer next Sunday
+  for (let n = 1; daysUntilComing + n * 7 <= UNIVERSALIS_LOOKAHEAD_DAYS; n++) {
+    futureCount++;
+  }
   const out: Date[] = [];
   for (let i = -pastCount; i < futureCount; i++) {
     const d = new Date(coming);
