@@ -107,7 +107,19 @@ export default function RichEditor({
     if (!scroller || !editorEl) return;
 
     const onMove = (e: MouseEvent) => {
-      const block = findTopLevelBlock(e.target as Node, editorEl);
+      const target = e.target;
+      // If the cursor is on (or inside) the handle itself, keep the
+      // current position — otherwise the act of reaching for the handle
+      // makes it vanish. We listen on the scroller (not editorEl) so
+      // events over the handle still fire.
+      if (target instanceof HTMLElement && target.closest(".ambo-drag-handle")) {
+        return;
+      }
+      if (!(target instanceof Node) || !editorEl.contains(target)) {
+        setHandlePos(null);
+        return;
+      }
+      const block = findTopLevelBlock(target, editorEl);
       if (!block) {
         setHandlePos(null);
         return;
@@ -121,11 +133,11 @@ export default function RichEditor({
     };
     const onLeave = () => setHandlePos(null);
 
-    editorEl.addEventListener("mousemove", onMove);
-    editorEl.addEventListener("mouseleave", onLeave);
+    scroller.addEventListener("mousemove", onMove);
+    scroller.addEventListener("mouseleave", onLeave);
     return () => {
-      editorEl.removeEventListener("mousemove", onMove);
-      editorEl.removeEventListener("mouseleave", onLeave);
+      scroller.removeEventListener("mousemove", onMove);
+      scroller.removeEventListener("mouseleave", onLeave);
     };
   }, [editor]);
 
