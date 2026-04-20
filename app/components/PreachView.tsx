@@ -193,7 +193,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
   }
 
   return (
-    <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 32px 80px" }}>
+    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: "0 32px 80px" }}>
 
       {/* Controls */}
       <div style={{
@@ -364,6 +364,17 @@ export default function PreachView({ currentId }: PreachViewProps) {
         </div>
       )}
 
+      {/* White panel — holds the design language. The seed, title, and
+          homily body all sit on the same ambo-surface card used across the
+          rest of the app. Chrome (font controls, back button, readings
+          drawer) stays outside the panel. */}
+      <div
+        className="glass-card"
+        style={{
+          padding: "48px 40px",
+          marginBottom: 40,
+        }}
+      >
       {/* Seed — quiet glance before the ambo */}
       {seed.trim().length > 0 && (
         <div style={{
@@ -486,6 +497,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }
