@@ -1191,28 +1191,34 @@ export default function WriteView({
         </div>
       )}
 
-      {/* Formatting ribbon — quiet row of three buttons (bold, italic, quote).
-          Sits inside the panel, just above the paragraphs. Uses position: sticky
-          so it pins directly beneath the page header once scrolled past.
-          Keyboard shortcuts ⌘B / ⌘I still work untouched. */}
+      {/* Formatting ribbon — a pill holding bold / italic / quote. Matches the
+          pill language the rest of the app uses (Sunday pill, drawer toggles).
+          Sits inside the panel above the paragraphs; pins just below the page
+          header once scrolled past. Keyboard shortcuts ⌘B / ⌘I still work. */}
       <div
         style={{
           position: "sticky",
-          top: 60,
+          top: 72,
           zIndex: 20,
-          marginLeft: -56,
-          marginRight: -56,
-          marginBottom: 18,
-          padding: "8px 56px",
+          marginBottom: 20,
           display: "flex",
-          alignItems: "center",
-          gap: 2,
-          background: "var(--ambo-surface)",
-          backdropFilter: "blur(24px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-          borderBottom: "1px solid var(--ambo-border)",
+          justifyContent: "flex-start",
         }}
       >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 2,
+            padding: "3px 5px",
+            borderRadius: 999,
+            border: "1px solid var(--ambo-border)",
+            background: "var(--ambo-surface)",
+            backdropFilter: "blur(20px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
+          }}
+        >
         <RibbonButton
           label="Bold"
           kbd="⌘B"
@@ -1220,7 +1226,7 @@ export default function WriteView({
         >
           <span style={{
             fontFamily: "var(--ambo-font-reading)",
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: 700,
             lineHeight: 1,
           }}>B</span>
@@ -1232,7 +1238,7 @@ export default function WriteView({
         >
           <span style={{
             fontFamily: "var(--ambo-font-reading)",
-            fontSize: 16,
+            fontSize: 14,
             fontStyle: "italic",
             lineHeight: 1,
           }}>I</span>
@@ -1243,6 +1249,7 @@ export default function WriteView({
         >
           <QuoteGlyph />
         </RibbonButton>
+        </div>
       </div>
 
       {/* Paragraphs */}
@@ -1598,11 +1605,11 @@ function RibbonButton({
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 32,
-        height: 32,
+        width: 26,
+        height: 26,
         padding: 0,
         border: "1px solid transparent",
-        borderRadius: 6,
+        borderRadius: 999,
         background: pressed
           ? "var(--ambo-accent-light)"
           : hover
@@ -1624,8 +1631,8 @@ function RibbonButton({
 function QuoteGlyph() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="12"
+      height="12"
       viewBox="0 0 20 20"
       fill="none"
       stroke="currentColor"
