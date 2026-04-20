@@ -1,14 +1,17 @@
 "use client";
 
-// RichEditor — Phase 1 Tiptap scaffold.
+// RichEditor — Phase 2 Tiptap wrapper.
 //
-// Wraps @tiptap/react's useEditor + EditorContent behind a tiny API so the
-// Write surface can swap one <textarea>-per-paragraph for a single rich-text
-// editor without dragging Tiptap primitives through WriteView.
+// Wraps @tiptap/react's useEditor + EditorContent and adds:
+//  * QuoteWithCitation — custom blockquote node (Phase 2, Commit 1)
+//  * DragHandle — hover-revealed grip on the left of the current block
+//    that lets the priest drag paragraphs/quotes into a new order
+//    (Phase 2, Commit 2).
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { DragHandle } from "@tiptap/extension-drag-handle-react";
 import { useEffect } from "react";
 import QuoteWithCitation from "./QuoteWithCitation";
 
@@ -21,6 +24,25 @@ export type RichEditorProps = {
   onReady?: (editor: Editor) => void;
   placeholder?: string;
 };
+
+function GripIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <circle cx="9" cy="5" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="5" r="1.5" fill="currentColor" />
+      <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="19" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
 
 export default function RichEditor({
   initialHtml,
@@ -69,5 +91,15 @@ export default function RichEditor({
   }, [editor, onReady]);
 
   if (!editor) return null;
-  return <EditorContent editor={editor} />;
+  return (
+    <>
+      <EditorContent editor={editor} />
+      {/* DragHandle positions itself absolutely next to the block the
+          cursor/mouse is hovering over. CSS (see globals.css .ambo-drag-handle)
+          keeps it invisible until the user hovers over the editor area. */}
+      <DragHandle editor={editor} className="ambo-drag-handle">
+        <GripIcon />
+      </DragHandle>
+    </>
+  );
 }

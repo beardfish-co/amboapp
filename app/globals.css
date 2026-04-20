@@ -322,6 +322,40 @@ body {
   opacity: 0.6;
 }
 
+/* Drag handle — positioned next to the current block by
+   @tiptap/extension-drag-handle-react. Invisible until the priest's
+   cursor is inside the editor area; fades in with a subtle grip icon. */
+.ambo-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: -28px;
+  border-radius: 4px;
+  color: var(--ambo-text-muted);
+  background: transparent;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity var(--ambo-dur-fast) var(--ambo-ease), background var(--ambo-dur-fast) var(--ambo-ease);
+  user-select: none;
+}
+
+/* Show the handle only while hovering the editor surface. */
+.ambo-rich-editor-wrap:hover .ambo-drag-handle {
+  opacity: 0.55;
+}
+
+.ambo-rich-editor-wrap .ambo-drag-handle:hover {
+  opacity: 1;
+  background: var(--ambo-accent-faint);
+  color: var(--ambo-accent);
+}
+
+.ambo-rich-editor-wrap .ambo-drag-handle:active {
+  cursor: grabbing;
+}
+
 /* Tiptap Placeholder — shows on an empty editor until the priest starts
    writing. See @tiptap/extension-placeholder. */
 .ambo-rich-editor-wrap .ambo-rich-editor p.is-editor-empty:first-child::before {
