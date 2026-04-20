@@ -254,6 +254,59 @@ body {
   pointer-events: none;
 }
 
+/* Inner scroller wrapping the Tiptap editor. Gives the floating
+   drag-handle a positioning context so it can sit in the left margin
+   without touching the editor's own DOM. */
+.ambo-rich-editor-wrap .ambo-rich-editor-scroller {
+  position: relative;
+}
+
+/* Hover-revealed drag handle — plain React element, positioned by a
+   mousemove listener (see RichEditor.tsx). No ProseMirror plugin
+   involved, so no risk of racing the initial content load. */
+.ambo-rich-editor-wrap .ambo-drag-handle {
+  position: absolute;
+  left: -28px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  color: var(--ambo-text-muted);
+  background: transparent;
+  cursor: grab;
+  opacity: 0.55;
+  transition: opacity var(--ambo-dur-fast) var(--ambo-ease), background var(--ambo-dur-fast) var(--ambo-ease);
+  user-select: none;
+  padding: 0;
+}
+
+.ambo-rich-editor-wrap .ambo-drag-handle:hover {
+  opacity: 1;
+  background: var(--ambo-accent-faint);
+  color: var(--ambo-accent);
+}
+
+.ambo-rich-editor-wrap .ambo-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Drop indicator — horizontal line drawn between paragraphs while a
+   block is being dragged. Positioned absolutely by RichEditor.tsx based
+   on whether the cursor is above or below the target block's midline. */
+.ambo-rich-editor-wrap .ambo-drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ambo-accent);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* Rich-text editor surface (Tiptap). Matches the typography the old
    per-paragraph <textarea> rendered, so switching to the editor doesn't
    shift the visual weight of the page. */
