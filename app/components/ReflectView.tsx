@@ -35,6 +35,18 @@ function isReadingSlot(id: string): id is ReadingSlot {
   return id === "r1" || id === "ps" || id === "r2" || id === "gospel";
 }
 
+// AI-generated prompt shape from /api/reflect-prompts. The `basis` line is
+// rendered under the prompt as an italic sub-note ("drawn from ..."). `mood`
+// and `pressure` are the generator's hidden textual reasoning; they're not
+// shown but travel with the payload so we can inspect them in dev tools.
+interface AiPrompt {
+  prompt: string;
+  basis: string;
+  mood: string;
+  pressure: string;
+}
+type AiPromptSet = Record<ReadingSlot, AiPrompt[]>;
+
 function splitReadingParagraphs(text: string): string[] {
   return text
     .split(/\n\s*\n+/)
@@ -65,6 +77,12 @@ export default function ReflectView({
   const [showTodayReadings, setShowTodayReadings] = useState<boolean>(false);
   const [todayOpenBodies, setTodayOpenBodies] = useState<Set<string>>(new Set());
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
+  const [aiPromptsData, setAiPromptsData] = useState<{ date: string; data: AiPromptSet } | null>(null);
+  // Stale-guard: prompts only surface if they were generated for the Sunday
+  // currently being viewed. Otherwise the render falls back to the
+  // deterministic prompt bank until the fresh fetch lands.
+  const aiPrompts: AiPromptSet | null =
+    aiPromptsData && aiPromptsData.date === sundayDate ? aiPromptsData.data : null;
   // Which reading cards are expanded (body shown). Default: gospel open.
   const [openBodies, setOpenBodies] = useState<Set<string>>(new Set(["gospel"]));
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
@@ -185,6 +203,30 @@ export default function ReflectView({
     })();
     return () => { cancelled = true; };
   }, [sundayDate, currentId]);
+
+  // Fetch AI-generated reflective prompts for this Sunday. One call per day,
+  // shared across all priests (cached server-side in day_prompts). On failure
+  // we leave aiPrompts null and the render falls back to the deterministic
+  // prompt bank (selectPrompts from lib/prompts).
+  useEffect(() => {
+    if (!sundayDate) return;
+    const targetDate = sundayDate;
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/reflect-prompts?date=${targetDate}`, {
+          cache: "no-store",
+        });
+        if (!resp.ok) return;
+        const data = (await resp.json()) as { prompts: AiPromptSet | null };
+        if (cancelled) return;
+        if (data.prompts) setAiPromptsData({ date: targetDate, data: data.prompts });
+      } catch {
+        // Silent fallback — the deterministic prompts still render.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sundayDate]);
 
   // Fetch today's weekday readings (only when today isn't Sunday).
   // Kept separate from the Sunday fetch so the Sunday homily prep doesn't
@@ -442,8 +484,18 @@ export default function ReflectView({
         {!loading && readings && readings.readings.map((r) => {
           const slot: ReadingSlot | null = isReadingSlot(r.id) ? r.id : null;
           const paragraphs = splitReadingParagraphs(r.text);
-          const prompts = slot
-            ? selectPrompts(slot, season, `${readings.date}|${r.id}`, 3)
+          // Prefer AI-generated prompts (text-specific, with sub-note basis);
+          // fall back to the deterministic prompt bank when the API path
+          // hasn't (yet) returned or when no slot is matched.
+          const prompts: AiPrompt[] = slot
+            ? (aiPrompts?.[slot] && aiPrompts[slot].length > 0
+              ? aiPrompts[slot]
+              : selectPrompts(slot, season, `${readings.date}|${r.id}`, 3).map((text) => ({
+                  prompt: text,
+                  basis: "",
+                  mood: "",
+                  pressure: "",
+                })))
             : [];
           const expanded = expandedSlot === r.id;
 
@@ -576,25 +628,37 @@ export default function ReflectView({
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
                     }}>
-                      {prompts.map((text) => (
-                        <div key={text} style={{
+                      {prompts.map((p) => (
+                        <div key={p.prompt} style={{
                           display: "flex",
-                          alignItems: "baseline",
+                          alignItems: "flex-start",
                           justifyContent: "space-between",
                           gap: 10,
                           padding: "6px 0",
                         }}>
-                          <div style={{
-                            fontSize: 14,
-                            fontStyle: "italic",
-                            color: "var(--ambo-text-secondary)",
-                            lineHeight: 1.55,
-                            flex: 1,
-                          }}>
-                            {text}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 14,
+                              fontStyle: "italic",
+                              color: "var(--ambo-text-secondary)",
+                              lineHeight: 1.55,
+                            }}>
+                              {p.prompt}
+                            </div>
+                            {p.basis && (
+                              <div style={{
+                                fontSize: 11,
+                                color: "var(--ambo-text-muted)",
+                                lineHeight: 1.4,
+                                marginTop: 2,
+                                opacity: 0.75,
+                              }}>
+                                {p.basis}
+                              </div>
+                            )}
                           </div>
                           <button
-                            onClick={() => appendToNotes(`${r.title} · ${r.reference}`, text)}
+                            onClick={() => appendToNotes(`${r.title} · ${r.reference}`, p.prompt)}
                             style={sendToNotesStyle}
                             title="Add to your notes"
                           >
