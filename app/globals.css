@@ -272,54 +272,20 @@ body {
   min-height: 1.8em;
 }
 
-/* QuoteWithCitation — custom blockquote NodeView.
-   Body paragraphs get italic reading type; the citation row sits below
-   as a dedicated input so priests can type attribution directly without
-   learning the "— " convention. */
-.ambo-rich-editor-wrap .ambo-quote {
+/* Blockquote — stock Tiptap. Matches the typographic weight the old
+   per-paragraph layout used for scripture quotes. */
+.ambo-rich-editor-wrap .ambo-rich-editor blockquote {
   border-left: 3px solid var(--ambo-accent);
   padding-left: 16px;
   margin: 6px 0;
 }
 
-.ambo-rich-editor-wrap .ambo-quote .ambo-quote-body p,
-.ambo-rich-editor-wrap .ambo-quote > p {
+.ambo-rich-editor-wrap .ambo-rich-editor blockquote p {
   font-size: var(--ambo-size-xl);
   font-style: italic;
   line-height: var(--ambo-lh-reading);
   margin: 0;
   padding: 4px 0;
-}
-
-.ambo-rich-editor-wrap .ambo-quote-citation-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.ambo-rich-editor-wrap .ambo-quote-dash {
-  font-size: 14px;
-  color: var(--ambo-text-muted);
-  line-height: 1;
-  user-select: none;
-}
-
-.ambo-rich-editor-wrap .ambo-quote-citation {
-  flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 12px;
-  font-style: italic;
-  color: var(--ambo-text-muted);
-  font-family: inherit;
-  padding: 0;
-}
-
-.ambo-rich-editor-wrap .ambo-quote-citation::placeholder {
-  color: var(--ambo-text-muted);
-  opacity: 0.6;
 }
 
 /* Drag handle — positioned next to the current block by

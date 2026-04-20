@@ -1,19 +1,21 @@
 "use client";
 
-// RichEditor — Phase 2 Tiptap wrapper.
+// RichEditor — Tiptap wrapper for the Write surface.
 //
-// Wraps @tiptap/react's useEditor + EditorContent and adds:
-//  * QuoteWithCitation — custom blockquote node (Phase 2, Commit 1)
-//  * DragHandle — hover-revealed grip on the left of the current block
-//    that lets the priest drag paragraphs/quotes into a new order
-//    (Phase 2, Commit 2).
+// Wraps @tiptap/react's useEditor + EditorContent and adds
+// @tiptap/extension-drag-handle-react's hover-revealed grip on the left
+// of the current block (Phase 2, Commit 2).
+//
+// NOTE: the custom QuoteWithCitation node introduced in Phase 2 Commit 1
+// was reverted — existing content failed to render through its NodeView.
+// We'll revisit citation UX separately; for now, citations stay as the
+// trailing "— Source" line inside the quote block (Phase 1 behavior).
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { DragHandle } from "@tiptap/extension-drag-handle-react";
 import { useEffect } from "react";
-import QuoteWithCitation from "./QuoteWithCitation";
 
 export type RichEditorProps = {
   // Initial HTML content to seed the editor with. We intentionally don't
@@ -56,20 +58,11 @@ export default function RichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // Keep only what Phase 1 needs: paragraph / bold / italic / blockquote.
-        // Everything else stays on StarterKit defaults so Enter, Backspace,
-        // and cursor navigation behave as priests expect.
-        //
-        // Phase 2: swap the stock Blockquote for our QuoteWithCitation node
-        // (extends Blockquote with a `citation` attribute + NodeView).
-        blockquote: false,
+        // Keep StarterKit defaults: paragraph / bold / italic / blockquote
+        // plus Enter / Backspace / cursor behaviour priests expect.
       }),
-      QuoteWithCitation,
       Placeholder.configure({
         placeholder: placeholder ?? "",
-        // Only show placeholder in the first (and only) paragraph of an
-        // empty document — not on every empty line after the user has
-        // started writing.
         showOnlyWhenEditable: true,
         showOnlyCurrent: false,
         includeChildren: false,
@@ -94,9 +87,6 @@ export default function RichEditor({
   return (
     <>
       <EditorContent editor={editor} />
-      {/* DragHandle positions itself absolutely next to the block the
-          cursor/mouse is hovering over. CSS (see globals.css .ambo-drag-handle)
-          keeps it invisible until the user hovers over the editor area. */}
       <DragHandle editor={editor} className="ambo-drag-handle">
         <GripIcon />
       </DragHandle>
