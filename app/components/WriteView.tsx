@@ -7,6 +7,7 @@ import ReadingsDrawer from "./ReadingsDrawer";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon as StackIconShared, BookIcon as BookIconShared, NoteIcon, ExamineIcon } from "@/lib/ui/icons";
+import { loadDayName } from "@/lib/readings";
 
 interface Paragraph {
   id: string;
@@ -43,30 +44,19 @@ function parseIsoDate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function isoToCompact(iso: string): string {
-  return iso.replace(/-/g, "");
-}
-
 function shortSundayLabel(iso: string): string {
   const d = parseIsoDate(iso);
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
-async function fetchSundayName(iso: string): Promise<string | null> {
+async function fetchSundayName(iso: string, homilyId?: string | null): Promise<string | null> {
   if (sundayNameCache.has(iso)) return sundayNameCache.get(iso) ?? null;
-  try {
-    const res = await fetch(`/api/readings?date=${isoToCompact(iso)}`);
-    if (!res.ok) return null;
-    const d = await res.json();
-    const name = (d.dayName as string | undefined) ?? null;
-    if (name) sundayNameCache.set(iso, name);
-    return name;
-  } catch {
-    return null;
-  }
+  const name = await loadDayName(iso, homilyId);
+  if (name) sundayNameCache.set(iso, name);
+  return name;
 }
 
-function listSundayOptions(anchor: Date = new Date(), pastCount = 4, futureCount = 12): Date[] {
+function listSundayOptions(anchor: Date = new Date(), pastCount = 2, futureCount = 8): Date[] {
   const coming = getComingSunday(anchor);
   const out: Date[] = [];
   for (let i = -pastCount; i < futureCount; i++) {
@@ -346,7 +336,7 @@ export default function WriteView({
       setSundayName(cached);
     } else {
       setSundayName(null);
-      fetchSundayName(sundayDate).then((n) => { if (!cancelled) setSundayName(n); });
+      fetchSundayName(sundayDate, draftIdRef.current).then((n) => { if (!cancelled) setSundayName(n); });
     }
     return () => { cancelled = true; };
   }, [sundayDate]);
@@ -1198,6 +1188,7 @@ export default function WriteView({
       <ReadingsDrawer
         open={readingsOpen}
         sundayDate={sundayDate}
+        homilyId={draftIdRef.current}
         onClose={() => setReadingsOpen(false)}
         onInsert={handleInsertReading}
       />

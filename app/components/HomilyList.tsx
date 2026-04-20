@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { loadDayName } from "@/lib/readings";
 
 export interface HomilyRow {
   id: string;
@@ -26,10 +27,6 @@ const sundayNameCache: Map<string, string> = (globalThis as typeof globalThis & 
   __amboSundayNameCache?: Map<string, string>;
 }).__amboSundayNameCache ??= new Map<string, string>();
 
-function isoToCompact(iso: string): string {
-  return iso.replace(/-/g, "");
-}
-
 function parseIsoDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -38,20 +35,6 @@ function parseIsoDate(iso: string): Date {
 function shortSundayLabel(iso: string): string {
   const d = parseIsoDate(iso);
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-async function fetchSundayName(iso: string): Promise<string | null> {
-  if (sundayNameCache.has(iso)) return sundayNameCache.get(iso) ?? null;
-  try {
-    const res = await fetch(`/api/readings?date=${isoToCompact(iso)}`);
-    if (!res.ok) return null;
-    const d = await res.json();
-    const name = (d.dayName as string | undefined) ?? null;
-    if (name) sundayNameCache.set(iso, name);
-    return name;
-  } catch {
-    return null;
-  }
 }
 
 function relativeTime(iso: string): string {
@@ -139,14 +122,22 @@ export default function HomilyList({
   useEffect(() => {
     if (!open || !homilies) return;
     let cancelled = false;
-    const unique = Array.from(
-      new Set(homilies.map((h) => h.sunday_date).filter((s): s is string => !!s && !sundayNameCache.has(s)))
-    );
-    if (unique.length === 0) return;
+    // For each homily missing a cached name, ask the helper to resolve it.
+    // Snapshot-first: historical homilies resolve instantly without a network
+    // call; only not-yet-loaded homilies hit /api/readings.
+    const targets = homilies
+      .filter((h) => !!h.sunday_date && !sundayNameCache.has(h.sunday_date as string))
+      .map((h) => ({ id: h.id, iso: h.sunday_date as string }));
+    if (targets.length === 0) return;
     (async () => {
-      for (const iso of unique) {
-        const name = await fetchSundayName(iso);
-        if (name && !cancelled) bumpNames((n) => n + 1);
+      for (const t of targets) {
+        if (cancelled) return;
+        const name = await loadDayName(t.iso, t.id);
+        if (cancelled) return;
+        if (name) {
+          sundayNameCache.set(t.iso, name);
+          bumpNames((n) => n + 1);
+        }
       }
     })();
     return () => { cancelled = true; };

@@ -41,18 +41,32 @@ A sacred writing workspace for Catholic priests. Three modes: Read (liturgical r
 - Supabase Redirect URLs must include: `https://[vercel-domain]/auth/callback`
 - Resend SMTP in Supabase: host=smtp.resend.com, port=465, user=resend, pass=API key, from=onboarding@resend.dev
 
-### Readings (Read view)
+### Readings (lectionary)
 - `app/api/readings/route.ts` — proxy to Universalis
   - Endpoint: `https://universalis.com/{YYYYMMDD}/jsonpmass.js`
   - Strip JSONP: `text.match(/^universalisCallback\(([\s\S]*)\);\s*$/)`
   - Fields: `Mass_R1`, `Mass_Ps`, `Mass_R2`, `Mass_G`
   - Cache: `next: { revalidate: 3600 }`
-- `app/components/ReadingView.tsx`
-  - `getComingSunday()` exported for WriteView — returns next Sunday (or today if Sunday)
-  - Sunday shown prominently as primary section; fetches `sundayStr` date
-  - Today's weekday readings hidden behind a collapsible toggle (`showToday` state)
-  - Error state with Retry button if Sunday fetch fails (`sundayError` state, `retryKey` to re-trigger)
-  - `expandedId` tracks which reading card is open
+  - **Silent-redirect guard:** Universalis' free JSONP only serves a narrow
+    window around today (~3 days past, ~9 days future). For past dates outside
+    that window it SILENTLY returns today's readings — payload shape is unchanged
+    but `raw.number` reflects the date Universalis actually served, not the one
+    we requested. The route compares `raw.number` to the requested `YYYYMMDD`
+    and returns 404 `{code:"not_published"}` on mismatch. Also returns 502 for
+    the HTML response Universalis emits for dates beyond its future window.
+- `lib/readings.ts` — central loader, snapshot-first
+  - `loadReadings(iso, homilyId?) → { payload, status }` where status is
+    `"snapshot" | "live" | "not_published" | "unavailable"`
+  - When `homilyId` is provided: try `homilies.readings_snapshot` first; on
+    successful live fetch, persist the payload back onto the homily row so
+    subsequent loads are offline-safe and immune to Universalis' silent-redirect
+  - `loadDayName(iso, homilyId?)` for chip labels (thin wrapper)
+  - All five view/drawer components now go through this helper:
+    ReflectView, PreachView, WriteView (Sunday-name lookup),
+    ReadingsDrawer, HomilyList
+- `app/components/ReadingView.tsx` — legacy file, only still imported for its
+  exported `getComingSunday()` utility. Not in the active render tree since
+  Reflect replaced Read (task #29).
 
 ### Write view (`app/components/WriteView.tsx`)
 - Paragraph-based editor, each paragraph is an auto-growing textarea
@@ -74,9 +88,16 @@ See `migrations/` for the SQL history. Current shape:
 create table homilies (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
-  sunday_date date,  -- which Sunday this homily is for (nullable)
+  sunday_date date,                           -- which Sunday this homily is for (nullable)
   title text not null default '',
   content text not null default '',
+  notes text not null default '',             -- private reflection pad (003)
+  seed text not null default '',              -- one-sentence core grace (004)
+  seed_why_now text not null default '',      -- (004)
+  seed_eucharist text not null default '',    -- (004)
+  seed_response text not null default '',     -- (004)
+  readings_snapshot jsonb,                    -- archival copy of Universalis payload (005)
+  readings_snapshot_date date,                -- iso date the snapshot is for (005)
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );

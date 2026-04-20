@@ -60,10 +60,30 @@ export async function GET(req: NextRequest) {
     // Strip JSONP wrapper: universalisCallback({...});
     const jsonMatch = text.match(/^universalisCallback\(([\s\S]*)\);?\s*$/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Unexpected Universalis format" }, { status: 502 });
+      // Universalis returns HTML (not JSONP) for dates beyond its future window
+      // — treat these as "not yet published" so the UI can give a calm explanation
+      // rather than an infrastructure-flavoured error.
+      return NextResponse.json(
+        { error: "Readings not published for this date", code: "not_published" },
+        { status: 404 },
+      );
     }
 
     const raw = JSON.parse(jsonMatch[1]);
+
+    // Guard against Universalis' silent-redirect behaviour.
+    // Their free JSONP endpoint quietly serves today's readings for any
+    // date outside a ~3-day-past / ~9-day-future window around today.
+    // The payload shape is unchanged but `raw.number` reflects the date
+    // Universalis actually served, not the one we asked for. If they
+    // mismatch, we must refuse to return the wrong readings.
+    const requestedNum = Number(date);
+    if (typeof raw.number === "number" && raw.number !== requestedNum) {
+      return NextResponse.json(
+        { error: "Readings not published for this date", code: "not_published" },
+        { status: 404 },
+      );
+    }
 
     // Build clean reading objects
     const readings = [];
@@ -110,6 +130,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       date: raw.date || date,
+      number: typeof raw.number === "number" ? raw.number : requestedNum,
       dayName: parseDayName(raw.day || ""),
       readings,
     });

@@ -7,6 +7,7 @@ import type { CatenaBlock } from "@/lib/catena";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
+import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 
 interface Reading {
   id: string;
@@ -29,10 +30,6 @@ interface ReflectViewProps {
 }
 
 type ReadingSlot = "r1" | "ps" | "r2" | "gospel";
-
-function isoToCompact(iso: string): string {
-  return iso.replace(/-/g, "");
-}
 
 function isReadingSlot(id: string): id is ReadingSlot {
   return id === "r1" || id === "ps" || id === "r2" || id === "gospel";
@@ -62,6 +59,7 @@ export default function ReflectView({
   const [readings, setReadings] = useState<DayReadings | null>(null);
   const [loading, setLoading] = useState(true);
   const [readingsLoading, setReadingsLoading] = useState(false);
+  const [readingsStatus, setReadingsStatus] = useState<ReadingsStatus>("unavailable");
   // Today's weekday readings — shown below the Sunday set when today isn't Sunday.
   const [todayReadings, setTodayReadings] = useState<DayReadings | null>(null);
   const [showTodayReadings, setShowTodayReadings] = useState<boolean>(false);
@@ -163,32 +161,30 @@ export default function ReflectView({
     return () => { cancelled = true; };
   }, [currentId]);
 
-  // Fetch readings when sundayDate changes
+  // Fetch readings when sundayDate changes.
+  // Prefer the homily's readings_snapshot (archival durability) and fall back
+  // to Universalis; see lib/readings.ts for the full policy.
   useEffect(() => {
     if (!sundayDate) {
       setReadings(null);
+      setReadingsStatus("unavailable");
       return;
     }
     let cancelled = false;
     setReadingsLoading(true);
     (async () => {
-      try {
-        const res = await fetch(`/api/readings?date=${isoToCompact(sundayDate)}`);
-        if (!res.ok) return;
-        const d: DayReadings = await res.json();
-        if (!cancelled) {
-          setReadings(d);
-          // Default: gospel open, others closed. Priest can expand as needed.
-          setOpenBodies(new Set(["gospel"]));
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        if (!cancelled) setReadingsLoading(false);
+      const { payload, status } = await loadReadings(sundayDate, currentId);
+      if (cancelled) return;
+      setReadingsStatus(status);
+      if (payload) {
+        setReadings(payload);
+        // Default: gospel open, others closed. Priest can expand as needed.
+        setOpenBodies(new Set(["gospel"]));
       }
+      setReadingsLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [sundayDate]);
+  }, [sundayDate, currentId]);
 
   // Fetch today's weekday readings (only when today isn't Sunday).
   // Kept separate from the Sunday fetch so the Sunday homily prep doesn't
@@ -207,14 +203,8 @@ export default function ReflectView({
     const todayIso = `${y}-${m}-${d}`;
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`/api/readings?date=${isoToCompact(todayIso)}`);
-        if (!res.ok) return;
-        const data: DayReadings = await res.json();
-        if (!cancelled) setTodayReadings(data);
-      } catch {
-        /* ignore */
-      }
+      const { payload } = await loadReadings(todayIso);
+      if (!cancelled && payload) setTodayReadings(payload);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -414,6 +404,38 @@ export default function ReflectView({
         {!loading && sundayDate && readingsLoading && !readings && (
           <div style={{ fontSize: 14, color: "var(--ambo-text-muted)", padding: "40px 0" }}>
             Loading readings…
+          </div>
+        )}
+
+        {!loading && sundayDate && !readingsLoading && !readings && readingsStatus === "not_published" && (
+          <div className="glass-card" style={{
+            padding: "28px 28px 30px",
+            marginBottom: 32,
+            fontSize: 14,
+            lineHeight: 1.6,
+            color: "var(--ambo-text-secondary)",
+          }}>
+            <div style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-muted)",
+              marginBottom: 10,
+            }}>
+              Readings not yet published
+            </div>
+            <div>
+              Universalis publishes readings about nine days ahead. We'll load this Sunday's
+              readings automatically as soon as they're available — your seed, notes, and
+              title will stay intact in the meantime.
+            </div>
+          </div>
+        )}
+
+        {!loading && sundayDate && !readingsLoading && !readings && readingsStatus === "unavailable" && (
+          <div style={{ fontSize: 14, color: "var(--ambo-text-muted)", padding: "40px 0" }}>
+            Readings temporarily unavailable. Please try again in a moment.
           </div>
         )}
 

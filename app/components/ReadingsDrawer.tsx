@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 
 interface Reading {
   id: string;
@@ -19,6 +20,7 @@ interface DayReadings {
 interface ReadingsDrawerProps {
   open: boolean;
   sundayDate: string | null; // ISO YYYY-MM-DD
+  homilyId?: string | null;  // Drives snapshot-first loading + snapshot write-back.
   onClose: () => void;
   // Inserts a quote block at the user's current focus in the editor.
   onInsert: (payload: { text: string; citation: string }) => void;
@@ -29,8 +31,11 @@ interface ActiveSelection {
   reference: string;
 }
 
-function isoToCompact(iso: string): string {
-  return iso.replace(/-/g, "");
+function messageForStatus(status: ReadingsStatus): string {
+  if (status === "not_published") {
+    return "Readings for this date aren't published yet. Universalis makes them available about nine days ahead — they'll load automatically then.";
+  }
+  return "Failed to load readings. Please try again in a moment.";
 }
 
 function splitReadingParagraphs(text: string): string[] {
@@ -55,6 +60,7 @@ function readingRefFromNode(node: Node | null): string | null {
 export default function ReadingsDrawer({
   open,
   sundayDate,
+  homilyId,
   onClose,
   onInsert,
 }: ReadingsDrawerProps) {
@@ -73,20 +79,18 @@ export default function ReadingsDrawer({
     setSelection(null);
 
     (async () => {
-      try {
-        const res = await fetch(`/api/readings?date=${isoToCompact(sundayDate)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: DayReadings = await res.json();
-        if (!cancelled) setData(json);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load readings");
-      } finally {
-        if (!cancelled) setLoading(false);
+      const { payload, status } = await loadReadings(sundayDate, homilyId);
+      if (cancelled) return;
+      if (payload) {
+        setData(payload);
+      } else {
+        setError(messageForStatus(status));
       }
+      setLoading(false);
     })();
 
     return () => { cancelled = true; };
-  }, [open, sundayDate]);
+  }, [open, sundayDate, homilyId]);
 
   // Close on Escape
   useEffect(() => {

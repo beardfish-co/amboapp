@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
+import { loadReadings } from "@/lib/readings";
 
 const STORAGE_KEY = "ambo-draft";
 
@@ -29,10 +30,6 @@ type Block =
   | { kind: "body"; text: string }
   | { kind: "breath" }
   | { kind: "quote"; text: string; citation?: string };
-
-function isoToCompact(iso: string): string {
-  return iso.replace(/-/g, "");
-}
 
 function parseBlocks(text: string): Block[] {
   return text
@@ -135,7 +132,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
     return () => { cancelled = true; };
   }, [currentId]);
 
-  // Fetch readings when sundayDate is set
+  // Fetch readings when sundayDate is set.
+  // Snapshot-first so a historical homily always surfaces its own readings.
   useEffect(() => {
     if (!sundayDate) {
       setReadings(null);
@@ -143,15 +141,11 @@ export default function PreachView({ currentId }: PreachViewProps) {
     }
     let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch(`/api/readings?date=${isoToCompact(sundayDate)}`);
-        if (!res.ok) return;
-        const d: DayReadings = await res.json();
-        if (!cancelled) setReadings(d);
-      } catch { /* ignore */ }
+      const { payload } = await loadReadings(sundayDate, currentId);
+      if (!cancelled && payload) setReadings(payload);
     })();
     return () => { cancelled = true; };
-  }, [sundayDate]);
+  }, [sundayDate, currentId]);
 
   const hasContent = content.trim().length > 0;
 
