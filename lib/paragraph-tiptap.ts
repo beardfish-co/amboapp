@@ -79,6 +79,14 @@ function inlineToHtml(text: string): string {
   return out.join("");
 }
 
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function paragraphsToHtml(paragraphs: Paragraph[]): string {
   if (paragraphs.length === 0) return "<p></p>";
   return paragraphs
@@ -88,10 +96,10 @@ export function paragraphsToHtml(paragraphs: Paragraph[]): string {
         const bodyHtml = lines
           .map((line) => `<p>${inlineToHtml(line)}</p>`)
           .join("");
-        const citationHtml = p.citation
-          ? `<p>— ${inlineToHtml(p.citation)}</p>`
-          : "";
-        return `<blockquote>${bodyHtml}${citationHtml}</blockquote>`;
+        const openTag = p.citation
+          ? `<blockquote data-citation="${escapeAttr(p.citation)}">`
+          : "<blockquote>";
+        return `${openTag}${bodyHtml}</blockquote>`;
       }
       if (p.text === "") return "<p></p>";
       return `<p>${inlineToHtml(p.text)}</p>`;
@@ -155,12 +163,11 @@ export function paragraphsFromDoc(doc: JSONContent): Paragraph[] {
       const lines: string[] = children.map((c) =>
         c.type === "paragraph" ? paragraphNodeText(c) : ""
       );
-      let citation: string | undefined;
-      if (lines.length > 0 && /^—\s+/.test(lines[lines.length - 1])) {
-        citation = lines[lines.length - 1].replace(/^—\s+/, "").trim();
-        lines.pop();
-      }
       const text = lines.join("\n").trim();
+      // Phase 2: citation lives on the node attrs (see QuoteWithCitation).
+      const rawCitation = (block.attrs?.citation as string | null | undefined) ?? null;
+      const citation =
+        rawCitation !== null && rawCitation !== "" ? rawCitation : undefined;
       out.push({
         id: generateId(),
         text,

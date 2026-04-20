@@ -10,6 +10,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect } from "react";
+import QuoteWithCitation from "./QuoteWithCitation";
 
 export type RichEditorProps = {
   // Initial HTML content to seed the editor with. We intentionally don't
@@ -36,7 +37,12 @@ export default function RichEditor({
         // Keep only what Phase 1 needs: paragraph / bold / italic / blockquote.
         // Everything else stays on StarterKit defaults so Enter, Backspace,
         // and cursor navigation behave as priests expect.
+        //
+        // Phase 2: swap the stock Blockquote for our QuoteWithCitation node
+        // (extends Blockquote with a `citation` attribute + NodeView).
+        blockquote: false,
       }),
+      QuoteWithCitation,
       Placeholder.configure({
         placeholder: placeholder ?? "",
         // Only show placeholder in the first (and only) paragraph of an

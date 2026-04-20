@@ -272,13 +272,18 @@ body {
   min-height: 1.8em;
 }
 
-.ambo-rich-editor-wrap .ambo-rich-editor blockquote {
+/* QuoteWithCitation — custom blockquote NodeView.
+   Body paragraphs get italic reading type; the citation row sits below
+   as a dedicated input so priests can type attribution directly without
+   learning the "— " convention. */
+.ambo-rich-editor-wrap .ambo-quote {
   border-left: 3px solid var(--ambo-accent);
   padding-left: 16px;
   margin: 6px 0;
 }
 
-.ambo-rich-editor-wrap .ambo-rich-editor blockquote p {
+.ambo-rich-editor-wrap .ambo-quote .ambo-quote-body p,
+.ambo-rich-editor-wrap .ambo-quote > p {
   font-size: var(--ambo-size-xl);
   font-style: italic;
   line-height: var(--ambo-lh-reading);
@@ -286,14 +291,35 @@ body {
   padding: 4px 0;
 }
 
-/* Subdued "— Citation" line inside a blockquote. When a blockquote has
-   more than one paragraph, style the last one as the citation — matches
-   how joinParagraphs serialises it. For a single-line quote with no
-   citation this has no effect. */
-.ambo-rich-editor-wrap .ambo-rich-editor blockquote p:not(:only-child):last-child {
+.ambo-rich-editor-wrap .ambo-quote-citation-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ambo-rich-editor-wrap .ambo-quote-dash {
+  font-size: 14px;
+  color: var(--ambo-text-muted);
+  line-height: 1;
+  user-select: none;
+}
+
+.ambo-rich-editor-wrap .ambo-quote-citation {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
   font-size: 12px;
   font-style: italic;
   color: var(--ambo-text-muted);
+  font-family: inherit;
+  padding: 0;
+}
+
+.ambo-rich-editor-wrap .ambo-quote-citation::placeholder {
+  color: var(--ambo-text-muted);
+  opacity: 0.6;
 }
 
 /* Tiptap Placeholder — shows on an empty editor until the priest starts

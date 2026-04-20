@@ -40,6 +40,28 @@ const StarterKitMod = await import("@tiptap/starter-kit");
 const StarterKit = (StarterKitMod.default ?? StarterKitMod) as unknown as {
   configure: (opts?: Record<string, unknown>) => unknown;
 };
+const BlockquoteMod = await import("@tiptap/extension-blockquote");
+type BlockquoteExt = {
+  extend: (opts: Record<string, unknown>) => unknown;
+};
+const Blockquote = (BlockquoteMod.default ?? BlockquoteMod) as unknown as BlockquoteExt;
+
+// Mirror the citation attribute that the real QuoteWithCitation node (in
+// app/components/QuoteWithCitation.tsx) adds to Blockquote. The NodeView is
+// the production rendering concern; the test only needs the attribute so
+// generateJSON preserves data-citation on the way in.
+const TestQuote = Blockquote.extend({
+  addAttributes() {
+    return {
+      citation: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute("data-citation"),
+        renderHTML: (attrs: { citation: string | null }) =>
+          attrs.citation ? { "data-citation": attrs.citation } : {},
+      },
+    };
+  },
+});
 
 // Load the adapter we're testing.
 import type { Paragraph } from "../lib/paragraph-tiptap";
@@ -96,7 +118,10 @@ function joinParagraphs(paragraphs: P[]): string {
 
 // --- Round-trip machinery --------------------------------------------------
 
-const extensions = [StarterKit.configure()] as Parameters<typeof generateJSON>[1];
+const extensions = [
+  StarterKit.configure({ blockquote: false }),
+  TestQuote,
+] as Parameters<typeof generateJSON>[1];
 
 function roundTrip(content: string): string {
   const paras = parseParagraphs(content);
@@ -177,6 +202,23 @@ const fixtures: Fixture[] = [
     name: "realistic short homily",
     content:
       "Good morning, and welcome to the fourth Sunday of Easter.\n\nToday's gospel speaks of the Good Shepherd.\n\n> I am the good shepherd. The good shepherd lays down his life for the sheep.\n— John 10:11\n\nWhat does it mean, in **our** time, to hear this voice? I want to suggest three things.\n\nFirst, that we are *known*. Not as abstractions, not as a crowd, but one by one.",
+  },
+  // Phase 2 — citation with attribute-significant chars (quotes, ampersand,
+  // angle brackets). Exercises paragraphsToHtml's escapeAttr pathway.
+  {
+    name: "citation with quotes and ampersand",
+    content: "> You cannot serve two masters.\n— Matt. \"6:24\" & context",
+  },
+  {
+    name: "citation with angle brackets",
+    content: "> For God so loved.\n— John <3:16>",
+  },
+  // Phase 2 — multi-line quote without citation. Previously this was a CSS
+  // trap because the last line got muted. The data round-trip was always
+  // correct; this fixture pins it.
+  {
+    name: "multi-line quote without citation",
+    content: "> Line one of the quote.\n> Line two of the quote.\n> Line three, still part of the quote.",
   },
 ];
 
