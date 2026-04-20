@@ -293,6 +293,20 @@ body {
   cursor: grabbing;
 }
 
+/* Drop indicator — horizontal line drawn between paragraphs while a
+   block is being dragged. Positioned absolutely by RichEditor.tsx based
+   on whether the cursor is above or below the target block's midline. */
+.ambo-rich-editor-wrap .ambo-drop-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ambo-accent);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* Rich-text editor surface (Tiptap). Matches the typography the old
    per-paragraph <textarea> rendered, so switching to the editor doesn't
    shift the visual weight of the page. */
