@@ -817,24 +817,24 @@ export default function WriteView({
           <div style={{ padding: "14px 18px 16px" }}>
             {[
               {
-                q: "One thread, or many?",
-                s: "A homily serves the people better with one clear summons than with several tidy ideas.",
+                q: "Is there one clear invitation here?",
+                s: "People are usually helped more by one living thread than by several good thoughts.",
               },
               {
-                q: "Have you slipped into a lecture?",
-                s: "The homily is proclamation within worship, not exegesis at a desk.",
+                q: "Does this sound like preaching, rather than explaining?",
+                s: "A homily is meant to proclaim the Word within prayer, not simply to analyse it.",
               },
               {
-                q: "Is the Good News audible before the demand?",
-                s: "What God has done in Christ precedes what he asks of us.",
+                q: "Will people hear the gift before the call?",
+                s: "The Lord’s grace comes first. What he asks of us follows from what he has given.",
               },
               {
-                q: "Has a personal grievance or hobby found its way in?",
-                s: "The Word of God should eclipse the preacher, not the other way round.",
+                q: "Has anything personal crept in that dims the Gospel?",
+                s: "The preacher’s task is to let the Word stand in the light.",
               },
               {
-                q: "Is this ecclesial, or has it narrowed to a faction?",
-                s: "You speak with the Church, not against a party. Attentive to the signs of the times, but not partisan.",
+                q: "Does this keep people close to Christ and his Church?",
+                s: "It should open hearers to faith, hope, and communion, not to faction or ideology.",
               },
             ].map((item, i) => (
               <div
