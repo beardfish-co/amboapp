@@ -1056,24 +1056,14 @@ export default function WriteView({
         >
           <QuoteGlyph />
         </RibbonButton>
-        {/* DIAGNOSTIC: button rendered always, visible state badge next to it. */}
-        <RibbonButton
-          label={"Citation helper"}
-          onClick={onCitationClick}
-        >
-          <CitationGlyph />
-        </RibbonButton>
-        <span
-          style={{
-            fontFamily: "var(--ambo-font-reading)",
-            fontSize: 11,
-            color: "var(--ambo-text-muted)",
-            padding: "0 8px",
-            fontStyle: "italic",
-          }}
-        >
-          mode:{citationMode}
-        </span>
+        {citationMode !== "none" && (
+          <RibbonButton
+            label={citationMode === "edit" ? "Edit citation" : "Add citation"}
+            onClick={onCitationClick}
+          >
+            <CitationGlyph />
+          </RibbonButton>
+        )}
         </div>
       </div>
 
