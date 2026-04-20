@@ -1056,14 +1056,19 @@ export default function WriteView({
         >
           <QuoteGlyph />
         </RibbonButton>
-        {citationMode !== "none" && (
-          <RibbonButton
-            label={citationMode === "edit" ? "Edit citation" : "Add citation"}
-            onClick={onCitationClick}
-          >
-            <CitationGlyph />
-          </RibbonButton>
-        )}
+        {/* DIAGNOSTIC: button rendered always, tooltip reveals state. */}
+        <RibbonButton
+          label={
+            citationMode === "edit"
+              ? "Edit citation · state=edit"
+              : citationMode === "add"
+              ? "Add citation · state=add"
+              : "Citation (no quote selected) · state=none"
+          }
+          onClick={onCitationClick}
+        >
+          <CitationGlyph />
+        </RibbonButton>
         </div>
       </div>
 
