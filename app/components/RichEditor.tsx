@@ -2,19 +2,19 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Wraps @tiptap/react's useEditor + EditorContent and adds
-// @tiptap/extension-drag-handle-react's hover-revealed grip on the left
-// of the current block (Phase 2, Commit 2).
+// Wraps @tiptap/react's useEditor + EditorContent behind a tiny API so the
+// Write surface can swap one <textarea>-per-paragraph for a single rich-text
+// editor without dragging Tiptap primitives through WriteView.
 //
-// NOTE: the custom QuoteWithCitation node introduced in Phase 2 Commit 1
-// was reverted — existing content failed to render through its NodeView.
-// We'll revisit citation UX separately; for now, citations stay as the
-// trailing "— Source" line inside the quote block (Phase 1 behavior).
+// NOTE: Phase 2's custom QuoteWithCitation node (Commit 1) and DragHandle
+// (Commit 2) were both reverted — each one broke existing-content
+// rendering in ways the paragraph round-trip smoke test couldn't catch.
+// We'll revisit drag-to-reorder and dedicated citation UX separately,
+// with a rendering path we can verify in-browser before merging.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { DragHandle } from "@tiptap/extension-drag-handle-react";
 import { useEffect } from "react";
 
 export type RichEditorProps = {
@@ -26,25 +26,6 @@ export type RichEditorProps = {
   onReady?: (editor: Editor) => void;
   placeholder?: string;
 };
-
-function GripIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <circle cx="9" cy="5" r="1.5" fill="currentColor" />
-      <circle cx="15" cy="5" r="1.5" fill="currentColor" />
-      <circle cx="9" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="15" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
-      <circle cx="15" cy="19" r="1.5" fill="currentColor" />
-    </svg>
-  );
-}
 
 export default function RichEditor({
   initialHtml,
@@ -58,11 +39,15 @@ export default function RichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // Keep StarterKit defaults: paragraph / bold / italic / blockquote
-        // plus Enter / Backspace / cursor behaviour priests expect.
+        // Keep only what Phase 1 needs: paragraph / bold / italic / blockquote.
+        // Everything else stays on StarterKit defaults so Enter, Backspace,
+        // and cursor navigation behave as priests expect.
       }),
       Placeholder.configure({
         placeholder: placeholder ?? "",
+        // Only show placeholder in the first (and only) paragraph of an
+        // empty document — not on every empty line after the user has
+        // started writing.
         showOnlyWhenEditable: true,
         showOnlyCurrent: false,
         includeChildren: false,
@@ -84,12 +69,5 @@ export default function RichEditor({
   }, [editor, onReady]);
 
   if (!editor) return null;
-  return (
-    <>
-      <EditorContent editor={editor} />
-      <DragHandle editor={editor} className="ambo-drag-handle">
-        <GripIcon />
-      </DragHandle>
-    </>
-  );
+  return <EditorContent editor={editor} />;
 }
