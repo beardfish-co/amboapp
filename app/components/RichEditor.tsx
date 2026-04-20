@@ -4,12 +4,11 @@
 //
 // Wraps @tiptap/react's useEditor + EditorContent behind a tiny API so the
 // Write surface can swap one <textarea>-per-paragraph for a single rich-text
-// editor without dragging Tiptap primitives through WriteView. Commit 1 only
-// sets the file up and verifies it compiles; the actual swap happens in the
-// next commit.
+// editor without dragging Tiptap primitives through WriteView.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect } from "react";
 
 export type RichEditorProps = {
@@ -34,19 +33,24 @@ export default function RichEditor({
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        // We keep only what Phase 1 actually wants: paragraph / bold / italic
-        // / blockquote. Everything else stays on StarterKit defaults so we
-        // don't lose keyboard shortcuts priests might rely on (Enter,
-        // Backspace, cursor navigation).
+        // Keep only what Phase 1 needs: paragraph / bold / italic / blockquote.
+        // Everything else stays on StarterKit defaults so Enter, Backspace,
+        // and cursor navigation behave as priests expect.
+      }),
+      Placeholder.configure({
+        placeholder: placeholder ?? "",
+        // Only show placeholder in the first (and only) paragraph of an
+        // empty document — not on every empty line after the user has
+        // started writing.
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: false,
+        includeChildren: false,
       }),
     ],
     content: initialHtml,
     editorProps: {
       attributes: {
-        // Match the textarea's typography so the visual weight doesn't shift
-        // between Phase 1 and the legacy view during the transition.
         class: "ambo-rich-editor",
-        "data-placeholder": placeholder ?? "",
       },
     },
     onUpdate: ({ editor }) => {

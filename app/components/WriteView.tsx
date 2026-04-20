@@ -405,34 +405,40 @@ export default function WriteView({
   };
 
   const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
-    // Commit 2 interim: compute the next paragraph list, then push the fresh
-    // HTML into the editor wholesale. Commit 3 replaces this with
-    // editor.commands.insertContentAt() so the cursor position is honoured
-    // and we avoid resetting the whole document.
-    setParagraphs((prev) => {
-      const quoteP: Paragraph = {
-        id: generateId(),
-        text: payload.text,
-        kind: "quote",
-        citation: payload.citation,
-      };
-      // If the document is just one empty body paragraph, replace it.
-      // Otherwise append the quote and a fresh body paragraph after it.
-      const last = prev[prev.length - 1];
-      let next: Paragraph[];
-      if (prev.length === 1 && last && !last.kind && last.text.trim() === "") {
-        next = [quoteP, { id: generateId(), text: "" }];
-      } else {
-        next = [...prev, quoteP, { id: generateId(), text: "" }];
-      }
+    const editor = editorRef.current;
+    if (!editor) {
+      setReadingsOpen(false);
+      return;
+    }
 
-      editorRef.current?.commands.setContent(paragraphsToHtml(next), { emitUpdate: false });
-      save(title, next, sundayDate);
-      return next;
-    });
+    // Build the blockquote fragment directly — a single reusable helper
+    // (paragraphsToHtml) already knows how to render a quote Paragraph,
+    // including the "— citation" last line. An empty paragraph after the
+    // blockquote gives the priest somewhere to keep typing.
+    const quoteP: Paragraph = {
+      id: generateId(),
+      text: payload.text,
+      kind: "quote",
+      citation: payload.citation,
+    };
+    const quoteHtml = paragraphsToHtml([quoteP]) + "<p></p>";
 
+    // Insert at the end of the current block. If the current block is an
+    // empty paragraph, insertContentAt will splice cleanly; otherwise the
+    // new blockquote lands after the cursor's current block.
+    const { $to } = editor.state.selection;
+    const insertPos = $to.after($to.depth);
+
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(insertPos, quoteHtml)
+      .run();
+
+    // The onUpdate handler fires from the insertContent and will sync
+    // paragraphs + save; no manual setParagraphs needed here.
     setReadingsOpen(false);
-  }, [save, title, sundayDate]);
+  }, []);
 
   // Notes are saved independently from the main content save path —
   // they share the debounce pattern but their own timer and their own

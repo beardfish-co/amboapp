@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.90.0",
     "@supabase/ssr": "^0.5",
     "@supabase/supabase-js": "^2",
+    "@tiptap/extension-placeholder": "^3.22.4",
     "@tiptap/pm": "^3.22.4",
     "@tiptap/react": "^3.22.4",
     "@tiptap/starter-kit": "^3.22.4",
