@@ -551,6 +551,66 @@ export default function WriteView({
     lastFocusedParaIdRef.current = id;
   };
 
+  // Ribbon handlers — same effect as the ⌘B / ⌘I keyboard shortcuts,
+  // surfaced as small buttons so priests who don't know the shortcuts
+  // still have discoverable formatting. Operate on the currently-focused
+  // paragraph textarea. If nothing is focused, the buttons are no-ops.
+  const applyRibbonMark = (mark: "**" | "*") => {
+    const focusedId = lastFocusedParaIdRef.current;
+    if (!focusedId) return;
+    const ta = document.getElementById(`para-${focusedId}`) as HTMLTextAreaElement | null;
+    if (!ta || ta.tagName.toLowerCase() !== "textarea") return;
+    const para = paragraphs.find((p) => p.id === focusedId);
+    if (!para) return;
+    const { value, selStart, selEnd } = applyInlineMark(ta, mark);
+    handleParaChange(focusedId, value);
+    setTimeout(() => {
+      ta.focus();
+      ta.setSelectionRange(selStart, selEnd);
+    }, 0);
+  };
+
+  const insertRibbonQuote = () => {
+    const focusedId = lastFocusedParaIdRef.current;
+    setParagraphs((prev) => {
+      setUndoStack((s) => [...s, prev]);
+      const quoteP: Paragraph = {
+        id: generateId(),
+        text: "",
+        kind: "quote",
+        citation: "",
+      };
+      let insertAfter = prev.length - 1;
+      if (focusedId) {
+        const idx = prev.findIndex((p) => p.id === focusedId);
+        if (idx >= 0) insertAfter = idx;
+      }
+      const focused = focusedId ? prev.find((p) => p.id === focusedId) : null;
+      let next: Paragraph[];
+      if (focused && !focused.kind && focused.text.trim() === "") {
+        // Replace empty body paragraph with the quote block
+        next = prev.map((pp) => (pp.id === focused.id ? quoteP : pp));
+      } else {
+        next = [
+          ...prev.slice(0, insertAfter + 1),
+          quoteP,
+          ...prev.slice(insertAfter + 1),
+        ];
+      }
+      // Ensure there's a body paragraph after the quote so typing can continue
+      const afterIdx = next.findIndex((pp) => pp.id === quoteP.id) + 1;
+      if (afterIdx >= next.length) {
+        next = [...next, { id: generateId(), text: "" }];
+      }
+      save(title, next, sundayDate);
+      setTimeout(() => {
+        const el = document.getElementById(`para-${quoteP.id}`);
+        if (el) (el as HTMLTextAreaElement).focus();
+      }, 0);
+      return next;
+    });
+  };
+
   const handleParaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, id: string) => {
     // Cmd/Ctrl + B or I — inline emphasis. Keyboard-only, no toolbar.
     const isMod = e.metaKey || e.ctrlKey;
@@ -1131,6 +1191,60 @@ export default function WriteView({
         </div>
       )}
 
+      {/* Formatting ribbon — quiet row of three buttons (bold, italic, quote).
+          Sits inside the panel, just above the paragraphs. Uses position: sticky
+          so it pins directly beneath the page header once scrolled past.
+          Keyboard shortcuts ⌘B / ⌘I still work untouched. */}
+      <div
+        style={{
+          position: "sticky",
+          top: 60,
+          zIndex: 20,
+          marginLeft: -56,
+          marginRight: -56,
+          marginBottom: 18,
+          padding: "8px 56px",
+          display: "flex",
+          alignItems: "center",
+          gap: 2,
+          background: "var(--ambo-surface)",
+          backdropFilter: "blur(24px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+          borderBottom: "1px solid var(--ambo-border)",
+        }}
+      >
+        <RibbonButton
+          label="Bold"
+          kbd="⌘B"
+          onClick={() => applyRibbonMark("**")}
+        >
+          <span style={{
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: 16,
+            fontWeight: 700,
+            lineHeight: 1,
+          }}>B</span>
+        </RibbonButton>
+        <RibbonButton
+          label="Italic"
+          kbd="⌘I"
+          onClick={() => applyRibbonMark("*")}
+        >
+          <span style={{
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: 16,
+            fontStyle: "italic",
+            lineHeight: 1,
+          }}>I</span>
+        </RibbonButton>
+        <RibbonButton
+          label="Quote block"
+          onClick={insertRibbonQuote}
+        >
+          <QuoteGlyph />
+        </RibbonButton>
+      </div>
+
       {/* Paragraphs */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {paragraphs.map((para) => (
@@ -1444,6 +1558,84 @@ function CalendarIcon() {
       <rect x="3" y="5" width="14" height="12" rx="2" />
       <path d="M3 9h14" />
       <path d="M7 3v4M13 3v4" />
+    </svg>
+  );
+}
+
+// RibbonButton — small ghost-styled button used in the Write formatting ribbon.
+// Wider affordance than a bare glyph, but quiet enough to sit inside the panel
+// without announcing itself. Hover and active states are subtle; the button
+// communicates "available tool" rather than "primary action".
+function RibbonButton({
+  label,
+  kbd,
+  onClick,
+  children,
+}: {
+  label: string;
+  kbd?: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const title = kbd ? `${label} · ${kbd}` : label;
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => {
+        // Prevent the button from stealing focus from the textarea.
+        e.preventDefault();
+        setPressed(true);
+      }}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => { setHover(false); setPressed(false); }}
+      onMouseEnter={() => setHover(true)}
+      onClick={onClick}
+      aria-label={label}
+      title={title}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 32,
+        height: 32,
+        padding: 0,
+        border: "1px solid transparent",
+        borderRadius: 6,
+        background: pressed
+          ? "var(--ambo-accent-light)"
+          : hover
+          ? "rgba(0, 0, 0, 0.04)"
+          : "transparent",
+        color: "var(--ambo-text-secondary)",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        transition: "background 120ms ease, color 120ms ease",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// QuoteGlyph — a tiny blockquote mark: a vertical stroke to the left with a
+// short opening quotation. Reads as "insert a quoted block."
+function QuoteGlyph() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 5v10" />
+      <path d="M9 7c-1.5 0.5 -2.5 1.8 -2.5 3.5 0 1.2 0.9 2 2 2 1 0 1.8 -0.7 1.8 -1.8 0 -1 -0.7 -1.7 -1.7 -1.7" />
+      <path d="M15 7c-1.5 0.5 -2.5 1.8 -2.5 3.5 0 1.2 0.9 2 2 2 1 0 1.8 -0.7 1.8 -1.8 0 -1 -0.7 -1.7 -1.7 -1.7" />
     </svg>
   );
 }
