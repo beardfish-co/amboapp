@@ -1,15 +1,23 @@
 "use client";
 
-// RichEditor — Phase 1 Tiptap scaffold.
+// RichEditor — Tiptap wrapper for the Write surface.
 //
-// Wraps @tiptap/react's useEditor + EditorContent behind a tiny API so the
-// Write surface can swap one <textarea>-per-paragraph for a single rich-text
-// editor without dragging Tiptap primitives through WriteView.
+// Phase 1 scaffolded the Tiptap editor. Phase 2 adds a hover-revealed
+// drag handle for reordering top-level blocks. The handle is a plain
+// React element rendered alongside EditorContent — it does NOT register
+// a ProseMirror plugin. (The first Phase 2 attempt used
+// @tiptap/extension-drag-handle-react; its internal
+// editor.registerPlugin call raced the initial content load and silently
+// blanked existing homilies. We reverted it and rolled our own.)
+//
+// Commit 1 of Phase 2 v2: visibility only — the handle appears next to
+// the hovered block but has no drag behaviour yet. Drag logic lands in
+// Commit 2.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type RichEditorProps = {
   // Initial HTML content to seed the editor with. We intentionally don't
@@ -20,6 +28,35 @@ export type RichEditorProps = {
   onReady?: (editor: Editor) => void;
   placeholder?: string;
 };
+
+function GripIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="5" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="5" r="1.5" fill="currentColor" />
+      <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+      <circle cx="15" cy="19" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+type HandlePos = { top: number };
+
+// Walks up from `node` until it finds an element whose parent is the
+// editor's contenteditable root — that's the top-level block (a <p>, a
+// <blockquote>, etc.). Returns null if the cursor isn't over a block.
+function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElement | null {
+  let cur: Node | null = node;
+  while (cur && cur !== editorEl) {
+    if (cur instanceof HTMLElement && cur.parentElement === editorEl) {
+      return cur;
+    }
+    cur = cur.parentNode;
+  }
+  return null;
+}
 
 export default function RichEditor({
   initialHtml,
@@ -39,9 +76,6 @@ export default function RichEditor({
       }),
       Placeholder.configure({
         placeholder: placeholder ?? "",
-        // Only show placeholder in the first (and only) paragraph of an
-        // empty document — not on every empty line after the user has
-        // started writing.
         showOnlyWhenEditable: true,
         showOnlyCurrent: false,
         includeChildren: false,
@@ -62,6 +96,57 @@ export default function RichEditor({
     if (editor && onReady) onReady(editor);
   }, [editor, onReady]);
 
+  // --- Hover-revealed drag handle (no drag behaviour in Commit 1) ---
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
+
+  useEffect(() => {
+    if (!editor) return;
+    const scroller = scrollerRef.current;
+    const editorEl = editor.view.dom as HTMLElement;
+    if (!scroller || !editorEl) return;
+
+    const onMove = (e: MouseEvent) => {
+      const block = findTopLevelBlock(e.target as Node, editorEl);
+      if (!block) {
+        setHandlePos(null);
+        return;
+      }
+      const blockRect = block.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      // Align handle with the first line of the block (roughly: top of
+      // the block + half the line-height). The 4px tweak keeps the grip
+      // centred against the baseline.
+      setHandlePos({ top: blockRect.top - scrollerRect.top + 4 });
+    };
+    const onLeave = () => setHandlePos(null);
+
+    editorEl.addEventListener("mousemove", onMove);
+    editorEl.addEventListener("mouseleave", onLeave);
+    return () => {
+      editorEl.removeEventListener("mousemove", onMove);
+      editorEl.removeEventListener("mouseleave", onLeave);
+    };
+  }, [editor]);
+
   if (!editor) return null;
-  return <EditorContent editor={editor} />;
+  return (
+    <div ref={scrollerRef} className="ambo-rich-editor-scroller">
+      <EditorContent editor={editor} />
+      {handlePos && (
+        <button
+          type="button"
+          aria-label="Drag to reorder (not yet wired up)"
+          className="ambo-drag-handle"
+          style={{ top: handlePos.top }}
+          contentEditable={false}
+          // Commit 1 intentionally has no onClick / draggable. The handle
+          // is visual-only until Commit 2 wires drag-to-reorder.
+          tabIndex={-1}
+        >
+          <GripIcon />
+        </button>
+      )}
+    </div>
+  );
 }
