@@ -106,36 +106,41 @@ export default function RichEditor({
     const editorEl = editor.view.dom as HTMLElement;
     if (!scroller || !editorEl) return;
 
+    // Listen on document (not scroller) because the handle is absolutely
+    // positioned at left: -32px, outside the scroller's layout box. A
+    // scroller-level mouseleave fires as soon as the cursor crosses the
+    // left edge on its way to grab the handle, which would unmount the
+    // handle before the cursor arrived.
     const onMove = (e: MouseEvent) => {
-      const target = e.target;
-      // Ignore events over the handle itself (keep position) — otherwise
-      // reaching for the handle would make it vanish.
-      if (target instanceof HTMLElement && target.closest(".ambo-drag-handle")) {
+      const scrollerRect = scroller.getBoundingClientRect();
+      // Expanded hit area: include the ~36px left margin where the
+      // handle floats, plus a small vertical slack.
+      const inBounds =
+        e.clientX >= scrollerRect.left - 36 &&
+        e.clientX <= scrollerRect.right &&
+        e.clientY >= scrollerRect.top - 4 &&
+        e.clientY <= scrollerRect.bottom + 4;
+      if (!inBounds) {
+        setHandlePos(null);
         return;
       }
-      // If the cursor is in the left-margin gap between the editor text
-      // and the handle (target is the scroller background), keep the
-      // current position so the handle stays reachable. We only clear
-      // on full mouseleave of the scroller (see onLeave below).
-      if (!(target instanceof Node) || !editorEl.contains(target)) {
-        return;
-      }
-      const block = findTopLevelBlock(target, editorEl);
+      // While the cursor is in the handle's margin (or on the handle
+      // itself), keep the current position stable so the user can reach
+      // and grab it.
+      if (e.clientX < scrollerRect.left) return;
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      if (!(hit instanceof Node) || !editorEl.contains(hit)) return;
+      const block = findTopLevelBlock(hit, editorEl);
       if (!block) return;
       const blockRect = block.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      // Align handle with the first line of the block (roughly: top of
-      // the block + half the line-height). The 4px tweak keeps the grip
-      // centred against the baseline.
+      // Align handle with the first line of the block (top + 4px to
+      // centre the grip against the baseline).
       setHandlePos({ top: blockRect.top - scrollerRect.top + 4 });
     };
-    const onLeave = () => setHandlePos(null);
 
-    scroller.addEventListener("mousemove", onMove);
-    scroller.addEventListener("mouseleave", onLeave);
+    document.addEventListener("mousemove", onMove);
     return () => {
-      scroller.removeEventListener("mousemove", onMove);
-      scroller.removeEventListener("mouseleave", onLeave);
+      document.removeEventListener("mousemove", onMove);
     };
   }, [editor]);
 
