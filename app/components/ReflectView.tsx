@@ -960,7 +960,7 @@ export default function ReflectView({
         <div
           className="reflect-seed glass-card"
           style={{
-            background: "rgba(255, 255, 255, 0.58)",
+            background: "rgba(255, 255, 255, 0.66)",
             boxShadow: "var(--ambo-shadow-md)",
             overflow: "hidden",
             flexShrink: 0,
