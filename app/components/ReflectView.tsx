@@ -1003,7 +1003,7 @@ export default function ReflectView({
               marginBottom: 8,
               lineHeight: 1.4,
             }}>
-              What is the one thread I am being led to preach?
+              What is the one thread I am being given?
             </label>
 
             {/* Hinge field — italic Newsreader, auto-grows with content */}
@@ -1149,7 +1149,7 @@ export default function ReflectView({
                   opacity: seed.trim() ? 1 : 0.5,
                 }}
               >
-                Carry thread into Write
+                Carry this thread into Write
               </button>
             </div>
           </div>
