@@ -1120,6 +1120,12 @@ export default function WriteView({
         >
           <PillButton
             variant="active"
+            style={{
+              background: "var(--ambo-accent)",
+              borderColor: "var(--ambo-accent-hover)",
+              color: "#fff",
+              boxShadow: "0 2px 14px rgba(74,111,165,0.40)",
+            }}
             onClick={() => {
               editorRef.current?.chain().focus().undo().run();
               if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
