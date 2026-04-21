@@ -1036,77 +1036,80 @@ export default function ReflectView({
               }}
             />
 
-            {/* Progressive disclosure affordance — caret + italic label */}
-            <button
-              onClick={() => setSeedExpanded((v) => !v)}
-              style={{
-                border: "none",
-                background: "transparent",
-                padding: "8px 0 2px",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                color: "var(--ambo-text-muted)",
-              }}
-              aria-expanded={seedExpanded}
-            >
-              <span style={{
-                display: "inline-block",
-                fontSize: 13,
-                transition: "transform 200ms var(--ambo-ease)",
-                transform: seedExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                lineHeight: 1,
-              }}>
-                ›
-              </span>
-              <span style={{
-                fontSize: 11,
-                fontStyle: "italic",
-                letterSpacing: "0.02em",
-              }}>
-                Questions for deeper listening
-              </span>
-            </button>
+            {/* Deeper questions — only operative once the priest has named a thread */}
+            {seed.trim() && (
+              <>
+                <button
+                  onClick={() => setSeedExpanded((v) => !v)}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    padding: "8px 0 2px",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    color: "var(--ambo-text-muted)",
+                  }}
+                  aria-expanded={seedExpanded}
+                >
+                  <span style={{
+                    display: "inline-block",
+                    fontSize: 13,
+                    transition: "transform 200ms var(--ambo-ease)",
+                    transform: seedExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                    lineHeight: 1,
+                  }}>
+                    ›
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    fontStyle: "italic",
+                    letterSpacing: "0.02em",
+                  }}>
+                    Questions for deeper listening
+                  </span>
+                </button>
 
-            {/* Three sub-questions — hidden by default, all revealed at once */}
-            <SlideReveal open={seedExpanded} marginTop={seedExpanded ? 10 : 0}>
-              <div style={{
-                paddingTop: 4,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}>
-                {[
-                  { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?" },
-                  { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?" },
-                  { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?" },
-                ].map((f) => (
-                  <textarea
-                    key={f.col}
-                    value={f.value}
-                    onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
-                    placeholder={f.placeholder}
-                    disabled={!currentId}
-                    rows={2}
-                    style={{
-                      width: "100%",
-                      border: "none",
-                      outline: "none",
-                      resize: "none",
-                      background: "transparent",
-                      color: "var(--ambo-text-secondary)",
-                      fontFamily: "var(--ambo-font-reading)",
-                      fontSize: 13,
-                      fontStyle: "italic",
-                      lineHeight: 1.55,
-                      padding: 0,
-                    }}
-                  />
-                ))}
-              </div>
-            </SlideReveal>
+                <SlideReveal open={seedExpanded} marginTop={seedExpanded ? 10 : 0}>
+                  <div style={{
+                    paddingTop: 4,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}>
+                    {[
+                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?" },
+                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?" },
+                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?" },
+                    ].map((f) => (
+                      <textarea
+                        key={f.col}
+                        value={f.value}
+                        onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
+                        placeholder={f.placeholder}
+                        disabled={!currentId}
+                        rows={2}
+                        style={{
+                          width: "100%",
+                          border: "none",
+                          outline: "none",
+                          resize: "none",
+                          background: "transparent",
+                          color: "var(--ambo-text-secondary)",
+                          fontFamily: "var(--ambo-font-reading)",
+                          fontSize: 13,
+                          fontStyle: "italic",
+                          lineHeight: 1.55,
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SlideReveal>
+              </>
+            )}
 
             {/* Carry button — enabled only when thread has content */}
             <div style={{
