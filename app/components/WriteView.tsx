@@ -238,6 +238,13 @@ export default function WriteView({
   useEffect(() => {
     if (loadedIdRef.current === currentId) return;
 
+    // Eagerly clear title (and reset the editor key) when switching to a
+    // blank new draft so the old title never lingers during flushPendingSave.
+    if (currentId === null) {
+      setTitle("");
+      setEditorMountKey("new-" + Date.now());
+    }
+
     let cancelled = false;
 
     (async () => {
