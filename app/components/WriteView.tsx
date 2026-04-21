@@ -166,7 +166,9 @@ export default function WriteView({
   // receives the correct content on mount (avoids a race where key={currentId}
   // caused an early remount before the fetch completed).
   const [initialHtml, setInitialHtml] = useState<string>("<p></p>");
-  const [editorMountKey, setEditorMountKey] = useState<string>(currentId ?? "new");
+  // Initialise to "" so the first setEditorMountKey(data.id) is always a
+  // different value, guaranteeing the editor remounts with the correct content.
+  const [editorMountKey, setEditorMountKey] = useState<string>("");
   const editorRef = useRef<Editor | null>(null);
   // editorInstance mirrors editorRef into state so effects re-run when the
   // editor mounts. Set in onReady alongside the ref. Used by the citation
