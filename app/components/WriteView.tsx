@@ -1049,7 +1049,7 @@ export default function WriteView({
             padding: "3px 5px",
             borderRadius: 999,
             border: "1px solid var(--ambo-border)",
-            background: "rgba(255, 255, 255, 0.95)",
+            background: "var(--ambo-surface)",
             backdropFilter: "blur(20px) saturate(1.4)",
             WebkitBackdropFilter: "blur(20px) saturate(1.4)",
             boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
@@ -1100,7 +1100,7 @@ export default function WriteView({
           onClick={() => setReadingsOpen(true)}
           title="Open today’s readings"
           style={readingsOpen ? undefined : {
-            background: "rgba(255, 255, 255, 0.95)",
+            background: "var(--ambo-surface)",
             backdropFilter: "blur(20px) saturate(1.4)",
             WebkitBackdropFilter: "blur(20px) saturate(1.4)",
           }}
