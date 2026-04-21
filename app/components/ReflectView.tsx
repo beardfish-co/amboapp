@@ -1047,7 +1047,7 @@ export default function ReflectView({
               overflow: "hidden",
               opacity: seed.trim() ? 1 : 0,
               pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.6s ease 0.6s, max-height 0.3s ease",
+              transition: "opacity 1.6s ease 0.6s, max-height 1.6s ease 0.6s",
             }}>
                 <button
                   onClick={() => setSeedExpanded((v) => !v)}
@@ -1126,7 +1126,7 @@ export default function ReflectView({
               overflow: "hidden",
               opacity: seed.trim() ? 1 : 0,
               pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.2s ease 1.4s, max-height 0.3s ease",
+              transition: "opacity 1.2s ease 1.4s, max-height 1.2s ease 1.4s",
             }}>
             <div style={{
               marginTop: 12,
