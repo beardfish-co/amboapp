@@ -331,6 +331,14 @@ export default function ReflectView({
     timers.set(column, t);
   }, []);
 
+  // Auto-size the notes textarea whenever notes loads from DB
+  useEffect(() => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [notes]);
+
   // Auto-size the thread textarea whenever seed changes (handles initial load
   // from DB as well as live typing — the onChange handler covers typing, but
   // the effect catches the first render with a pre-existing thread value).
@@ -1175,25 +1183,29 @@ export default function ReflectView({
         <textarea
           ref={notesRef}
           value={notes}
-          onChange={(e) => handleNotesChange(e.target.value)}
+          onChange={(e) => {
+            handleNotesChange(e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = e.target.scrollHeight + "px";
+          }}
           placeholder={
             currentId
               ? "Jot what's stirring. Tap any prompt to send it here."
               : "Create or pick a homily in Write to start taking notes."
           }
           disabled={!currentId}
+          rows={1}
           style={{
-            flex: 1,
             border: "none",
             outline: "none",
             resize: "none",
+            overflow: "hidden",
             padding: 14,
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
             fontSize: 14,
             lineHeight: 1.6,
-            minHeight: 360,
           }}
         />
         {lastAdded && (
