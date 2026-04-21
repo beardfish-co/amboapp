@@ -134,7 +134,15 @@ export default function WriteView({
   onOpenList,
   onGoReflect,
 }: WriteViewProps) {
-  const [title, setTitle] = useState("");
+  // Seed title from localStorage immediately so the input is never blank
+  // while the async DB fetch runs. The load effect confirms/updates the value.
+  const [title, setTitle] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) return (JSON.parse(stored) as { title?: string }).title ?? "";
+    } catch { /* ignore */ }
+    return "";
+  });
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [sundayName, setSundayName] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
