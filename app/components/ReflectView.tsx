@@ -1043,9 +1043,9 @@ export default function ReflectView({
 
             {/* Single expanding wrapper — height opens as one motion, content fades within */}
             <div style={{
-              maxHeight: seed.trim() ? "700px" : "0px",
+              maxHeight: seed.trim() ? "280px" : "0px",
               overflow: "hidden",
-              transition: "max-height 3.2s ease 0.6s",
+              transition: "max-height 3.2s ease-in-out 0.6s",
             }}>
 
               {/* Deeper questions — opacity only, height handled by parent */}
