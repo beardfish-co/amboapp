@@ -103,6 +103,7 @@ export default function ReflectView({
   const fieldTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const draftIdRef = useRef<string | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
+  const threadRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Load the homily (sunday_date, notes, title) for currentId
   useEffect(() => {
@@ -329,6 +330,16 @@ export default function ReflectView({
     }, 1200);
     timers.set(column, t);
   }, []);
+
+  // Auto-size the thread textarea whenever seed changes (handles initial load
+  // from DB as well as live typing — the onChange handler covers typing, but
+  // the effect catches the first render with a pre-existing thread value).
+  useEffect(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [seed]);
 
   // Flush any pending save when the component unmounts or id swaps
   useEffect(() => {
@@ -984,18 +995,26 @@ export default function ReflectView({
               What is the one thread I am being led to preach?
             </label>
 
-            {/* Hinge field — italic Newsreader, generous size */}
+            {/* Hinge field — italic Newsreader, auto-grows with content */}
             <textarea
+              ref={threadRef}
               value={seed}
-              onChange={(e) => { setSeed(e.target.value); saveField("seed", e.target.value); }}
+              onChange={(e) => {
+                setSeed(e.target.value);
+                saveField("seed", e.target.value);
+                // Grow the field instantly as the priest types
+                e.target.style.height = "auto";
+                e.target.style.height = e.target.scrollHeight + "px";
+              }}
               placeholder="A thread, when one has come."
               disabled={!currentId}
-              rows={3}
+              rows={1}
               style={{
                 width: "100%",
                 border: "none",
                 outline: "none",
                 resize: "none",
+                overflow: "hidden",
                 background: "transparent",
                 color: "var(--ambo-text-primary)",
                 fontFamily: "var(--ambo-font-reading)",
