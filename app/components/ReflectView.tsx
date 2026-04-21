@@ -950,7 +950,7 @@ export default function ReflectView({
           className="reflect-seed glass-card"
           style={{
             background: "rgba(255, 255, 255, 0.58)",
-            boxShadow: "var(--ambo-shadow-sm)",
+            boxShadow: "var(--ambo-shadow-md)",
             overflow: "hidden",
             flexShrink: 0,
           }}
@@ -1106,16 +1106,17 @@ export default function ReflectView({
                 }}
                 style={{
                   width: "100%",
-                  border: "none",
-                  background: seed.trim() ? "var(--ambo-accent)" : "var(--ambo-border)",
-                  color: seed.trim() ? "white" : "var(--ambo-text-muted)",
+                  border: seed.trim() ? "1px solid var(--ambo-accent)" : "1px solid var(--ambo-border)",
+                  background: "transparent",
+                  color: seed.trim() ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
                   fontSize: 13,
                   fontWeight: 600,
-                  padding: "9px 16px",
+                  padding: "8px 16px",
                   borderRadius: "var(--ambo-radius-pill)",
                   cursor: seed.trim() ? "pointer" : "default",
                   fontFamily: "inherit",
-                  transition: "background 0.2s, color 0.2s",
+                  transition: "border-color 0.2s, color 0.2s",
+                  opacity: seed.trim() ? 1 : 0.5,
                 }}
               >
                 Carry thread into Write
