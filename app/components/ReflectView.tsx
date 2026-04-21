@@ -1043,9 +1043,11 @@ export default function ReflectView({
 
             {/* Deeper questions — fade in once the priest has named a thread */}
             <div style={{
+              maxHeight: seed.trim() ? "600px" : "0px",
+              overflow: "hidden",
               opacity: seed.trim() ? 1 : 0,
               pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.6s ease 0.6s",
+              transition: "opacity 1.6s ease 0.6s, max-height 0.3s ease",
             }}>
                 <button
                   onClick={() => setSeedExpanded((v) => !v)}
@@ -1120,12 +1122,16 @@ export default function ReflectView({
 
             {/* Carry affordance — fades in after deeper questions, only when thread has content */}
             <div style={{
+              maxHeight: seed.trim() ? "60px" : "0px",
+              overflow: "hidden",
+              opacity: seed.trim() ? 1 : 0,
+              pointerEvents: seed.trim() ? "auto" : "none",
+              transition: "opacity 1.2s ease 1.4s, max-height 0.3s ease",
+            }}>
+            <div style={{
               marginTop: 12,
               paddingTop: 12,
               borderTop: "1px solid var(--ambo-rule-subtle)",
-              opacity: seed.trim() ? 1 : 0,
-              pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.2s ease 1.4s",
             }}>
               <button
                 onClick={async () => {
@@ -1160,6 +1166,7 @@ export default function ReflectView({
               >
                 Carry this thread into Write →
               </button>
+            </div>
             </div>
           </div>
         </div>
