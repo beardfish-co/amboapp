@@ -152,9 +152,13 @@ export default function WriteView({
   const [wordCount, setWordCount] = useState(0);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   // Seed HTML for the Tiptap editor. Refreshed on load; the editor owns its
-  // content after that. We re-key <RichEditor> on currentId so the editor
-  // remounts with fresh content when switching homilies.
+  // content after that. We re-key <RichEditor> on editorMountKey so the
+  // editor remounts with fresh content when switching homilies. editorMountKey
+  // is updated in the same React batch as setInitialHtml so the editor always
+  // receives the correct content on mount (avoids a race where key={currentId}
+  // caused an early remount before the fetch completed).
   const [initialHtml, setInitialHtml] = useState<string>("<p></p>");
+  const [editorMountKey, setEditorMountKey] = useState<string>(currentId ?? "new");
   const editorRef = useRef<Editor | null>(null);
   // editorInstance mirrors editorRef into state so effects re-run when the
   // editor mounts. Set in onReady alongside the ref. Used by the citation
@@ -240,6 +244,7 @@ export default function WriteView({
         const emptyDraft: Paragraph[] = [{ id: generateId(), text: "" }];
         setParagraphs(emptyDraft);
         setInitialHtml(paragraphsToHtml(emptyDraft));
+        setEditorMountKey("new-" + Date.now());
         setLastSaved(null);
         setSundayDate(defaultSunday);
         setNotes("");
@@ -278,6 +283,7 @@ export default function WriteView({
             const seeded = parsed.length ? parsed : [{ id: generateId(), text: "" }];
             setParagraphs(seeded);
             setInitialHtml(paragraphsToHtml(seeded));
+            setEditorMountKey(data.id);
             try {
               localStorage.setItem(
                 STORAGE_KEY,
@@ -297,6 +303,7 @@ export default function WriteView({
         const emptyDraft: Paragraph[] = [{ id: generateId(), text: "" }];
         setParagraphs(emptyDraft);
         setInitialHtml(paragraphsToHtml(emptyDraft));
+        setEditorMountKey((currentId ?? "new") + "-fallback");
         setLastSaved(null);
         setNotes("");
         setSeed("");
@@ -1085,7 +1092,7 @@ export default function WriteView({
           content. StarterKit wires ⌘B / ⌘I / Enter / Backspace natively. */}
       <div className="ambo-rich-editor-wrap">
         <RichEditor
-          key={currentId ?? "new"}
+          key={editorMountKey}
           initialHtml={initialHtml}
           onReady={(editor) => {
             editorRef.current = editor;

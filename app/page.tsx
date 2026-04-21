@@ -195,23 +195,32 @@ export default function AmboApp() {
         flex: 1,
         padding: "36px 0",
       }}>
-        {mode === "reflect" && idHydrated && (
-          <ReflectView
-            currentId={currentId}
-            onOpenList={openDrawer}
-            onGoWrite={() => setMode("write")}
-          />
+        {/* All three views stay mounted once idHydrated — CSS-hidden when
+            inactive. This prevents the blank-then-populated title flash that
+            occurs when WriteView unmounts and remounts on every mode switch. */}
+        {idHydrated && (
+          <>
+            <div style={{ display: mode === "reflect" ? undefined : "none" }}>
+              <ReflectView
+                currentId={currentId}
+                onOpenList={openDrawer}
+                onGoWrite={() => setMode("write")}
+              />
+            </div>
+            <div style={{ display: mode === "write" ? undefined : "none" }}>
+              <WriteView
+                currentId={currentId}
+                onCurrentIdChange={persistCurrentId}
+                onSaved={handleSaved}
+                onOpenList={openDrawer}
+                onGoReflect={() => setMode("reflect")}
+              />
+            </div>
+            <div style={{ display: mode === "preach" ? undefined : "none" }}>
+              <PreachView currentId={currentId} />
+            </div>
+          </>
         )}
-        {mode === "write" && idHydrated && (
-          <WriteView
-            currentId={currentId}
-            onCurrentIdChange={persistCurrentId}
-            onSaved={handleSaved}
-            onOpenList={openDrawer}
-            onGoReflect={() => setMode("reflect")}
-          />
-        )}
-        {mode === "preach" && idHydrated && <PreachView currentId={currentId} />}
       </main>
 
       {/* Attribution footer — present on every view */}
