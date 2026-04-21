@@ -608,14 +608,7 @@ export default function WriteView({
             saved · {lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
-        <PillButton
-          variant={readingsOpen ? "active" : "ghost"}
-          icon={<BookIconShared />}
-          onClick={() => setReadingsOpen(true)}
-          title="Open today's readings"
-        >
-          Readings
-        </PillButton>
+
         {notes.trim().length > 0 && (
           <PillButton
             variant={notesOpen ? "active" : "ghost"}
@@ -1009,7 +1002,8 @@ export default function WriteView({
           zIndex: 20,
           marginBottom: 20,
           display: "flex",
-          justifyContent: "flex-start",
+          justifyContent: "space-between",
+          alignItems: "center",
         }}
       >
         <div
@@ -1065,6 +1059,14 @@ export default function WriteView({
           </RibbonButton>
         )}
         </div>
+        <PillButton
+          variant={readingsOpen ? "active" : "ghost"}
+          icon={<BookIconShared />}
+          onClick={() => setReadingsOpen(true)}
+          title="Open today’s readings"
+        >
+          Readings
+        </PillButton>
       </div>
 
       {/* Paragraphs — single Tiptap editor owns all paragraph flow now.
