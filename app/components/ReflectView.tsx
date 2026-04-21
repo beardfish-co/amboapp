@@ -1162,8 +1162,10 @@ export default function ReflectView({
             flexDirection: "column",
             border: "1px solid var(--ambo-border)",
             borderRadius: 14,
-            background: "var(--ambo-bg)",
+            background: notes.trim() ? "rgba(255, 255, 255, 0.48)" : "transparent",
+            boxShadow: notes.trim() ? "var(--ambo-shadow-sm)" : "none",
             overflow: "hidden",
+            transition: "background 0.4s ease, box-shadow 0.4s ease",
           }}
         >
         <div style={{
