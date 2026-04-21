@@ -1036,9 +1036,12 @@ export default function ReflectView({
               }}
             />
 
-            {/* Deeper questions — only operative once the priest has named a thread */}
-            {seed.trim() && (
-              <>
+            {/* Deeper questions — fade in once the priest has named a thread */}
+            <div style={{
+              opacity: seed.trim() ? 1 : 0,
+              pointerEvents: seed.trim() ? "auto" : "none",
+              transition: "opacity 1s ease 0.4s",
+            }}>
                 <button
                   onClick={() => setSeedExpanded((v) => !v)}
                   style={{
@@ -1108,8 +1111,7 @@ export default function ReflectView({
                     ))}
                   </div>
                 </SlideReveal>
-              </>
-            )}
+            </div>
 
             {/* Carry button — enabled only when thread has content */}
             <div style={{
