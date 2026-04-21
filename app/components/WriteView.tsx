@@ -417,6 +417,13 @@ export default function WriteView({
     save(title, paragraphs, iso);
   };
 
+  // Show the undo pill for 5 s; dismissed on next edit or by clicking it.
+  const showUndoPill = useCallback(() => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoPillVisible(true);
+    undoTimerRef.current = setTimeout(() => setUndoPillVisible(false), 5000);
+  }, []);
+
   const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
     const editor = editorRef.current;
     if (!editor) {
@@ -515,13 +522,6 @@ export default function WriteView({
       editor.off("update", sync);
     };
   }, [editorInstance]);
-
-  // Show the undo pill for 5 s; dismissed on next edit or by clicking it.
-  const showUndoPill = useCallback(() => {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setUndoPillVisible(true);
-    undoTimerRef.current = setTimeout(() => setUndoPillVisible(false), 5000);
-  }, []);
 
   // Ribbon handlers — surface ⌘B / ⌘I / toggle-blockquote as buttons for
   // priests who don't know the keyboard shortcuts. StarterKit also wires the
