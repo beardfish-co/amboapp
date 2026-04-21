@@ -968,7 +968,7 @@ export default function ReflectView({
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         {/* DISCERNMENT panel */}
