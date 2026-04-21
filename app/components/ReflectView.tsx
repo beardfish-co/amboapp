@@ -1041,14 +1041,19 @@ export default function ReflectView({
               }}
             />
 
-            {/* Deeper questions — fade in once the priest has named a thread */}
+            {/* Single expanding wrapper — height opens as one motion, content fades within */}
             <div style={{
-              maxHeight: seed.trim() ? "600px" : "0px",
+              maxHeight: seed.trim() ? "700px" : "0px",
               overflow: "hidden",
-              opacity: seed.trim() ? 1 : 0,
-              pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.6s ease 0.6s, max-height 1.6s ease 0.6s",
+              transition: "max-height 2.6s ease 0.6s",
             }}>
+
+              {/* Deeper questions — opacity only, height handled by parent */}
+              <div style={{
+                opacity: seed.trim() ? 1 : 0,
+                pointerEvents: seed.trim() ? "auto" : "none",
+                transition: "opacity 1.6s ease 0.6s",
+              }}>
                 <button
                   onClick={() => setSeedExpanded((v) => !v)}
                   style={{
@@ -1118,21 +1123,19 @@ export default function ReflectView({
                     ))}
                   </div>
                 </SlideReveal>
-            </div>
+              </div>
 
-            {/* Carry affordance — fades in after deeper questions, only when thread has content */}
-            <div style={{
-              maxHeight: seed.trim() ? "60px" : "0px",
-              overflow: "hidden",
-              opacity: seed.trim() ? 1 : 0,
-              pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1.2s ease 1.4s, max-height 1.2s ease 1.4s",
-            }}>
-            <div style={{
-              marginTop: 12,
-              paddingTop: 12,
-              borderTop: "1px solid var(--ambo-rule-subtle)",
-            }}>
+              {/* Carry affordance — opacity only, fades in after deeper questions */}
+              <div style={{
+                opacity: seed.trim() ? 1 : 0,
+                pointerEvents: seed.trim() ? "auto" : "none",
+                transition: "opacity 1.2s ease 1.4s",
+              }}>
+              <div style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid var(--ambo-rule-subtle)",
+              }}>
               <button
                 onClick={async () => {
                   if (!seed.trim()) return;
@@ -1166,6 +1169,7 @@ export default function ReflectView({
               >
                 Carry this thread into Write →
               </button>
+            </div>
             </div>
             </div>
           </div>
