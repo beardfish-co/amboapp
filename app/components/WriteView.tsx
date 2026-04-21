@@ -1049,7 +1049,7 @@ export default function WriteView({
             padding: "3px 5px",
             borderRadius: 999,
             border: "1px solid var(--ambo-border)",
-            background: "var(--ambo-surface)",
+            background: "rgba(238, 242, 247, 0.95)",
             backdropFilter: "blur(20px) saturate(1.4)",
             WebkitBackdropFilter: "blur(20px) saturate(1.4)",
             boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
@@ -1099,6 +1099,11 @@ export default function WriteView({
           icon={<BookIconShared />}
           onClick={() => setReadingsOpen(true)}
           title="Open today’s readings"
+          style={readingsOpen ? undefined : {
+            background: "rgba(238, 242, 247, 0.95)",
+            backdropFilter: "blur(20px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+          }}
         >
           Readings
         </PillButton>
