@@ -1118,16 +1118,18 @@ export default function ReflectView({
                 </SlideReveal>
             </div>
 
-            {/* Carry button — enabled only when thread has content */}
+            {/* Carry affordance — fades in after deeper questions, only when thread has content */}
             <div style={{
-              marginTop: 16,
-              paddingTop: 14,
+              marginTop: 12,
+              paddingTop: 12,
               borderTop: "1px solid var(--ambo-rule-subtle)",
+              opacity: seed.trim() ? 1 : 0,
+              pointerEvents: seed.trim() ? "auto" : "none",
+              transition: "opacity 1.2s ease 1.4s",
             }}>
               <button
-                disabled={!seed.trim()}
                 onClick={async () => {
-                  // Flush the debounced seed save immediately before navigating
+                  if (!seed.trim()) return;
                   const timers = fieldTimerRef.current;
                   const existing = timers.get("seed");
                   if (existing) { clearTimeout(existing); timers.delete("seed"); }
@@ -1145,21 +1147,18 @@ export default function ReflectView({
                   onGoWrite();
                 }}
                 style={{
-                  width: "100%",
-                  border: seed.trim() ? "1px solid var(--ambo-text-secondary)" : "1px solid var(--ambo-border)",
+                  border: "none",
                   background: "transparent",
-                  color: seed.trim() ? "var(--ambo-text-secondary)" : "var(--ambo-text-muted)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  padding: "8px 16px",
-                  borderRadius: "var(--ambo-radius-pill)",
-                  cursor: seed.trim() ? "pointer" : "default",
+                  color: "var(--ambo-text-muted)",
+                  fontSize: 12,
+                  fontStyle: "italic",
                   fontFamily: "inherit",
-                  transition: "border-color 0.3s, color 0.3s",
-                  opacity: seed.trim() ? 1 : 0.45,
+                  padding: 0,
+                  cursor: "pointer",
+                  letterSpacing: "0.02em",
                 }}
               >
-                Carry this thread into Write
+                Carry this thread into Write →
               </button>
             </div>
           </div>
