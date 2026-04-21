@@ -170,7 +170,7 @@ export default function ReflectView({
       setSeedEucharist(loadedSeedEu);
       setSeedResponse(loadedSeedResp);
       // open the seed panel automatically only if the priest has started writing one
-      setSeedExpanded(Boolean(loadedSeed || loadedSeedWhy || loadedSeedEu || loadedSeedResp));
+      setSeedExpanded(Boolean(loadedSeedWhy || loadedSeedEu || loadedSeedResp));
       loadedIdRef.current = currentId ?? null;
       draftIdRef.current = currentId ?? null;
       setLoading(false);
@@ -931,7 +931,7 @@ export default function ReflectView({
         )}
       </div>
 
-      {/* Right column: seed panel + notes pad */}
+      {/* Right column: Discernment panel + Notes pad */}
       <div
         className="reflect-side"
         style={{
@@ -945,128 +945,186 @@ export default function ReflectView({
           overflow: "hidden",
         }}
       >
-        {/* Seed panel — the Directory's "one principal grace", discreet and optional */}
+        {/* DISCERNMENT panel */}
         <div
-          className="reflect-seed"
+          className="reflect-seed glass-card"
           style={{
-            border: "1px solid var(--ambo-border)",
-            borderRadius: 14,
-            background: "var(--ambo-bg)",
+            background: "rgba(255, 255, 255, 0.58)",
+            boxShadow: "var(--ambo-shadow-sm)",
             overflow: "hidden",
             flexShrink: 0,
           }}
         >
+          {/* Panel heading */}
           <div style={{
-            padding: "12px 14px",
-            borderBottom: seedExpanded ? "1px solid var(--ambo-border)" : "none",
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
-            gap: 8,
+            padding: "14px 18px 12px",
+            borderBottom: "1px solid var(--ambo-rule-subtle)",
           }}>
             <span style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
               textTransform: "uppercase",
               color: "var(--ambo-text-secondary)",
             }}>
-              Seed
+              Discernment
             </span>
+          </div>
+
+          <div style={{ padding: "16px 18px" }}>
+            {/* Hinge label */}
+            <label style={{
+              display: "block",
+              fontSize: 11,
+              fontStyle: "italic",
+              color: "var(--ambo-text-muted)",
+              marginBottom: 8,
+              lineHeight: 1.4,
+            }}>
+              What is the one thread I am being led to preach?
+            </label>
+
+            {/* Hinge field — italic Newsreader, generous size */}
+            <textarea
+              value={seed}
+              onChange={(e) => { setSeed(e.target.value); saveField("seed", e.target.value); }}
+              placeholder="A thread, when one has come."
+              disabled={!currentId}
+              rows={3}
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                resize: "none",
+                background: "transparent",
+                color: "var(--ambo-text-primary)",
+                fontFamily: "var(--ambo-font-reading)",
+                fontSize: 16,
+                fontStyle: "italic",
+                lineHeight: 1.65,
+                padding: 0,
+              }}
+            />
+
+            {/* Progressive disclosure affordance — caret + italic label */}
             <button
               onClick={() => setSeedExpanded((v) => !v)}
-              disabled={!currentId}
               style={{
                 border: "none",
                 background: "transparent",
-                fontSize: 11,
-                color: "var(--ambo-text-muted)",
-                cursor: currentId ? "pointer" : "default",
-                padding: 0,
-                fontStyle: "italic",
+                padding: "8px 0 2px",
+                cursor: "pointer",
                 fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                color: "var(--ambo-text-muted)",
               }}
               aria-expanded={seedExpanded}
             >
-              {seedExpanded ? "hide" : (seed ? "show" : "begin")}
+              <span style={{
+                display: "inline-block",
+                fontSize: 13,
+                transition: "transform 200ms var(--ambo-ease)",
+                transform: seedExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                lineHeight: 1,
+              }}>
+                ›
+              </span>
+              <span style={{
+                fontSize: 11,
+                fontStyle: "italic",
+                letterSpacing: "0.02em",
+              }}>
+                Questions for deeper listening
+              </span>
             </button>
-          </div>
 
-          <SlideReveal open={seedExpanded}>
-            <div style={{ padding: "12px 14px" }}>
-              {/* Primary seed — the central grace/mystery */}
-              <textarea
-                value={seed}
-                onChange={(e) => { setSeed(e.target.value); saveField("seed", e.target.value); }}
-                placeholder="What is the central grace or mystery of this Sunday?"
-                disabled={!currentId}
-                rows={2}
+            {/* Three sub-questions — hidden by default, all revealed at once */}
+            <SlideReveal open={seedExpanded} marginTop={seedExpanded ? 10 : 0}>
+              <div style={{
+                paddingTop: 4,
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}>
+                {[
+                  { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?" },
+                  { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?" },
+                  { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?" },
+                ].map((f) => (
+                  <textarea
+                    key={f.col}
+                    value={f.value}
+                    onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
+                    placeholder={f.placeholder}
+                    disabled={!currentId}
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      border: "none",
+                      outline: "none",
+                      resize: "none",
+                      background: "transparent",
+                      color: "var(--ambo-text-secondary)",
+                      fontFamily: "var(--ambo-font-reading)",
+                      fontSize: 13,
+                      fontStyle: "italic",
+                      lineHeight: 1.55,
+                      padding: 0,
+                    }}
+                  />
+                ))}
+              </div>
+            </SlideReveal>
+
+            {/* Carry button — enabled only when thread has content */}
+            <div style={{
+              marginTop: 16,
+              paddingTop: 14,
+              borderTop: "1px solid var(--ambo-rule-subtle)",
+            }}>
+              <button
+                disabled={!seed.trim()}
+                onClick={async () => {
+                  // Flush the debounced seed save immediately before navigating
+                  const timers = fieldTimerRef.current;
+                  const existing = timers.get("seed");
+                  if (existing) { clearTimeout(existing); timers.delete("seed"); }
+                  try {
+                    const supabase = createClient();
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user && draftIdRef.current) {
+                      await supabase
+                        .from("homilies")
+                        .update({ seed })
+                        .eq("id", draftIdRef.current)
+                        .eq("user_id", user.id);
+                    }
+                  } catch { /* ignore — thread already debouncing */ }
+                  onGoWrite();
+                }}
                 style={{
                   width: "100%",
                   border: "none",
-                  outline: "none",
-                  resize: "none",
-                  background: "transparent",
-                  color: "var(--ambo-text-primary)",
+                  background: seed.trim() ? "var(--ambo-accent)" : "var(--ambo-border)",
+                  color: seed.trim() ? "white" : "var(--ambo-text-muted)",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "9px 16px",
+                  borderRadius: "var(--ambo-radius-pill)",
+                  cursor: seed.trim() ? "pointer" : "default",
                   fontFamily: "inherit",
-                  fontSize: 15,
-                  fontStyle: "italic",
-                  lineHeight: 1.55,
-                  padding: 0,
+                  transition: "background 0.2s, color 0.2s",
                 }}
-              />
-
-              <div style={{
-                height: 1,
-                background: "var(--ambo-border)",
-                margin: "10px 0 6px",
-                opacity: 0.6,
-              }} />
-
-              {/* Three quieter unfolding questions */}
-              {[
-                { value: seedWhyNow, set: setSeedWhyNow, col: "seed_why_now", placeholder: "Why do these people need this now?" },
-                { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this prepare them for the Eucharist?" },
-                { value: seedResponse, set: setSeedResponse, col: "seed_response", placeholder: "What concrete response is the Lord asking?" },
-              ].map((f) => (
-                <textarea
-                  key={f.col}
-                  value={f.value}
-                  onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
-                  placeholder={f.placeholder}
-                  disabled={!currentId}
-                  rows={1}
-                  style={{
-                    width: "100%",
-                    border: "none",
-                    outline: "none",
-                    resize: "none",
-                    background: "transparent",
-                    color: "var(--ambo-text-secondary)",
-                    fontFamily: "inherit",
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    padding: "4px 0",
-                  }}
-                />
-              ))}
+              >
+                Carry thread into Write
+              </button>
             </div>
-          </SlideReveal>
-
-          {!seedExpanded && seed && (
-            <div style={{
-              padding: "8px 14px 12px",
-              fontSize: 13,
-              fontStyle: "italic",
-              color: "var(--ambo-text-secondary)",
-              lineHeight: 1.5,
-            }}>
-              {seed}
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Notes pad */}
+        {/* Notes pad — unchanged */}
         <aside
           className="reflect-notes"
           style={{
