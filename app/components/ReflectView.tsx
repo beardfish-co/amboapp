@@ -1159,23 +1159,17 @@ export default function ReflectView({
           }}
         >
         <div style={{
-          padding: "12px 14px",
+          padding: "14px 18px 12px",
           borderBottom: "1px solid var(--ambo-border)",
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
         }}>
           <span style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "0.12em",
             textTransform: "uppercase",
             color: "var(--ambo-text-secondary)",
           }}>
             Notes
-          </span>
-          <span style={{ fontSize: 11, color: "var(--ambo-text-muted)" }}>
-            private — doesn't print
           </span>
         </div>
         <textarea
