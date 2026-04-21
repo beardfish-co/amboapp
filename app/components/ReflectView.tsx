@@ -1040,7 +1040,7 @@ export default function ReflectView({
             <div style={{
               opacity: seed.trim() ? 1 : 0,
               pointerEvents: seed.trim() ? "auto" : "none",
-              transition: "opacity 1s ease 0.4s",
+              transition: "opacity 1.6s ease 0.6s",
             }}>
                 <button
                   onClick={() => setSeedExpanded((v) => !v)}
