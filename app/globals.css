@@ -307,6 +307,40 @@ body {
   z-index: 2;
 }
 
+/* Quote delete button — hover-revealed × in the top-right corner of any
+   blockquote. Positioned absolutely by a mousemove listener in RichEditor.tsx,
+   same pattern as the drag handle. */
+.ambo-rich-editor-wrap .ambo-quote-delete {
+  position: absolute;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ambo-border);
+  border-radius: 999px;
+  background: var(--ambo-surface);
+  color: var(--ambo-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity var(--ambo-dur-fast) var(--ambo-ease),
+              background var(--ambo-dur-fast) var(--ambo-ease),
+              border-color var(--ambo-dur-fast) var(--ambo-ease);
+  padding: 0;
+  user-select: none;
+  z-index: 5;
+}
+
+.ambo-rich-editor-wrap .ambo-quote-delete:hover {
+  opacity: 1;
+  background: var(--ambo-accent-faint);
+  border-color: var(--ambo-accent);
+  color: var(--ambo-accent);
+}
+
 /* Rich-text editor surface (Tiptap). Matches the typography the old
    per-paragraph <textarea> rendered, so switching to the editor doesn't
    shift the visual weight of the page. */

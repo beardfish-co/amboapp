@@ -166,6 +166,9 @@ export default function WriteView({
   // 'edit' → in quote, last paragraph already starts with "— " → clicking
   //          puts the cursor at the end of that line.
   const [citationMode, setCitationMode] = useState<"none" | "add" | "edit">("none");
+  // Undo pill — transient affordance after reading insert or drag-reorder.
+  const [undoPillVisible, setUndoPillVisible] = useState(false);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Autosave coordination
   const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -414,6 +417,13 @@ export default function WriteView({
     save(title, paragraphs, iso);
   };
 
+  // Show the undo pill for 5 s; dismissed on next edit or by clicking it.
+  const showUndoPill = useCallback(() => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoPillVisible(true);
+    undoTimerRef.current = setTimeout(() => setUndoPillVisible(false), 5000);
+  }, []);
+
   const handleInsertReading = useCallback((payload: { text: string; citation: string }) => {
     const editor = editorRef.current;
     if (!editor) {
@@ -447,8 +457,9 @@ export default function WriteView({
 
     // The onUpdate handler fires from the insertContent and will sync
     // paragraphs + save; no manual setParagraphs needed here.
+    showUndoPill();
     setReadingsOpen(false);
-  }, []);
+  }, [showUndoPill]);
 
   // Notes are saved independently from the main content save path —
   // they share the debounce pattern but their own timer and their own
@@ -1080,16 +1091,51 @@ export default function WriteView({
             editorRef.current = editor;
             setEditorInstance(editor);
           }}
+          onReorder={showUndoPill}
+          onQuoteDelete={showUndoPill}
           onUpdate={(editor) => {
             const next = paragraphsFromDoc(editor.getJSON());
             setParagraphs(next);
             save(title, next, sundayDate);
+            // Any edit dismisses the undo pill.
+            if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
+            setUndoPillVisible(false);
           }}
           placeholder="Begin writing your homily…"
         />
       </div>
       </div>
       {/* /Glass Panel */}
+
+      {/* Undo pill — shown after reading insert or drag-reorder */}
+      {undoPillVisible && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 56,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 50,
+          }}
+        >
+          <PillButton
+            variant="active"
+            style={{
+              background: "var(--ambo-accent)",
+              borderColor: "var(--ambo-accent-hover)",
+              color: "#fff",
+              boxShadow: "0 2px 14px rgba(74,111,165,0.40)",
+            }}
+            onClick={() => {
+              editorRef.current?.chain().focus().undo().run();
+              if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
+              setUndoPillVisible(false);
+            }}
+          >
+            ↩ Undo
+          </PillButton>
+        </div>
+      )}
 
       {/* Status bar */}
       <div style={{

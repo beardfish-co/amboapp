@@ -26,6 +26,8 @@ export type RichEditorProps = {
   initialHtml: string;
   onUpdate?: (editor: Editor) => void;
   onReady?: (editor: Editor) => void;
+  onReorder?: () => void;
+  onQuoteDelete?: () => void;
   placeholder?: string;
 };
 
@@ -74,6 +76,8 @@ export default function RichEditor({
   initialHtml,
   onUpdate,
   onReady,
+  onReorder,
+  onQuoteDelete,
   placeholder,
 }: RichEditorProps) {
   const editor = useEditor({
@@ -117,6 +121,9 @@ export default function RichEditor({
   const draggingIndexRef = useRef<number | null>(null);
   const dropTargetRef = useRef<DropTarget | null>(null);
   const [dropLineTop, setDropLineTop] = useState<number | null>(null);
+  // Quote × button — tracks which blockquote (if any) the mouse is over.
+  type QuoteDeletePos = { top: number; blockIndex: number };
+  const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
 
   // Track hovered block via document-level mousemove (see Commit 1c).
   useEffect(() => {
@@ -137,6 +144,7 @@ export default function RichEditor({
         e.clientY <= scrollerRect.bottom + 4;
       if (!inBounds) {
         setHandlePos(null);
+        setQuoteDeletePos(null);
         return;
       }
       // Left-margin strip: keep last-known position stable.
@@ -152,6 +160,12 @@ export default function RichEditor({
         top: blockRect.top - scrollerRect.top + 4,
         blockIndex,
       });
+      // Show × button if this block is a blockquote.
+      if (block.tagName === "BLOCKQUOTE") {
+        setQuoteDeletePos({ top: blockRect.top - scrollerRect.top + 6, blockIndex });
+      } else {
+        setQuoteDeletePos(null);
+      }
     };
 
     document.addEventListener("mousemove", onMove);
@@ -237,8 +251,9 @@ export default function RichEditor({
       tr.insert(insertPos, sourceNode);
       editor.view.dispatch(tr);
 
-      // Notify WriteView (it persists on every update).
+      // Notify WriteView: persist the reordered content and show undo pill.
       if (onUpdate) onUpdate(editor);
+      onReorder?.();
     };
 
     // Capture phase so we intercept before ProseMirror's bubble-phase
@@ -256,6 +271,7 @@ export default function RichEditor({
       e.preventDefault();
       return;
     }
+    setQuoteDeletePos(null);
     draggingIndexRef.current = handlePos.blockIndex;
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = "move";
@@ -305,6 +321,31 @@ export default function RichEditor({
           style={{ top: dropLineTop }}
           aria-hidden
         />
+      )}
+      {quoteDeletePos && (
+        <button
+          type="button"
+          aria-label="Remove quote"
+          className="ambo-quote-delete"
+          style={{ top: quoteDeletePos.top }}
+          contentEditable={false}
+          tabIndex={-1}
+          onClick={() => {
+            if (!editor) return;
+            const { state } = editor;
+            const { doc } = state;
+            const idx = quoteDeletePos.blockIndex;
+            if (idx < 0 || idx >= doc.childCount) return;
+            const pos = blockStartPos(editor, idx);
+            const node = doc.child(idx);
+            editor.view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
+            if (onUpdate) onUpdate(editor);
+            onQuoteDelete?.();
+            setQuoteDeletePos(null);
+          }}
+        >
+          ×
+        </button>
       )}
     </div>
   );
