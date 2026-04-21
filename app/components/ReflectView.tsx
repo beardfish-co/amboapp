@@ -393,6 +393,8 @@ export default function ReflectView({
   const season = detectSeason(readings?.dayName);
 
   const emptyNoSunday = !sundayDate && !loading;
+  // Right column wakes up together: active when either the thread or notes has content
+  const discernmentActive = seed.trim().length > 0 || notes.trim().length > 0;
 
   return (
     <div
@@ -968,10 +970,11 @@ export default function ReflectView({
         <div
           className="reflect-seed glass-card"
           style={{
-            background: "rgba(255, 255, 255, 0.66)",
+            background: discernmentActive ? "rgba(255, 255, 255, 0.70)" : "rgba(255, 255, 255, 0.66)",
             boxShadow: "var(--ambo-shadow-md)",
             overflow: "hidden",
             flexShrink: 0,
+            transition: "background 0.4s ease, border-color 0.4s ease",
           }}
         >
           {/* Panel heading */}
