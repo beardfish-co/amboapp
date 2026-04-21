@@ -1045,7 +1045,7 @@ export default function ReflectView({
             <div style={{
               maxHeight: seed.trim() ? "700px" : "0px",
               overflow: "hidden",
-              transition: "max-height 2.6s ease 0.6s",
+              transition: "max-height 3.2s ease 0.6s",
             }}>
 
               {/* Deeper questions — opacity only, height handled by parent */}
