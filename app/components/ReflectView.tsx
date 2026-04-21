@@ -339,6 +339,11 @@ export default function ReflectView({
     el.style.height = el.scrollHeight + "px";
   }, [notes]);
 
+  // Collapse sub-questions if the priest clears the thread
+  useEffect(() => {
+    if (!seed.trim()) setSeedExpanded(false);
+  }, [seed]);
+
   // Auto-size the thread textarea whenever seed changes (handles initial load
   // from DB as well as live typing — the onChange handler covers typing, but
   // the effect catches the first render with a pre-existing thread value).
@@ -1141,17 +1146,17 @@ export default function ReflectView({
                 }}
                 style={{
                   width: "100%",
-                  border: seed.trim() ? "1px solid var(--ambo-accent)" : "1px solid var(--ambo-border)",
+                  border: seed.trim() ? "1px solid var(--ambo-text-secondary)" : "1px solid var(--ambo-border)",
                   background: "transparent",
-                  color: seed.trim() ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                  color: seed.trim() ? "var(--ambo-text-secondary)" : "var(--ambo-text-muted)",
                   fontSize: 13,
                   fontWeight: 600,
                   padding: "8px 16px",
                   borderRadius: "var(--ambo-radius-pill)",
                   cursor: seed.trim() ? "pointer" : "default",
                   fontFamily: "inherit",
-                  transition: "border-color 0.2s, color 0.2s",
-                  opacity: seed.trim() ? 1 : 0.5,
+                  transition: "border-color 0.3s, color 0.3s",
+                  opacity: seed.trim() ? 1 : 0.45,
                 }}
               >
                 Carry this thread into Write
