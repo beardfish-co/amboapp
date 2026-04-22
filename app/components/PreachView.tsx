@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
@@ -68,6 +68,23 @@ export default function PreachView({ currentId }: PreachViewProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+  const [stepHeight, setStepHeight] = useState<number | null>(null);
+
+  // Measure remaining screen height from the top of the step container
+  useEffect(() => {
+    if (isScrollMode) return;
+    const measure = () => {
+      const el = stepContainerRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      setStepHeight(window.innerHeight - top - 8);
+    };
+    // Small delay so the DOM has settled after mode switch
+    const t = setTimeout(measure, 50);
+    window.addEventListener("resize", measure);
+    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
+  }, [isScrollMode]);
 
   // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
@@ -449,11 +466,14 @@ export default function PreachView({ currentId }: PreachViewProps) {
         const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
         const active = stepBlocks[safeIdx];
         return (
-          <div style={{
-            height: "calc(100svh - 210px)",
-            display: "flex",
-            flexDirection: "column",
-          }}>
+          <div
+            ref={stepContainerRef}
+            style={{
+              height: stepHeight ? stepHeight : "calc(100svh - 210px)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
             <div style={{
               flex: 1,
               display: "flex",
