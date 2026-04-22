@@ -1257,6 +1257,7 @@ export default function ReflectView({
             grid-template-columns: minmax(0, 1fr) !important;
           }
           .reflect-side {
+            order: -1;
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
