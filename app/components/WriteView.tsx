@@ -150,6 +150,11 @@ export default function WriteView({
   const [notes, setNotes] = useState("");
   // Seed — primary line only (unfolding lives in Reflect). Read-only here.
   const [seed, setSeed] = useState("");
+  // Sub-questions from Discernment — read-only in Write
+  const [seedWhyNow, setSeedWhyNow] = useState("");
+  const [seedEucharist, setSeedEucharist] = useState("");
+  const [seedResponse, setSeedResponse] = useState("");
+  const [furtherListeningOpen, setFurtherListeningOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   // Preflight "examine" — a gentle last look before preaching
   const [examineOpen, setExamineOpen] = useState(false);
@@ -266,6 +271,9 @@ export default function WriteView({
         setSundayDate(defaultSunday);
         setNotes("");
         setSeed("");
+        setSeedWhyNow("");
+        setSeedEucharist("");
+        setSeedResponse("");
         draftIdRef.current = null;
         loadedIdRef.current = null;
         try {
@@ -283,7 +291,7 @@ export default function WriteView({
         if (user) {
           const { data } = await supabase
             .from("homilies")
-            .select("id, title, content, sunday_date, notes, seed")
+            .select("id, title, content, sunday_date, notes, seed, seed_why_now, seed_eucharist, seed_response")
             .eq("id", currentId)
             .eq("user_id", user.id)
             .single();
@@ -296,6 +304,9 @@ export default function WriteView({
             setSundayDate((data.sunday_date as string | null) ?? null);
             setNotes((data.notes as string | null) ?? "");
             setSeed((data.seed as string | null) ?? "");
+            setSeedWhyNow((data.seed_why_now as string | null) ?? "");
+            setSeedEucharist((data.seed_eucharist as string | null) ?? "");
+            setSeedResponse((data.seed_response as string | null) ?? "");
             const parsed = data.content ? parseParagraphs(data.content) : [];
             const seeded = parsed.length ? parsed : [{ id: generateId(), text: "" }];
             setParagraphs(seeded);
@@ -324,6 +335,9 @@ export default function WriteView({
         setLastSaved(null);
         setNotes("");
         setSeed("");
+        setSeedWhyNow("");
+        setSeedEucharist("");
+        setSeedResponse("");
         onLoaded?.({ id: currentId, title: "" });
       }
 
@@ -803,42 +817,113 @@ export default function WriteView({
         </div>
       </SlideReveal>
 
-      {/* Seed reminder — eyebrow + italic Newsreader, above the glass Panel.
-          Clickable to return to Reflect. */}
+      {/* Discernment anchor — above the glass Panel, left-aligned.
+          Shows only when the priest has named a thread. Clickable to return
+          to Reflect. "Further Listening" expands sub-question answers. */}
       {seed.trim().length > 0 && (
-        <div
-          onClick={onGoReflect}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGoReflect?.(); } }}
-          title="Edit in Reflect"
-          style={{
-            marginBottom: 14,
-            padding: "0 4px",
-            cursor: onGoReflect ? "pointer" : "default",
-          }}
-        >
-          <span style={{
-            display: "block",
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--ambo-text-muted)",
-            marginBottom: 6,
-          }}>
-            Seed
-          </span>
-          <div style={{
-            fontFamily: "var(--ambo-font-reading)",
-            fontSize: 14,
-            fontStyle: "italic",
-            lineHeight: 1.55,
-            color: "var(--ambo-text-secondary)",
-            maxWidth: 560,
-          }}>
-            {seed}
+        <div style={{ marginBottom: 18, padding: "0 4px" }}>
+          {/* Label + thread */}
+          <div
+            onClick={onGoReflect}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGoReflect?.(); } }}
+            title="Edit in Reflect"
+            style={{ cursor: onGoReflect ? "pointer" : "default" }}
+          >
+            <span style={{
+              display: "block",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-muted)",
+              marginBottom: 6,
+            }}>
+              Discernment
+            </span>
+            <div style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontSize: 15,
+              fontStyle: "italic",
+              lineHeight: 1.55,
+              color: "var(--ambo-text-secondary)",
+              maxWidth: 600,
+            }}>
+              {seed}
+            </div>
           </div>
+
+          {/* Further Listening — only if sub-questions were answered */}
+          {(seedWhyNow.trim() || seedEucharist.trim() || seedResponse.trim()) && (
+            <div style={{ marginTop: 10 }}>
+              <button
+                onClick={() => setFurtherListeningOpen(v => !v)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 11,
+                  color: "var(--ambo-text-muted)",
+                  fontFamily: "inherit",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                <span style={{
+                  display: "inline-block",
+                  transition: "transform 0.2s ease",
+                  transform: furtherListeningOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  fontSize: 9,
+                }}>▶</span>
+                Further Listening
+              </button>
+
+              {furtherListeningOpen && (
+                <div style={{
+                  marginTop: 10,
+                  paddingLeft: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  animation: "fadeIn 0.2s ease",
+                }}>
+                  {[
+                    { q: "Why do my people need this now?",          a: seedWhyNow },
+                    { q: "How does this lead toward the Eucharist?", a: seedEucharist },
+                    { q: "What is the Lord asking of these people?", a: seedResponse },
+                  ]
+                    .filter(item => item.a.trim())
+                    .map(item => (
+                      <div key={item.q}>
+                        <div style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          color: "var(--ambo-text-muted)",
+                          marginBottom: 3,
+                        }}>
+                          {item.q}
+                        </div>
+                        <div style={{
+                          fontFamily: "var(--ambo-font-reading)",
+                          fontSize: 13,
+                          fontStyle: "italic",
+                          lineHeight: 1.55,
+                          color: "var(--ambo-text-secondary)",
+                        }}>
+                          {item.a}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
