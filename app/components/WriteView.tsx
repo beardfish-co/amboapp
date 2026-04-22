@@ -852,73 +852,46 @@ export default function WriteView({
               <button
                 onClick={() => setFurtherListeningOpen(v => !v)}
                 style={{
-                  background: "none",
                   border: "none",
-                  padding: 0,
+                  background: "transparent",
+                  color: "var(--ambo-text-muted)",
+                  fontSize: 12,
+                  padding: "2px 0",
                   cursor: "pointer",
+                  fontFamily: "inherit",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 5,
-                  fontSize: 11,
-                  color: "var(--ambo-text-muted)",
-                  fontFamily: "inherit",
+                  gap: 6,
                   letterSpacing: "0.02em",
                 }}
+                aria-expanded={furtherListeningOpen}
               >
-                <svg
-                  width="8" height="8"
-                  viewBox="0 0 8 8"
-                  style={{
-                    transition: "transform 0.2s ease",
-                    transform: furtherListeningOpen ? "rotate(90deg)" : "rotate(0deg)",
-                    flexShrink: 0,
-                  }}
-                >
-                  <path d="M2 1 L6 4 L2 7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Further Listening
+                <span style={{ fontStyle: "italic" }}>further listening</span>
+                <span style={{ fontSize: 10, opacity: 0.6 }}>{furtherListeningOpen ? "–" : "+"}</span>
               </button>
 
-              {furtherListeningOpen && (
+              <SlideReveal open={furtherListeningOpen} marginTop={furtherListeningOpen ? 10 : 0}>
                 <div style={{
-                  marginTop: 10,
                   paddingLeft: 2,
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
-                  animation: "fadeIn 0.2s ease",
                 }}>
-                  {[
-                    { q: "Why do my people need this now?",          a: seedWhyNow },
-                    { q: "How does this lead toward the Eucharist?", a: seedEucharist },
-                    { q: "What is the Lord asking of these people?", a: seedResponse },
-                  ]
-                    .filter(item => item.a.trim())
-                    .map(item => (
-                      <div key={item.q}>
-                        <div style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          color: "var(--ambo-text-muted)",
-                          marginBottom: 3,
-                        }}>
-                          {item.q}
-                        </div>
-                        <div style={{
-                          fontFamily: "var(--ambo-font-reading)",
-                          fontSize: 13,
-                          fontStyle: "italic",
-                          lineHeight: 1.55,
-                          color: "var(--ambo-text-secondary)",
-                        }}>
-                          {item.a}
-                        </div>
+                  {[seedWhyNow, seedEucharist, seedResponse]
+                    .filter(a => a.trim())
+                    .map((a, i) => (
+                      <div key={i} style={{
+                        fontFamily: "var(--ambo-font-reading)",
+                        fontSize: 13,
+                        fontStyle: "italic",
+                        lineHeight: 1.55,
+                        color: "var(--ambo-text-secondary)",
+                      }}>
+                        {a}
                       </div>
                     ))}
                 </div>
-              )}
+              </SlideReveal>
             </div>
           )}
         </div>
