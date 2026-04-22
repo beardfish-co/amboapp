@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
@@ -68,31 +68,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
-  const stepContainerRef = useRef<HTMLDivElement>(null);
-  const [stepHeight, setStepHeight] = useState<number | null>(null);
-
-  // Measure remaining screen height from the top of the step container
-  useEffect(() => {
-    if (isScrollMode) return;
-    const measure = () => {
-      const el = stepContainerRef.current;
-      if (!el) return;
-      const top = el.getBoundingClientRect().top;
-      const footer = document.querySelector("footer");
-      const footerH = footer ? footer.getBoundingClientRect().height : 46;
-      // glassPadBottom is 32px (step mode), footerH is measured live
-      const computed = window.innerHeight - top - 32 - footerH;
-      
-      setStepHeight(computed);
-    };
-    // Scroll to top first so the measurement is always taken from a
-    // known position, then measure after the scroll settles.
-    window.scrollTo({ top: 0, behavior: "instant" });
-    const t = setTimeout(measure, 50);
-    window.addEventListener("resize", measure);
-    return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
-  }, [isScrollMode]);
-
   // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
     let cancelled = false;
@@ -217,7 +192,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
   }
 
   return (
-    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0" }}>
+    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "calc(100dvh - 145px)", display: "flex", flexDirection: "column" as const }) }}>
 
       {/* Controls */}
       <div style={{
@@ -286,6 +261,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       {readings && readings.readings.length > 0 && (
         <div style={{
           marginBottom: isScrollMode ? 32 : 16,
+          flexShrink: 0,
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
           background: "var(--ambo-surface)",
@@ -397,12 +373,14 @@ export default function PreachView({ currentId }: PreachViewProps) {
         style={{
           padding: isScrollMode ? "48px 40px" : "48px 40px 32px",
           marginBottom: isScrollMode ? 40 : 0,
+          ...(isScrollMode ? {} : { flex: 1, display: "flex", flexDirection: "column" as const, minHeight: 0 }),
         }}
       >
       {/* Seed — quiet glance before the ambo */}
       {seed.trim().length > 0 && (
         <div style={{
           marginBottom: title ? 16 : 40,
+          flexShrink: 0,
           paddingLeft: 14,
           borderLeft: "2px solid var(--ambo-accent-light)",
           fontSize: 15,
@@ -419,6 +397,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         <h1 style={{
           fontSize: 28,
           fontWeight: 600,
+          flexShrink: 0,
           color: "var(--ambo-text-primary)",
           letterSpacing: "-0.02em",
           marginBottom: 40,
@@ -474,11 +453,11 @@ export default function PreachView({ currentId }: PreachViewProps) {
         const active = stepBlocks[safeIdx];
         return (
           <div
-            ref={stepContainerRef}
             style={{
-              height: stepHeight ?? 0,
+              flex: 1,
               display: "flex",
               flexDirection: "column",
+              minHeight: 0,
             }}
           >
             <div style={{
