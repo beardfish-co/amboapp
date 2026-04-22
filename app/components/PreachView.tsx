@@ -449,9 +449,13 @@ export default function PreachView({ currentId }: PreachViewProps) {
         const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
         const active = stepBlocks[safeIdx];
         return (
-          <div>
+          <div style={{
+            height: "calc(100svh - 220px)",
+            display: "flex",
+            flexDirection: "column",
+          }}>
             <div style={{
-              minHeight: "calc(100svh - 280px)",
+              flex: 1,
               display: "flex",
               alignItems: "center",
               animation: "fadeIn 0.3s ease",
@@ -479,7 +483,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginTop: 48,
+              paddingTop: 24,
+              paddingBottom: 16,
             }}>
               <button
                 onClick={() => setCurrentBlock((c) => Math.max(0, c - 1))}
