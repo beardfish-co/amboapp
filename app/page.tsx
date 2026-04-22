@@ -197,7 +197,7 @@ export default function AmboApp() {
         flex: 1,
         minHeight: 0,
         overflowY: "auto",
-        padding: "36px 0",
+        padding: mode === "preach" ? "36px 0 0" : "36px 0",
       }}>
         {/* All three views stay mounted once idHydrated — CSS-hidden when
             inactive. This prevents the blank-then-populated title flash that
