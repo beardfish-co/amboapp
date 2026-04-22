@@ -722,11 +722,8 @@ export default function WriteView({
           overflow: "hidden",
         }}>
           <div style={{
-            padding: "10px 14px",
+            padding: "12px 20px",
             borderBottom: "1px solid var(--ambo-border)",
-            display: "flex",
-            alignItems: "baseline",
-            justifyContent: "space-between",
           }}>
             <span style={{
               fontSize: 11,
@@ -736,9 +733,6 @@ export default function WriteView({
               color: "var(--ambo-text-secondary)",
             }}>
               Notes
-            </span>
-            <span style={{ fontSize: 11, color: "var(--ambo-text-muted)" }}>
-              private — doesn't print
             </span>
           </div>
           <textarea
@@ -752,7 +746,7 @@ export default function WriteView({
               border: "none",
               outline: "none",
               resize: "vertical",
-              padding: 14,
+              padding: "14px 20px",
               background: "transparent",
               color: "var(--ambo-text-primary)",
               fontFamily: "inherit",
@@ -776,7 +770,7 @@ export default function WriteView({
           overflow: "hidden",
         }}>
           <div style={{
-            padding: "12px 14px",
+            padding: "12px 20px",
             borderBottom: "1px solid var(--ambo-border)",
             display: "flex",
             alignItems: "baseline",
@@ -795,7 +789,7 @@ export default function WriteView({
               a last quiet look — nothing to answer
             </span>
           </div>
-          <div style={{ padding: "14px 18px 16px" }}>
+          <div style={{ padding: "16px 20px 20px" }}>
             {[
               {
                 q: "Is there one clear invitation here?",
