@@ -78,7 +78,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       const el = stepContainerRef.current;
       if (!el) return;
       const top = el.getBoundingClientRect().top;
-      setStepHeight(window.innerHeight - top - 8);
+      setStepHeight(window.innerHeight - top - 32 - 8);
     };
     // Small delay so the DOM has settled after mode switch
     const t = setTimeout(measure, 50);
@@ -278,7 +278,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       {/* Readings panel (collapsible) */}
       {readings && readings.readings.length > 0 && (
         <div style={{
-          marginBottom: 32,
+          marginBottom: isScrollMode ? 32 : 16,
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
           background: "var(--ambo-surface)",
@@ -388,8 +388,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
       <div
         className="glass-card"
         style={{
-          padding: "48px 40px",
-          marginBottom: 40,
+          padding: isScrollMode ? "48px 40px" : "48px 40px 32px",
+          marginBottom: isScrollMode ? 40 : 0,
         }}
       >
       {/* Seed — quiet glance before the ambo */}
