@@ -451,23 +451,28 @@ export default function PreachView({ currentId }: PreachViewProps) {
         return (
           <div>
             <div style={{
-              minHeight: "30vh",
-              animation: "fadeIn 0.2s ease",
+              minHeight: "calc(100svh - 280px)",
+              display: "flex",
+              alignItems: "center",
+              animation: "fadeIn 0.3s ease",
             }}>
-              {active.kind === "quote" ? (
-                <QuoteDisplay block={active} fontSize={fontSize} />
-              ) : (
-                <p style={{
-                  fontFamily: "var(--ambo-font-reading)",
-                  fontSize: fontSize,
-                  lineHeight: "var(--ambo-lh-reading)",
-                  color: "var(--ambo-text-primary)",
-                  letterSpacing: "0.01em",
-                  whiteSpace: "pre-wrap",
-                }}>
-                  {renderInline(active.text)}
-                </p>
-              )}
+              <div style={{ width: "100%" }}>
+                {active.kind === "quote" ? (
+                  <QuoteDisplay block={active} fontSize={fontSize} />
+                ) : (
+                  <p style={{
+                    fontFamily: "var(--ambo-font-reading)",
+                    fontSize: fontSize,
+                    lineHeight: "var(--ambo-lh-reading)",
+                    color: "var(--ambo-text-primary)",
+                    letterSpacing: "0.01em",
+                    whiteSpace: "pre-wrap",
+                    margin: 0,
+                  }}>
+                    {renderInline(active.text)}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div style={{
