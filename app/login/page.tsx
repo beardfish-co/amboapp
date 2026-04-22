@@ -137,7 +137,7 @@ export default function LoginPage() {
               maxLength={8}
               value={code}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 8);
                 setCode(val);
                 setError("");
               }}
