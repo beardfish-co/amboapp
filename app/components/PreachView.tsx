@@ -80,7 +80,9 @@ export default function PreachView({ currentId }: PreachViewProps) {
       const top = el.getBoundingClientRect().top;
       setStepHeight(window.innerHeight - top - 32 - 42 - 4);
     };
-    // Small delay so the DOM has settled after mode switch
+    // Scroll to top first so the measurement is always taken from a
+    // known position, then measure after the scroll settles.
+    window.scrollTo({ top: 0, behavior: "instant" });
     const t = setTimeout(measure, 50);
     window.addEventListener("resize", measure);
     return () => { clearTimeout(t); window.removeEventListener("resize", measure); };
