@@ -119,10 +119,11 @@ export default function AmboApp() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      height: "100svh",
       background: "var(--ambo-bg)",
       display: "flex",
       flexDirection: "column",
+      overflow: "hidden",
     }}>
 
       {/* Header */}
@@ -194,6 +195,8 @@ export default function AmboApp() {
       {/* Main content */}
       <main style={{
         flex: 1,
+        minHeight: 0,
+        overflowY: "auto",
         padding: "36px 0",
       }}>
         {/* All three views stay mounted once idHydrated — CSS-hidden when
@@ -218,7 +221,7 @@ export default function AmboApp() {
                 discernmentVersion={discernmentVersion}
               />
             </div>
-            <div style={{ display: mode === "preach" ? undefined : "none" }}>
+            <div style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
               <PreachView currentId={currentId} />
             </div>
           </>
