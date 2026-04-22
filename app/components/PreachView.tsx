@@ -192,7 +192,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
   }
 
   return (
-    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "calc(100dvh - 145px)", display: "flex", flexDirection: "column" as const }) }}>
+    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "calc(100vh - 146px)", display: "flex", flexDirection: "column" as const }) }}>
 
       {/* Controls */}
       <div style={{
