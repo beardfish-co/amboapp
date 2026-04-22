@@ -82,7 +82,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       const footerH = footer ? footer.getBoundingClientRect().height : 46;
       // glassPadBottom is 32px (step mode), footerH is measured live
       const computed = window.innerHeight - top - 32 - footerH;
-      console.log("[Ambo step] innerHeight:", window.innerHeight, "top:", Math.round(top), "footerH:", Math.round(footerH), "→ stepHeight:", Math.round(computed));
+      
       setStepHeight(computed);
     };
     // Scroll to top first so the measurement is always taken from a
@@ -476,7 +476,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
           <div
             ref={stepContainerRef}
             style={{
-              height: stepHeight ? stepHeight : "calc(100svh - 210px)",
+              height: stepHeight ?? 0,
               display: "flex",
               flexDirection: "column",
             }}
