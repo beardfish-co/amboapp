@@ -132,7 +132,6 @@ export default function WriteView({
   onSaved,
   onLoaded,
   onOpenList,
-  onGoReflect,
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
   // while the async DB fetch runs. The load effect confirms/updates the value.
@@ -818,19 +817,12 @@ export default function WriteView({
       </SlideReveal>
 
       {/* Discernment anchor — above the glass Panel, left-aligned.
-          Shows only when the priest has named a thread. Clickable to return
-          to Reflect. "Further Listening" expands sub-question answers. */}
+          Shows only when the priest has named a thread. Read-only; the priest
+          has committed to his thread. "Further Listening" expands sub-questions. */}
       {seed.trim().length > 0 && (
         <div style={{ marginBottom: 18, padding: "0 4px" }}>
-          {/* Label + thread */}
-          <div
-            onClick={onGoReflect}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onGoReflect?.(); } }}
-            title="Edit in Reflect"
-            style={{ cursor: onGoReflect ? "pointer" : "default" }}
-          >
+          {/* Label + thread — plain display, no link back to Reflect */}
+          <div>
             <span style={{
               display: "block",
               fontSize: 10,
@@ -866,19 +858,24 @@ export default function WriteView({
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 5,
                   fontSize: 11,
                   color: "var(--ambo-text-muted)",
                   fontFamily: "inherit",
                   letterSpacing: "0.02em",
                 }}
               >
-                <span style={{
-                  display: "inline-block",
-                  transition: "transform 0.2s ease",
-                  transform: furtherListeningOpen ? "rotate(90deg)" : "rotate(0deg)",
-                  fontSize: 9,
-                }}>▶</span>
+                <svg
+                  width="8" height="8"
+                  viewBox="0 0 8 8"
+                  style={{
+                    transition: "transform 0.2s ease",
+                    transform: furtherListeningOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    flexShrink: 0,
+                  }}
+                >
+                  <path d="M2 1 L6 4 L2 7" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 Further Listening
               </button>
 
