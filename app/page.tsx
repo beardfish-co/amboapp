@@ -163,7 +163,7 @@ export default function AmboApp() {
               <button
                 key={m}
                 className={`mode-pill-btn ${mode === m ? "active" : ""}`}
-                onClick={() => setMode(m)}
+                onClick={() => { if (m === "write") setDiscernmentVersion(v => v + 1); setMode(m); }}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </button>
