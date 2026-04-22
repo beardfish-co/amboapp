@@ -227,7 +227,7 @@ export default function AmboApp() {
 
       {/* Attribution footer — present on every view */}
       <footer style={{
-        padding: "20px 24px 28px",
+        padding: "12px 24px 16px",
         textAlign: "center",
       }}>
         <p style={{

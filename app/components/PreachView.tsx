@@ -78,7 +78,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
       const el = stepContainerRef.current;
       if (!el) return;
       const top = el.getBoundingClientRect().top;
-      setStepHeight(window.innerHeight - top - 32 - 8);
+      setStepHeight(window.innerHeight - top - 32 - 42 - 4);
     };
     // Small delay so the DOM has settled after mode switch
     const t = setTimeout(measure, 50);
