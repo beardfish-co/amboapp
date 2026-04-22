@@ -193,7 +193,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
   }
 
   return (
-    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: "0 32px 80px" }}>
+    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0" }}>
 
       {/* Controls */}
       <div style={{
@@ -450,7 +450,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         const active = stepBlocks[safeIdx];
         return (
           <div style={{
-            height: "calc(100svh - 220px)",
+            height: "calc(100svh - 210px)",
             display: "flex",
             flexDirection: "column",
           }}>
