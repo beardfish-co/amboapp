@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,9 +23,6 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
     });
 
     setLoading(false);
@@ -30,6 +31,30 @@ export default function LoginPage() {
       setError(authError.message || "Something went wrong. Please try again.");
     } else {
       setSent(true);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.length !== 6) return;
+
+    setVerifying(true);
+    setError("");
+
+    const supabase = createClient();
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: code,
+      type: "email",
+    });
+
+    setVerifying(false);
+
+    if (verifyError) {
+      setError("That code didn\'t work. Check it and try again.");
+      setCode("");
+    } else {
+      router.push("/");
     }
   };
 
@@ -72,8 +97,8 @@ export default function LoginPage() {
         padding: "32px 28px",
       }}>
         {sent ? (
-          /* Sent state */
-          <div style={{ textAlign: "center" }}>
+          /* Code entry state */
+          <form onSubmit={handleVerify}>
             <div style={{
               width: 48,
               height: 48,
@@ -91,6 +116,7 @@ export default function LoginPage() {
               fontWeight: 600,
               color: "var(--ambo-text-primary)",
               margin: "0 0 8px",
+              textAlign: "center",
             }}>
               Check your email
             </h2>
@@ -99,16 +125,90 @@ export default function LoginPage() {
               color: "var(--ambo-text-secondary)",
               lineHeight: 1.6,
               margin: "0 0 24px",
+              textAlign: "center",
             }}>
-              We sent a sign-in link to <strong>{email}</strong>. Click it and you&apos;ll be in.
+              We sent a 6-digit code to <strong>{email}</strong>. Enter it below.
             </p>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={code}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
+                setCode(val);
+                setError("");
+              }}
+              placeholder="000000"
+              autoFocus
+              autoComplete="one-time-code"
+              style={{
+                width: "100%",
+                padding: "14px",
+                border: "1px solid var(--ambo-border)",
+                borderRadius: "var(--ambo-radius-sm)",
+                background: "rgba(255,255,255,0.6)",
+                fontSize: 28,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: "var(--ambo-text-primary)",
+                fontFamily: "inherit",
+                outline: "none",
+                boxSizing: "border-box",
+                marginBottom: error ? 8 : 16,
+                textAlign: "center",
+                transition: "border-color 0.15s",
+              }}
+              onFocus={(e) => e.target.style.borderColor = "var(--ambo-accent)"}
+              onBlur={(e) => e.target.style.borderColor = "var(--ambo-border)"}
+            />
+
+            {error && (
+              <p style={{
+                fontSize: 13,
+                color: "#c0392b",
+                margin: "0 0 12px",
+                textAlign: "center",
+              }}>
+                {error}
+              </p>
+            )}
+
             <button
-              onClick={() => { setSent(false); setEmail(""); }}
+              type="submit"
+              disabled={verifying || code.length !== 6}
+              style={{
+                width: "100%",
+                padding: "13px",
+                background: verifying || code.length !== 6
+                  ? "var(--ambo-border)"
+                  : "var(--ambo-accent)",
+                color: verifying || code.length !== 6
+                  ? "var(--ambo-text-muted)"
+                  : "#fff",
+                border: "none",
+                borderRadius: "var(--ambo-radius-sm)",
+                fontSize: 15,
+                fontWeight: 600,
+                fontFamily: "inherit",
+                cursor: verifying || code.length !== 6 ? "default" : "pointer",
+                transition: "background 0.15s",
+                marginBottom: 12,
+              }}
+            >
+              {verifying ? "Verifying…" : "Sign in"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setSent(false); setCode(""); setError(""); }}
               style={ghostBtnStyle}
             >
               Use a different email
             </button>
-          </div>
+          </form>
         ) : (
           /* Email form */
           <form onSubmit={handleSubmit}>
@@ -126,7 +226,7 @@ export default function LoginPage() {
               margin: "0 0 24px",
               lineHeight: 1.5,
             }}>
-              Enter your email and we&apos;ll send you a sign-in link — no password needed.
+              Enter your email and we\'ll send you a 6-digit code — no password needed.
             </p>
 
             <label style={{
@@ -196,7 +296,7 @@ export default function LoginPage() {
                 transition: "background 0.15s",
               }}
             >
-              {loading ? "Sending…" : "Send sign-in link"}
+              {loading ? "Sending…" : "Send code"}
             </button>
           </form>
         )}
@@ -217,6 +317,8 @@ export default function LoginPage() {
 }
 
 const ghostBtnStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
   border: "1px solid var(--ambo-border)",
   background: "transparent",
   color: "var(--ambo-text-secondary)",
@@ -226,6 +328,7 @@ const ghostBtnStyle: React.CSSProperties = {
   borderRadius: 100,
   cursor: "pointer",
   fontFamily: "inherit",
+  textAlign: "center",
 };
 
 function AmboLogo() {
