@@ -30,6 +30,7 @@ interface WriteViewProps {
   onLoaded?: (info: { id: string | null; title: string }) => void;
   onOpenList: () => void;
   onGoReflect?: () => void;
+  discernmentVersion?: number;
 }
 
 function toIsoDate(d: Date): string {
@@ -132,6 +133,7 @@ export default function WriteView({
   onSaved,
   onLoaded,
   onOpenList,
+  discernmentVersion,
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
   // while the async DB fetch runs. The load effect confirms/updates the value.
@@ -345,6 +347,35 @@ export default function WriteView({
 
     return () => { cancelled = true; };
   }, [currentId, flushPendingSave, onLoaded]);
+
+  // Lightweight re-fetch of discernment fields whenever the priest returns to
+  // Write from Reflect. discernmentVersion is bumped by page.tsx on that
+  // navigation. Skips if there is no currentId or it fires on first mount
+  // (version === 0, covered by the main load effect above).
+  useEffect(() => {
+    if (!currentId || !discernmentVersion) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        const { data } = await supabase
+          .from("homilies")
+          .select("seed, seed_why_now, seed_eucharist, seed_response")
+          .eq("id", currentId)
+          .eq("user_id", user.id)
+          .single();
+        if (data && !cancelled) {
+          setSeed((data.seed as string | null) ?? "");
+          setSeedWhyNow((data.seed_why_now as string | null) ?? "");
+          setSeedEucharist((data.seed_eucharist as string | null) ?? "");
+          setSeedResponse((data.seed_response as string | null) ?? "");
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [discernmentVersion, currentId]);
 
   useEffect(() => {
     if (!sundayDate) {

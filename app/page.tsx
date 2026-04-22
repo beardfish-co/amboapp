@@ -14,6 +14,7 @@ const CURRENT_ID_KEY = "ambo-current-id";
 
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("reflect");
+  const [discernmentVersion, setDiscernmentVersion] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
@@ -204,7 +205,7 @@ export default function AmboApp() {
               <ReflectView
                 currentId={currentId}
                 onOpenList={openDrawer}
-                onGoWrite={() => setMode("write")}
+                onGoWrite={() => { setMode("write"); setDiscernmentVersion(v => v + 1); }}
               />
             </div>
             <div style={{ display: mode === "write" ? undefined : "none" }}>
@@ -214,6 +215,7 @@ export default function AmboApp() {
                 onSaved={handleSaved}
                 onOpenList={openDrawer}
                 onGoReflect={() => setMode("reflect")}
+                discernmentVersion={discernmentVersion}
               />
             </div>
             <div style={{ display: mode === "preach" ? undefined : "none" }}>
