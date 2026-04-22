@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length !== 6) return;
+    if (code.length !== 8) return;
 
     setVerifying(true);
     setError("");
@@ -127,21 +127,21 @@ export default function LoginPage() {
               margin: "0 0 24px",
               textAlign: "center",
             }}>
-              We sent a 6-digit code to <strong>{email}</strong>. Enter it below.
+              We sent an 8-digit code to <strong>{email}</strong>. Enter it below.
             </p>
 
             <input
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
-              maxLength={6}
+              maxLength={8}
               value={code}
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 6);
                 setCode(val);
                 setError("");
               }}
-              placeholder="000000"
+              placeholder="00000000"
               autoFocus
               autoComplete="one-time-code"
               style={{
@@ -178,14 +178,14 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={verifying || code.length !== 6}
+              disabled={verifying || code.length !== 8}
               style={{
                 width: "100%",
                 padding: "13px",
-                background: verifying || code.length !== 6
+                background: verifying || code.length !== 8
                   ? "var(--ambo-border)"
                   : "var(--ambo-accent)",
-                color: verifying || code.length !== 6
+                color: verifying || code.length !== 8
                   ? "var(--ambo-text-muted)"
                   : "#fff",
                 border: "none",
@@ -193,7 +193,7 @@ export default function LoginPage() {
                 fontSize: 15,
                 fontWeight: 600,
                 fontFamily: "inherit",
-                cursor: verifying || code.length !== 6 ? "default" : "pointer",
+                cursor: verifying || code.length !== 8 ? "default" : "pointer",
                 transition: "background 0.15s",
                 marginBottom: 12,
               }}
@@ -226,7 +226,7 @@ export default function LoginPage() {
               margin: "0 0 24px",
               lineHeight: 1.5,
             }}>
-              Enter your email and we\'ll send you a 6-digit code — no password needed.
+              Enter your email and we\'ll send you an 8-digit code — no password needed.
             </p>
 
             <label style={{
