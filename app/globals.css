@@ -574,8 +574,9 @@ body {
 
 @media (max-width: 600px) {
   .mode-pill-btn {
-    padding: 7px 13px;
-    font-size: 13px;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    gap: 4px !important;
   }
 
   .ambo-wordmark {

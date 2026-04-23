@@ -66,6 +66,7 @@ export function PillButton({
       onClick={onClick}
       title={title}
       disabled={disabled}
+      className="mode-pill-btn"
       style={{
         ...base,
         ...variants[variant],
