@@ -23,6 +23,8 @@ const newsreader = Newsreader({
   display: "swap",
 });
 
+import ServiceWorkerRegistration from "@/app/components/ServiceWorkerRegistration";
+
 export const metadata: Metadata = {
   title: "Ambo — Homily writing space",
   description: "A sacred writing workspace for priests. Read, pray, and write your homily in a space designed for encounter.",
@@ -45,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${newsreader.variable}`} style={{ height: "100%" }}>
-      <body style={{ height: "100%", margin: 0 }}>{children}</body>
+      <body style={{ height: "100%", margin: 0 }}><ServiceWorkerRegistration />{children}</body>
     </html>
   );
 }
