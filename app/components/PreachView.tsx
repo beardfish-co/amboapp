@@ -3,24 +3,10 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
-import { SlideReveal } from "@/lib/ui/slide-reveal";
-import { loadReadings } from "@/lib/readings";
 
 const STORAGE_KEY = "ambo-draft";
 
-interface Reading {
-  id: string;
-  title: string;
-  reference: string;
-  heading: string;
-  text: string;
-}
 
-interface DayReadings {
-  date: string;
-  dayName: string;
-  readings: Reading[];
-}
 
 interface PreachViewProps {
   currentId: string | null;
@@ -60,9 +46,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
   const [seed, setSeed] = useState("");
   const [content, setContent] = useState("");
   const [sundayDate, setSundayDate] = useState<string | null>(null);
-  const [readings, setReadings] = useState<DayReadings | null>(null);
-  const [readingsOpen, setReadingsOpen] = useState(false);
-  const [expandedReadingId, setExpandedReadingId] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
   const [currentBlock, setCurrentBlock] = useState(0);
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -131,20 +114,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
     return () => { cancelled = true; };
   }, [currentId]);
 
-  // Fetch readings when sundayDate is set.
-  // Snapshot-first so a historical homily always surfaces its own readings.
-  useEffect(() => {
-    if (!sundayDate) {
-      setReadings(null);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const { payload } = await loadReadings(sundayDate, currentId);
-      if (!cancelled && payload) setReadings(payload);
-    })();
-    return () => { cancelled = true; };
-  }, [sundayDate, currentId]);
 
   const hasContent = content.trim().length > 0;
 
@@ -287,112 +256,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
         </div>
       </div>
 
-      {/* Readings panel (collapsible) */}
-      {readings && readings.readings.length > 0 && (
-        <div className="preach-readings-panel" style={{
-          marginBottom: isScrollMode ? 32 : 16,
-          flexShrink: 0,
-          border: "1px solid var(--ambo-border)",
-          borderRadius: 12,
-          background: "var(--ambo-surface)",
-          overflow: "hidden",
-        }}>
-          <button
-            onClick={() => setReadingsOpen((v) => !v)}
-            style={{
-              width: "100%",
-              border: "none",
-              background: "transparent",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "12px 16px",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              textAlign: "left",
-            }}
-          >
-            <span style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--ambo-accent)",
-              letterSpacing: "0.02em",
-              textTransform: "uppercase",
-            }}>
-              Readings · {readings.dayName}
-            </span>
-            <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
-              {readingsOpen ? "Hide ▴" : "Show ▾"}
-            </span>
-          </button>
-          <SlideReveal open={readingsOpen}>
-            <div style={{ padding: "4px 16px 16px" }}>
-              {readings.readings.map((r) => {
-                const isOpen = expandedReadingId === r.id;
-                return (
-                  <div key={r.id} style={{
-                    borderTop: "1px solid var(--ambo-border)",
-                    padding: "10px 0",
-                  }}>
-                    <button
-                      onClick={() => setExpandedReadingId(isOpen ? null : r.id)}
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        padding: 0,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        textAlign: "left",
-                        width: "100%",
-                        display: "flex",
-                        alignItems: "baseline",
-                        justifyContent: "space-between",
-                        gap: 8,
-                      }}
-                    >
-                      <span style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: "var(--ambo-text-primary)",
-                      }}>
-                        {r.title}
-                      </span>
-                      <span style={{
-                        fontSize: 12,
-                        color: "var(--ambo-text-muted)",
-                        fontStyle: "italic",
-                      }}>
-                        {r.reference}
-                      </span>
-                    </button>
-                    <SlideReveal open={isOpen}>
-                      <div style={{
-                        marginTop: 10,
-                        fontSize: 15,
-                        lineHeight: 1.7,
-                        color: "var(--ambo-text-primary)",
-                        whiteSpace: "pre-wrap",
-                      }}>
-                        {r.heading && (
-                          <div style={{
-                            fontSize: 13,
-                            fontStyle: "italic",
-                            color: "var(--ambo-text-secondary)",
-                            marginBottom: 8,
-                          }}>
-                            {r.heading}
-                          </div>
-                        )}
-                        {r.text}
-                      </div>
-                    </SlideReveal>
-                  </div>
-                );
-              })}
-            </div>
-          </SlideReveal>
-        </div>
-      )}
 
       {/* White panel — holds the design language. The seed, title, and
           homily body all sit on the same ambo-surface card used across the
