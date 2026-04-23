@@ -192,10 +192,10 @@ export default function PreachView({ currentId }: PreachViewProps) {
   }
 
   return (
-    <div className="view-fade" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }) }}>
+    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${fontSize}px` }}>
 
       {/* Controls */}
-      <div style={{
+      <div className="preach-controls" style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -254,12 +254,31 @@ export default function PreachView({ currentId }: PreachViewProps) {
           >
             A
           </button>
+          <button
+            onClick={() => window.print()}
+            style={{
+              border: "1px solid var(--ambo-border)",
+              background: "transparent",
+              color: "var(--ambo-text-muted)",
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "6px 12px",
+              borderRadius: 100,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+              marginLeft: 4,
+            }}
+            title="Print or save as PDF"
+          >
+            Print
+          </button>
         </div>
       </div>
 
       {/* Readings panel (collapsible) */}
       {readings && readings.readings.length > 0 && (
-        <div style={{
+        <div className="preach-readings-panel" style={{
           marginBottom: isScrollMode ? 32 : 16,
           flexShrink: 0,
           border: "1px solid var(--ambo-border)",
@@ -514,6 +533,31 @@ export default function PreachView({ currentId }: PreachViewProps) {
         );
       })()}
       </div>
+
+      <style>{`
+        @media print {
+          header, footer, nav, .mode-pill, .preach-controls, .preach-readings-panel {
+            display: none !important;
+          }
+          body, html {
+            background: white !important;
+            height: auto !important;
+            overflow: auto !important;
+          }
+          .preach-print-root {
+            max-width: 100% !important;
+            padding: 0 !important;
+            height: auto !important;
+            display: block !important;
+          }
+          .preach-print-root p {
+            font-size: var(--print-font-size) !important;
+          }
+          .preach-print-root h1 {
+            font-size: calc(var(--print-font-size) * 1.3) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
