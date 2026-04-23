@@ -407,6 +407,19 @@ export default function PreachView({ currentId }: PreachViewProps) {
 
       <style>{`
         @media print {
+          /* Always print in light mode — no dark backgrounds wasting ink */
+          :root {
+            --ambo-bg:           white !important;
+            --ambo-surface:      white !important;
+            --ambo-surface-solid: white !important;
+            --ambo-text-primary:  black !important;
+            --ambo-text-secondary: #444 !important;
+            --ambo-text-muted:    #666 !important;
+            --ambo-border:        #ccc !important;
+            --ambo-accent:        #4A6FA5 !important;
+            --ambo-accent-light:  rgba(74, 111, 165, 0.12) !important;
+          }
+
           /* Hide all app chrome */
           header, footer, nav, .mode-pill, .preach-controls, .preach-readings-panel {
             display: none !important;
@@ -417,6 +430,8 @@ export default function PreachView({ currentId }: PreachViewProps) {
             height: auto !important;
             overflow: visible !important;
             background: white !important;
+            color: black !important;
+            color-scheme: light !important;
           }
 
           /* Bust open the fixed-height page shell */
