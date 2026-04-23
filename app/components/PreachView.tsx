@@ -548,7 +548,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
             background: white !important;
           }
 
-          /* The root app div has height:100svh overflow:hidden — reset it */
+          /* Bust open the fixed-height page shell */
           body > div,
           body > div > main {
             height: auto !important;
@@ -557,8 +557,14 @@ export default function PreachView({ currentId }: PreachViewProps) {
             min-height: 0 !important;
           }
 
-          /* The preach wrapper div (display:none toggled by mode) */
-          body > div > main > div {
+          /* Hide the other view wrappers — only show preach */
+          .view-wrapper--reflect,
+          .view-wrapper--write {
+            display: none !important;
+          }
+
+          /* Show the preach wrapper */
+          .view-wrapper--preach {
             display: block !important;
             height: auto !important;
             overflow: visible !important;

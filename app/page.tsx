@@ -204,14 +204,14 @@ export default function AmboApp() {
             occurs when WriteView unmounts and remounts on every mode switch. */}
         {idHydrated && (
           <>
-            <div style={{ display: mode === "reflect" ? undefined : "none" }}>
+            <div className="view-wrapper view-wrapper--reflect" style={{ display: mode === "reflect" ? undefined : "none" }}>
               <ReflectView
                 currentId={currentId}
                 onOpenList={openDrawer}
                 onGoWrite={() => { setMode("write"); setDiscernmentVersion(v => v + 1); }}
               />
             </div>
-            <div style={{ display: mode === "write" ? undefined : "none" }}>
+            <div className="view-wrapper view-wrapper--write" style={{ display: mode === "write" ? undefined : "none" }}>
               <WriteView
                 currentId={currentId}
                 onCurrentIdChange={persistCurrentId}
@@ -221,7 +221,7 @@ export default function AmboApp() {
                 discernmentVersion={discernmentVersion}
               />
             </div>
-            <div style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
+            <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
               <PreachView currentId={currentId} />
             </div>
           </>
