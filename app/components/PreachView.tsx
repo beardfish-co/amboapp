@@ -536,23 +536,48 @@ export default function PreachView({ currentId }: PreachViewProps) {
 
       <style>{`
         @media print {
+          /* Hide all app chrome */
           header, footer, nav, .mode-pill, .preach-controls, .preach-readings-panel {
             display: none !important;
           }
-          body, html {
-            background: white !important;
+
+          /* Bust open the fixed-height page shell so all content can flow */
+          html, body {
             height: auto !important;
-            overflow: auto !important;
+            overflow: visible !important;
+            background: white !important;
           }
+
+          /* The root app div has height:100svh overflow:hidden — reset it */
+          body > div,
+          body > div > main {
+            height: auto !important;
+            overflow: visible !important;
+            flex: none !important;
+            min-height: 0 !important;
+          }
+
+          /* The preach wrapper div (display:none toggled by mode) */
+          body > div > main > div {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          /* The homily content itself */
           .preach-print-root {
             max-width: 100% !important;
             padding: 0 !important;
             height: auto !important;
+            min-height: 0 !important;
             display: block !important;
+            overflow: visible !important;
           }
+
           .preach-print-root p {
             font-size: var(--print-font-size) !important;
           }
+
           .preach-print-root h1 {
             font-size: calc(var(--print-font-size) * 1.3) !important;
           }
