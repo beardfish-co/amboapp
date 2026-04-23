@@ -1179,10 +1179,15 @@ export default function WriteView({
           icon={<BookIconShared />}
           onClick={() => setReadingsOpen(true)}
           title="Open today’s readings"
-          style={readingsOpen ? undefined : {
-            background: "var(--ambo-surface)",
-            backdropFilter: "blur(20px) saturate(1.4)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+          style={{
+            height: 34,
+            padding: "0 12px",
+            lineHeight: "1",
+            ...(readingsOpen ? {} : {
+              background: "var(--ambo-surface)",
+              backdropFilter: "blur(20px) saturate(1.4)",
+              WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            }),
           }}
         >
           Readings
