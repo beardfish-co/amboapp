@@ -398,11 +398,15 @@ export default function WriteView({
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flushPendingSave();
     };
+    // Flush pending save when connectivity returns — catches offline edits
+    const onOnline = () => flushPendingSave();
     window.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("beforeunload", onVisibility);
+    window.addEventListener("online", onOnline);
     return () => {
       window.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("beforeunload", onVisibility);
+      window.removeEventListener("online", onOnline);
     };
   }, [flushPendingSave]);
 
