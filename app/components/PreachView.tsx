@@ -11,6 +11,7 @@ const STORAGE_KEY = "ambo-draft";
 interface PreachViewProps {
   currentId: string | null;
   preachVersion?: number;
+  liveContent?: { title: string; content: string } | null;
 }
 
 type Block =
@@ -42,9 +43,18 @@ function parseBlocks(text: string): Block[] {
     });
 }
 
-export default function PreachView({ currentId, preachVersion }: PreachViewProps) {
+export default function PreachView({ currentId, preachVersion, liveContent }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+
+  // Mirror live content from WriteView instantly — no Supabase round-trip needed
+  useEffect(() => {
+    if (!liveContent) return;
+    setTitle(liveContent.title);
+    setContent(liveContent.content);
+    setBlocks(parseBlocks(liveContent.content));
+    setCurrentBlock(0);
+  }, [liveContent]);
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
   const [currentBlock, setCurrentBlock] = useState(0);

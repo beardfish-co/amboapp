@@ -17,6 +17,7 @@ export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("reflect");
   const [discernmentVersion, setDiscernmentVersion] = useState(0);
   const [preachVersion, setPreachVersion] = useState(0);
+  const [liveContent, setLiveContent] = useState<{ title: string; content: string } | null>(null);
   const flushWriteRef = useRef<(() => Promise<void>) | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
@@ -214,10 +215,11 @@ export default function AmboApp() {
                 onGoReflect={() => setMode("reflect")}
                 discernmentVersion={discernmentVersion}
                 onFlushRef={flushWriteRef}
+                onLiveContent={setLiveContent}
               />
             </div>
             <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
-              <PreachView currentId={currentId} preachVersion={preachVersion} />
+              <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} />
             </div>
           </>
         )}

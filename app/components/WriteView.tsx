@@ -32,6 +32,7 @@ interface WriteViewProps {
   onGoReflect?: () => void;
   discernmentVersion?: number;
   onFlushRef?: React.MutableRefObject<(() => Promise<void>) | null>;
+  onLiveContent?: (data: { title: string; content: string }) => void;
 }
 
 function toIsoDate(d: Date): string {
@@ -136,6 +137,7 @@ export default function WriteView({
   onOpenList,
   discernmentVersion,
   onFlushRef,
+  onLiveContent,
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
   // while the async DB fetch runs. The load effect confirms/updates the value.
@@ -435,6 +437,9 @@ export default function WriteView({
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ title: t, content }));
       } catch { /* ignore */ }
+
+      // Notify PreachView of latest content immediately (no Supabase round-trip needed)
+      onLiveContent?.({ title: t, content });
 
       pendingSaveRef.current = { id: draftIdRef.current, title: t, content, sundayDate: sd };
 
