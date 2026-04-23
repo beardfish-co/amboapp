@@ -31,6 +31,7 @@ const base: CSSProperties = {
   gap: 6,
   transition: "all 150ms var(--ambo-ease)",
   letterSpacing: "0.01em",
+  whiteSpace: "nowrap",
 };
 
 const variants: Record<Variant, CSSProperties> = {
