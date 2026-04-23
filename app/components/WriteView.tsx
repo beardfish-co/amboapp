@@ -240,7 +240,10 @@ export default function WriteView({
           onCurrentIdChange(data.id);
         }
       }
-    } catch { /* offline — localStorage still has it */ }
+    } catch {
+      // Restore so the online event can retry when connectivity returns
+      pendingSaveRef.current = pendingSaveRef.current ?? pending;
+    }
   }, [onCurrentIdChange]);
 
   useEffect(() => {
@@ -473,7 +476,10 @@ export default function WriteView({
           }
           setLastSaved(new Date());
           onSaved?.();
-        } catch { /* ignore */ }
+        } catch {
+          // Restore so the online event can retry when connectivity returns
+          pendingSaveRef.current = pendingSaveRef.current ?? pending;
+        }
       }, 1200);
     },
     [onCurrentIdChange, onSaved]
