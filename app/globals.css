@@ -567,3 +567,22 @@ body {
     background: rgba(15, 24, 36, 0.88) !important;
   }
 }
+
+/* =============================================================
+   Mobile header — tighten pill and hide wordmark on small screens
+   ============================================================= */
+
+@media (max-width: 600px) {
+  .mode-pill-btn {
+    padding: 7px 13px;
+    font-size: 13px;
+  }
+
+  .ambo-wordmark {
+    display: none;
+  }
+
+  .ambo-header-inner {
+    padding: 0 12px !important;
+  }
+}

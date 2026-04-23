@@ -137,7 +137,7 @@ export default function AmboApp() {
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",
       }}>
-        <div style={{
+        <div className="ambo-header-inner" style={{
           maxWidth: 760,
           margin: "0 auto",
           padding: "0 24px",
@@ -149,7 +149,7 @@ export default function AmboApp() {
           {/* Logo / wordmark */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <AmboLogo />
-            <span style={{
+            <span className="ambo-wordmark" style={{
               fontSize: 19,
               fontWeight: 600,
               letterSpacing: "-0.02em",
