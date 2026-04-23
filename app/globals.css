@@ -585,4 +585,16 @@ body {
   .ambo-header-inner {
     padding: 0 12px !important;
   }
+
+  /* Write panel — reduce side padding so text area isn't squeezed */
+  .ambo-write-panel {
+    padding: 28px 20px 32px !important;
+  }
+
+  /* Title input — allow wrapping, reduce font size slightly */
+  .ambo-write-panel input[type="text"],
+  .ambo-write-panel input:not([type]) {
+    font-size: 24px !important;
+    white-space: normal !important;
+  }
 }
