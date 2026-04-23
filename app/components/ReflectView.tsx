@@ -960,14 +960,10 @@ export default function ReflectView({
       <div
         className="reflect-side"
         style={{
-          position: "sticky",
-          top: 80,
           alignSelf: "start",
-          maxHeight: "calc(100vh - 110px)",
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          overflow: "visible",
         }}
       >
         {/* DISCERNMENT panel */}
@@ -1251,9 +1247,8 @@ export default function ReflectView({
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
 
       </div>{/* end two-column grid */}
-    </div>{/* end outer wrapper */}
 
-    <style jsx>{`
+      <style jsx>{`
         @media (max-width: 900px) {
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
@@ -1269,6 +1264,7 @@ export default function ReflectView({
           }
         }
       `}</style>
+    </div>
   );
 }
 
