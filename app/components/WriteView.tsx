@@ -689,18 +689,21 @@ export default function WriteView({
   return (
     <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px 120px" }}>
 
-      {/* Chrome row: [My homilies · Notes] ── spacer ── [Examine] */}
+      {/* Chrome row: [My homilies] ── spacer ── [Notes · Examine] */}
       <div className="ambo-write-chrome" style={{
         display: "flex",
         alignItems: "center",
         marginBottom: 24,
       }}>
-        {/* Left group */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies">
-            My homilies
-          </PillButton>
+        {/* Left: My homilies alone */}
+        <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies">
+          My homilies
+        </PillButton>
 
+        <div style={{ flex: 1 }} />
+
+        {/* Right group: Notes + Examine — both pre-preach tools */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {notes.trim().length > 0 && (
             <PillButton
               variant={notesOpen ? "active" : "ghost"}
@@ -711,21 +714,18 @@ export default function WriteView({
               Notes
             </PillButton>
           )}
+
+          {wordCount >= 30 && (
+            <PillButton
+              variant={examineOpen ? "active" : "ghost"}
+              icon={<ExamineIcon />}
+              onClick={() => setExamineOpen((v) => !v)}
+              title="A gentle last look before preaching"
+            >
+              Examine
+            </PillButton>
+          )}
         </div>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Right: Examine sits at the same distance from the right as My homilies from the left */}
-        {wordCount >= 30 && (
-          <PillButton
-            variant={examineOpen ? "active" : "ghost"}
-            icon={<ExamineIcon />}
-            onClick={() => setExamineOpen((v) => !v)}
-            title="A gentle last look before preaching"
-          >
-            Examine
-          </PillButton>
-        )}
       </div>
 
       {/* Notes panel (from Reflect) — shared SlideReveal, matches glass panels */}
