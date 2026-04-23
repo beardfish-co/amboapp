@@ -402,44 +402,43 @@ export default function ReflectView({
   const discernmentActive = seed.trim().length > 0 || notes.trim().length > 0;
 
   return (
-    <div
-      className="reflect-layout"
-      style={{
-        maxWidth: 1180,
-        margin: "0 auto",
-        padding: "0 24px 120px",
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 760fr) minmax(0, 320fr)",
-        gap: 32,
-        alignItems: "start",
-      }}
-    >
+    <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px 120px" }}>
+
+      {/* Chrome strip — full width above the grid so both columns start level */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        marginBottom: 32,
+        flexWrap: "wrap",
+      }}>
+        <PillButton variant="ghost" icon={<StackIcon />} onClick={onOpenList}>
+          My homilies
+        </PillButton>
+        <div style={{ flex: 1 }} />
+        {sundayDate ? (
+          <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
+            {readings?.dayName ?? "Readings"} · {fmtSundayShort(sundayDate)}
+          </PillButton>
+        ) : (
+          <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
+            No Sunday yet
+          </PillButton>
+        )}
+      </div>
+
+      {/* Two-column grid */}
+      <div
+        className="reflect-layout"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 760fr) minmax(0, 320fr)",
+          gap: 32,
+          alignItems: "start",
+        }}
+      >
       {/* Primary column: the readings */}
       <div>
-        {/* Top strip — chrome row with My homilies (left) and the Sunday pill (right).
-            Matches the chrome row on Write, so the priest feels the same horizon
-            whether they're reading or writing. */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          marginBottom: 32,
-          flexWrap: "wrap",
-        }}>
-          <PillButton variant="ghost" icon={<StackIcon />} onClick={onOpenList}>
-            My homilies
-          </PillButton>
-          <div style={{ flex: 1 }} />
-          {sundayDate ? (
-            <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
-              {readings?.dayName ?? "Readings"} · {fmtSundayShort(sundayDate)}
-            </PillButton>
-          ) : (
-            <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onGoWrite}>
-              No Sunday yet
-            </PillButton>
-          )}
-        </div>
 
         {loading && (
           <div style={{ fontSize: 14, color: "var(--ambo-text-muted)", padding: "40px 0" }}>
@@ -1251,7 +1250,10 @@ export default function ReflectView({
       {/* Mobile toggle for notes */}
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
 
-      <style jsx>{`
+      </div>{/* end two-column grid */}
+    </div>{/* end outer wrapper */}
+
+    <style jsx>{`
         @media (max-width: 900px) {
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
@@ -1267,7 +1269,6 @@ export default function ReflectView({
           }
         }
       `}</style>
-    </div>
   );
 }
 
