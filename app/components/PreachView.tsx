@@ -43,7 +43,6 @@ function parseBlocks(text: string): Block[] {
 
 export default function PreachView({ currentId }: PreachViewProps) {
   const [title, setTitle] = useState("");
-  const [seed, setSeed] = useState("");
   const [content, setContent] = useState("");
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
@@ -60,7 +59,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
       let loadedTitle = "";
       let loadedContent = "";
       let loadedSunday: string | null = null;
-      let loadedSeed = "";
       let gotIt = false;
 
       try {
@@ -69,7 +67,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
         if (user) {
           const base = supabase
             .from("homilies")
-            .select("title, content, sunday_date, seed")
+            .select("title, content, sunday_date")
             .eq("user_id", user.id);
 
           const { data } = currentId
@@ -80,7 +78,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
             loadedTitle = data.title ?? "";
             loadedContent = data.content ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
-            loadedSeed = (data.seed as string | null) ?? "";
             gotIt = true;
           }
         }
@@ -102,7 +99,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
       setTitle(loadedTitle);
       setContent(loadedContent);
       setSundayDate(loadedSunday);
-      setSeed(loadedSeed);
       setBlocks(parseBlocks(loadedContent));
       setCurrentBlock(0);
       setLoading(false);
@@ -266,22 +262,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
           ...(isScrollMode ? {} : { flex: 1, display: "flex", flexDirection: "column" as const, minHeight: 0 }),
         }}
       >
-      {/* Seed — quiet glance before the ambo */}
-      {seed.trim().length > 0 && (
-        <div style={{
-          marginBottom: title ? 16 : 40,
-          flexShrink: 0,
-          paddingLeft: 14,
-          borderLeft: "2px solid var(--ambo-accent-light)",
-          fontSize: 15,
-          fontStyle: "italic",
-          lineHeight: 1.55,
-          color: "var(--ambo-text-secondary)",
-        }}>
-          {seed}
-        </div>
-      )}
-
       {/* Title */}
       {title && (
         <h1 style={{
