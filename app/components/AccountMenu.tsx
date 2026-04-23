@@ -205,6 +205,16 @@ export default function AccountMenu() {
             )}
           </div>
 
+          {/* About */}
+          <div style={{ borderTop: "1px solid var(--ambo-border)", padding: "8px 0" }}>
+            <button
+              onClick={() => { setOpen(false); router.push("/about"); }}
+              style={menuItemStyle}
+            >
+              About Ambo
+            </button>
+          </div>
+
           {/* Sign out */}
           <div style={{ borderTop: "1px solid var(--ambo-border)", padding: "8px 0" }}>
             <button
