@@ -690,7 +690,7 @@ export default function WriteView({
     <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px 120px" }}>
 
       {/* Chrome row: My homilies · [Notes] · Examine — always one line */}
-      <div style={{
+      <div className="ambo-write-chrome" style={{
         display: "flex",
         alignItems: "center",
         gap: 8,

@@ -591,6 +591,11 @@ body {
     padding: 28px 20px 32px !important;
   }
 
+  /* Chrome row — align right edge with the writing panel */
+  .ambo-write-chrome {
+    padding: 0 4px;
+  }
+
   /* Title input — allow wrapping, reduce font size slightly */
   .ambo-write-panel input[type="text"],
   .ambo-write-panel input:not([type]) {
