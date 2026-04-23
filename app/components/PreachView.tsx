@@ -268,9 +268,20 @@ export default function PreachView({ currentId }: PreachViewProps) {
               fontFamily: "inherit",
               transition: "all 0.15s",
               marginLeft: 4,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
             }}
             title="Print or save as PDF"
           >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <rect x="3" y="1" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
+              <rect x="1" y="5" width="14" height="7" rx="1.5" fill="currentColor" />
+              <rect x="3" y="9" width="10" height="6" rx="1" fill="var(--ambo-bg)" />
+              <rect x="5" y="11" width="6" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+              <rect x="5" y="13" width="4" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+              <circle cx="12.5" cy="7.5" r="0.8" fill="var(--ambo-bg)" />
+            </svg>
             Print
           </button>
         </div>
