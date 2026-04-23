@@ -570,7 +570,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
             overflow: visible !important;
           }
 
-          /* The homily content itself */
+          /* The homily content itself — no backgrounds, no boxes */
           .preach-print-root {
             max-width: 100% !important;
             padding: 0 !important;
@@ -580,12 +580,33 @@ export default function PreachView({ currentId }: PreachViewProps) {
             overflow: visible !important;
           }
 
+          /* Strip all card/panel backgrounds and borders */
+          .preach-print-root .glass-card,
+          .preach-print-root > * {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+          }
+
+          /* Keep the seed quote left-border but make it subtle */
+          .preach-print-root .glass-card > div:first-child {
+            border-left: 1px solid #999 !important;
+            padding-left: 12px !important;
+          }
+
           .preach-print-root p {
             font-size: var(--print-font-size) !important;
+            color: black !important;
           }
 
           .preach-print-root h1 {
             font-size: calc(var(--print-font-size) * 1.3) !important;
+            color: black !important;
           }
         }
       `}</style>
