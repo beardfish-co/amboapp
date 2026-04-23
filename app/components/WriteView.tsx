@@ -666,28 +666,18 @@ export default function WriteView({
   return (
     <div className="view-fade" style={{ maxWidth: 760, margin: "0 auto", padding: "0 24px 120px" }}>
 
-      {/* Chrome row: matches Reflect — My homilies + Readings/Notes/Examine */}
+      {/* Chrome row: My homilies · [Notes] · Examine — always one line */}
       <div style={{
         display: "flex",
         alignItems: "center",
-        gap: 10,
+        gap: 8,
         marginBottom: 24,
-        flexWrap: "wrap",
       }}>
         <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies">
           My homilies
         </PillButton>
+
         <div style={{ flex: 1 }} />
-        {lastSaved && (
-          <span style={{
-            fontSize: 11,
-            fontStyle: "italic",
-            color: "var(--ambo-text-muted)",
-            marginRight: 4,
-          }}>
-            saved · {lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
 
         {notes.trim().length > 0 && (
           <PillButton
@@ -699,6 +689,7 @@ export default function WriteView({
             Notes
           </PillButton>
         )}
+
         {wordCount >= 30 && (
           <PillButton
             variant={examineOpen ? "active" : "ghost"}
