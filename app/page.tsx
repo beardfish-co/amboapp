@@ -132,7 +132,7 @@ export default function AmboApp() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        background: "rgba(238, 242, 247, 0.85)",
+        background: "var(--ambo-surface-raised)",
         backdropFilter: "blur(20px) saturate(1.4)",
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",

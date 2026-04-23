@@ -1253,7 +1253,7 @@ export default function WriteView({
         left: 0,
         right: 0,
         padding: "12px 24px",
-        background: "rgba(238, 242, 247, 0.85)",
+        background: "var(--ambo-surface-raised)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
         borderTop: "1px solid var(--ambo-border)",
