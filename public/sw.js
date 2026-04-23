@@ -5,7 +5,7 @@
 //   - API calls (Supabase, Universalis): network-first, fall back to cache
 //   - Everything else: network-only
 
-const CACHE_VERSION = "ambo-v1";
+const CACHE_VERSION = "ambo-v2";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -63,10 +63,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Supabase API — network-first, cache last good response
+  // Supabase API — never cache; let it fail offline so the app's
+  // localStorage fallback takes over cleanly
   if (url.hostname.includes("supabase")) {
-    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
-    return;
+    return; // pass through, no SW involvement
   }
 
   // Universalis readings API — network-first, fall back to cached readings
