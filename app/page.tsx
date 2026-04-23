@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import AccountMenu from "@/app/components/AccountMenu";
 import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
@@ -171,24 +172,8 @@ export default function AmboApp() {
             ))}
           </nav>
 
-          {/* Sign out */}
-          <button
-            onClick={handleSignOut}
-            disabled={signingOut}
-            style={{
-              border: "none",
-              background: "none",
-              fontSize: 12,
-              color: "var(--ambo-text-muted)",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              padding: "4px 8px",
-              borderRadius: 6,
-              opacity: signingOut ? 0.5 : 1,
-            }}
-          >
-            {signingOut ? "…" : "Sign out"}
-          </button>
+          {/* Account menu */}
+          <AccountMenu />
         </div>
       </header>
 
