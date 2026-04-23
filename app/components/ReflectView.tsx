@@ -975,7 +975,7 @@ export default function ReflectView({
         <div
           className="reflect-seed glass-card"
           style={{
-            background: discernmentActive ? "rgba(255, 255, 255, 0.70)" : "rgba(255, 255, 255, 0.66)",
+            background: "var(--ambo-surface)",
             boxShadow: "var(--ambo-shadow-md)",
             overflow: "hidden",
             flexShrink: 0,
@@ -1185,7 +1185,7 @@ export default function ReflectView({
             flexDirection: "column",
             border: "1px solid var(--ambo-border)",
             borderRadius: 14,
-            background: notes.trim() ? "rgba(255, 255, 255, 0.48)" : "transparent",
+            background: notes.trim() ? "var(--ambo-surface)" : "transparent",
             boxShadow: notes.trim() ? "var(--ambo-shadow-sm)" : "none",
             overflow: "hidden",
             transition: "background 0.4s ease, box-shadow 0.4s ease",
