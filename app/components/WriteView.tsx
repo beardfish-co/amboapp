@@ -362,11 +362,12 @@ export default function WriteView({
         if (!user || cancelled) return;
         const { data } = await supabase
           .from("homilies")
-          .select("seed, seed_why_now, seed_eucharist, seed_response")
+          .select("notes, seed, seed_why_now, seed_eucharist, seed_response")
           .eq("id", currentId)
           .eq("user_id", user.id)
           .single();
         if (data && !cancelled) {
+          setNotes((data.notes as string | null) ?? "");
           setSeed((data.seed as string | null) ?? "");
           setSeedWhyNow((data.seed_why_now as string | null) ?? "");
           setSeedEucharist((data.seed_eucharist as string | null) ?? "");
