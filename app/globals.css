@@ -593,7 +593,7 @@ body {
 
   /* Chrome row — align right edge with the writing panel */
   .ambo-write-chrome {
-    padding: 0 4px;
+    padding: 0 20px;
   }
 
   /* Title input — allow wrapping, reduce font size slightly */
