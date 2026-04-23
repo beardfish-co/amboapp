@@ -103,9 +103,6 @@ export default function PreachView({ currentId }: PreachViewProps) {
       setContent(loadedContent);
       setSundayDate(loadedSunday);
       setSeed(loadedSeed);
-      setReadings(null);
-      setReadingsOpen(false);
-      setExpandedReadingId(null);
       setBlocks(parseBlocks(loadedContent));
       setCurrentBlock(0);
       setLoading(false);
