@@ -98,7 +98,7 @@ export default function AccountMenu() {
           top: "calc(100% + 8px)",
           right: 0,
           width: 280,
-          background: "var(--ambo-surface)",
+          background: "var(--ambo-surface-solid)",
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
           boxShadow: "var(--ambo-shadow-md)",
