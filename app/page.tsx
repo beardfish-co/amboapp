@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import AccountMenu from "@/app/components/AccountMenu";
@@ -16,6 +16,8 @@ const CURRENT_ID_KEY = "ambo-current-id";
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("reflect");
   const [discernmentVersion, setDiscernmentVersion] = useState(0);
+  const [preachVersion, setPreachVersion] = useState(0);
+  const flushWriteRef = useRef<(() => Promise<void>) | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
@@ -165,7 +167,14 @@ export default function AmboApp() {
               <button
                 key={m}
                 className={`mode-pill-btn ${mode === m ? "active" : ""}`}
-                onClick={() => { if (m === "write") setDiscernmentVersion(v => v + 1); setMode(m); }}
+                onClick={async () => {
+                  if (m === "preach") {
+                    await flushWriteRef.current?.();
+                    setPreachVersion(v => v + 1);
+                  }
+                  if (m === "write") setDiscernmentVersion(v => v + 1);
+                  setMode(m);
+                }}
               >
                 {m.charAt(0).toUpperCase() + m.slice(1)}
               </button>
@@ -204,10 +213,11 @@ export default function AmboApp() {
                 onOpenList={openDrawer}
                 onGoReflect={() => setMode("reflect")}
                 discernmentVersion={discernmentVersion}
+                onFlushRef={flushWriteRef}
               />
             </div>
             <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
-              <PreachView currentId={currentId} />
+              <PreachView currentId={currentId} preachVersion={preachVersion} />
             </div>
           </>
         )}

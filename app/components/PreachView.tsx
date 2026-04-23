@@ -10,6 +10,7 @@ const STORAGE_KEY = "ambo-draft";
 
 interface PreachViewProps {
   currentId: string | null;
+  preachVersion?: number;
 }
 
 type Block =
@@ -41,7 +42,7 @@ function parseBlocks(text: string): Block[] {
     });
 }
 
-export default function PreachView({ currentId }: PreachViewProps) {
+export default function PreachView({ currentId, preachVersion }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [sundayDate, setSundayDate] = useState<string | null>(null);
@@ -105,7 +106,7 @@ export default function PreachView({ currentId }: PreachViewProps) {
     })();
 
     return () => { cancelled = true; };
-  }, [currentId]);
+  }, [currentId, preachVersion]);
 
 
   const hasContent = content.trim().length > 0;

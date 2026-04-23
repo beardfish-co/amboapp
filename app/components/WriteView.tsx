@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getComingSunday } from "./ReadingView";
 import { createClient } from "@/lib/supabase/client";
 import ReadingsDrawer from "./ReadingsDrawer";
@@ -31,6 +31,7 @@ interface WriteViewProps {
   onOpenList: () => void;
   onGoReflect?: () => void;
   discernmentVersion?: number;
+  onFlushRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
 function toIsoDate(d: Date): string {
@@ -134,6 +135,7 @@ export default function WriteView({
   onLoaded,
   onOpenList,
   discernmentVersion,
+  onFlushRef,
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
   // while the async DB fetch runs. The load effect confirms/updates the value.
@@ -484,6 +486,12 @@ export default function WriteView({
     },
     [onCurrentIdChange, onSaved]
   );
+
+  // Expose flushPendingSave to parent so switching to Preach flushes pending writes first
+  useEffect(() => {
+    if (onFlushRef) onFlushRef.current = flushPendingSave;
+    return () => { if (onFlushRef) onFlushRef.current = null; };
+  }, [flushPendingSave, onFlushRef]);
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
