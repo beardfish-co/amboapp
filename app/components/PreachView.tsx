@@ -268,7 +268,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
       <div
         className="glass-card"
         style={{
-          padding: isScrollMode ? "56px 44px" : "56px 44px 36px",
+          padding: isScrollMode ? "56px 28px" : "56px 28px 36px",
           marginBottom: isScrollMode ? 40 : 0,
           ...(isScrollMode ? {} : { flex: 1, display: "flex", flexDirection: "column" as const, minHeight: 0 }),
         }}
