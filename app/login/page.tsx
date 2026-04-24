@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -12,6 +12,17 @@ export default function LoginPage() {
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Surface errors redirected back from the auth callback
+  useEffect(() => {
+    const param = searchParams.get("error");
+    if (param === "not_invited") {
+      setError("This email hasn't been invited to the beta yet. If you're expecting access, contact us.");
+    } else if (param === "auth") {
+      setError("Sign-in failed. Please try again.");
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,9 +31,28 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
+    const normalised = email.trim().toLowerCase();
+
+    // Check allowlist before issuing OTP — unauthorised emails never receive a code.
+    try {
+      const check = await fetch("/api/check-allowlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalised }),
+      });
+      const result = await check.json() as { allowed?: boolean; error?: string };
+      if (!result.allowed) {
+        setError("This email hasn't been invited to the beta yet. If you're expecting access, contact us.");
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // Network failure — fail open so the OTP attempt itself will reveal any real auth issue
+    }
+
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: normalised,
     });
 
     setLoading(false);
@@ -51,7 +81,7 @@ export default function LoginPage() {
     setVerifying(false);
 
     if (verifyError) {
-      setError("That code didn\'t work. Check it and try again.");
+      setError("That code didn't work. Check it and try again.");
       setCode("");
     } else {
       router.push("/");
@@ -226,7 +256,7 @@ export default function LoginPage() {
               margin: "0 0 24px",
               lineHeight: 1.5,
             }}>
-              Enter your email and we\'ll send you an 8-digit code — no password needed.
+              Enter your email and we'll send you an 8-digit code — no password needed.
             </p>
 
             <label style={{
