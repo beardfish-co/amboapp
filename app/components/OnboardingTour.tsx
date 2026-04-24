@@ -31,7 +31,7 @@ const STEPS: Step[] = [
   { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
   { target: "write-examine",        copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
   { target: "preach-tab",           copy: "Where the homily is preached.",                                       tab: "preach",  prefer: "bottom" },
-  { target: "my-homilies",          copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom" },
+  { target: "my-homilies",          copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-open-homilies", prepareDelay: 300, cleanupEvent: "ambo:tour-close-homilies" },
 ];
 
 const STORAGE_KEY = "ambo_tour_v1_complete";

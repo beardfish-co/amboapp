@@ -138,6 +138,18 @@ export default function AmboApp() {
 
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
 
+  // Tour support: open/close homilies drawer during step 13
+  useEffect(() => {
+    const open  = () => setDrawerOpen(true);
+    const close = () => setDrawerOpen(false);
+    window.addEventListener("ambo:tour-open-homilies",  open);
+    window.addEventListener("ambo:tour-close-homilies", close);
+    return () => {
+      window.removeEventListener("ambo:tour-open-homilies",  open);
+      window.removeEventListener("ambo:tour-close-homilies", close);
+    };
+  }, []);
+
   const attribution = SOURCE_ATTRIBUTION[readingsSource];
 
   return (
