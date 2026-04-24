@@ -14,6 +14,7 @@ interface Step {
   prefer: "top" | "bottom" | "left" | "right";
   prepareEvent?: string;    // custom window event to fire before positioning
   prepareDelay?: number;    // ms to wait after prepareEvent before measuring (default 120)
+  cleanupEvent?: string;    // custom window event fired when navigating away from this step
 }
 
 const STEPS: Step[] = [
@@ -24,7 +25,7 @@ const STEPS: Step[] = [
   { target: "reflect-discernment",  copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
   { target: "reflect-notes",        copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
   { target: "write-tab",            copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
-  { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom" },
+  { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "right",  prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
   { target: "write-notes",          copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
   { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "left"   },
   { target: "write-examine",        copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
@@ -214,22 +215,30 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     return () => clearTimeout(t);
   }, [step, visible, mobile, mode]);
 
-  const dismiss = useCallback(() => {
-    setVisible(false);
-    localStorage.setItem(STORAGE_KEY, "true");
+  const fireCleanup = useCallback((s: number) => {
+    const ev = STEPS[s].cleanupEvent;
+    if (ev) window.dispatchEvent(new CustomEvent(ev));
   }, []);
 
+  const dismiss = useCallback(() => {
+    fireCleanup(step);
+    setVisible(false);
+    localStorage.setItem(STORAGE_KEY, "true");
+  }, [step, fireCleanup]);
+
   const next = useCallback(() => {
+    fireCleanup(step);
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
     } else {
       dismiss();
     }
-  }, [step, dismiss]);
+  }, [step, dismiss, fireCleanup]);
 
   const prev = useCallback(() => {
+    fireCleanup(step);
     if (step > 0) setStep((s) => s - 1);
-  }, [step]);
+  }, [step, fireCleanup]);
 
   if (!visible) return null;
 

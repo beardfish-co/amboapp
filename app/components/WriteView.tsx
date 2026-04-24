@@ -157,10 +157,24 @@ export default function WriteView({
   const [notes, setNotes] = useState("");
   // Seed — primary line only (unfolding lives in Reflect). Read-only here.
   const [seed, setSeed] = useState("");
+  const [tourSeed, setTourSeed] = useState<string | null>(null); // shown during onboarding tour only
   // Sub-questions from Discernment — read-only in Write
   const [seedWhyNow, setSeedWhyNow] = useState("");
   const [seedEucharist, setSeedEucharist] = useState("");
   const [seedResponse, setSeedResponse] = useState("");
+
+  // Tour support: show dummy discernment content while onboarding
+  useEffect(() => {
+    const TOUR_SEED = "To speak of mercy not as concept, but as encounter.";
+    const show = () => setTourSeed(TOUR_SEED);
+    const hide = () => setTourSeed(null);
+    window.addEventListener("ambo:tour-show-discernment", show);
+    window.addEventListener("ambo:tour-hide-discernment", hide);
+    return () => {
+      window.removeEventListener("ambo:tour-show-discernment", show);
+      window.removeEventListener("ambo:tour-hide-discernment", hide);
+    };
+  }, []);
   const [furtherListeningOpen, setFurtherListeningOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   // Preflight "examine" — a gentle last look before preaching
@@ -866,7 +880,7 @@ export default function WriteView({
       {/* Discernment anchor — above the glass Panel, left-aligned.
           Shows only when the priest has named a thread. Read-only; the priest
           has committed to his thread. "Further Listening" expands sub-questions. */}
-      {seed.trim().length > 0 && (
+      {(tourSeed !== null || seed.trim().length > 0) && (
         <div style={{ marginBottom: 18, padding: "0 4px" }}>
           {/* Label + thread — plain display, no link back to Reflect */}
           <div>
@@ -889,7 +903,7 @@ export default function WriteView({
               color: "var(--ambo-text-secondary)",
               maxWidth: 600,
             }}>
-              {seed}
+              {tourSeed ?? seed}
             </div>
           </div>
 
