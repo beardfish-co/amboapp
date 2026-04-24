@@ -262,7 +262,6 @@ const FATHER_NAME_MAP: Record<string, string> = {
   "Pseudo-Jerome":    "Pseudo-Jerome",
   "Pseudo-Basil":     "Pseudo-Basil",
   "PSEUDO-BASIL":     "Pseudo-Basil",
-  "Pseudo-Augustine": "Pseudo-Augustine",
 };
 
 /**
