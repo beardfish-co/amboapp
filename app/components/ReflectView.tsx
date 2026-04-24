@@ -409,6 +409,23 @@ export default function ReflectView({
     };
   }, []);
 
+  // Tour support: open the first reading panel and expand its prompts on request
+  useEffect(() => {
+    const handler = () => {
+      // Ensure first reading body is open
+      setOpenBodies((prev) => {
+        if (prev.has("r1")) return prev;
+        const next = new Set(prev);
+        next.add("r1");
+        return next;
+      });
+      // Expand the prompts for r1
+      setExpandedSlot("r1");
+    };
+    window.addEventListener("ambo:tour-open-r1-prompts", handler);
+    return () => window.removeEventListener("ambo:tour-open-r1-prompts", handler);
+  }, []);
+
   const handleNotesChange = (v: string) => {
     setNotes(v);
     saveNotes(v);

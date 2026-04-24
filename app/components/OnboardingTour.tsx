@@ -8,17 +8,19 @@ type Tab = "reflect" | "write" | "preach";
 type Dir = "up" | "down" | "left" | "right" | "none";
 
 interface Step {
-  target: string;      // data-tour value
+  target: string;           // data-tour value
   copy: string;
   tab: Tab;
   prefer: "top" | "bottom" | "left" | "right";
+  prepareEvent?: string;    // custom window event to fire before positioning
+  prepareDelay?: number;    // ms to wait after prepareEvent before measuring (default 120)
 }
 
 const STEPS: Step[] = [
   { target: "nav-tabs",             copy: "For priests who want to preach from prayer.",                         tab: "reflect", prefer: "bottom" },
   { target: "reflect-tab",          copy: "Let the Word speak before you begin composing.",                      tab: "reflect", prefer: "bottom" },
   { target: "reading-panels",       copy: "The readings for the day, drawn from the lectionary.",                tab: "reflect", prefer: "right"  },
-  { target: "reflect-prompts",      copy: "Gentle invitations to sit with the readings in prayer.",              tab: "reflect", prefer: "right"  },
+  { target: "reflect-prompts",      copy: "Gentle invitations to sit with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1100 },
   { target: "reflect-discernment",  copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
   { target: "reflect-notes",        copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
   { target: "write-tab",            copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
@@ -170,12 +172,15 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     return () => window.removeEventListener("ambo:start-tour", handler);
   }, []);
 
-  // Switch tab when step requires it
+  // Switch tab + fire any prepareEvent when the step changes
   useEffect(() => {
     if (!visible) return;
     const s = STEPS[step];
-    if (s.tab !== mode) {
-      setMode(s.tab);
+    if (s.tab !== mode) setMode(s.tab);
+    if (s.prepareEvent) {
+      // Small defer so the tab paint finishes first
+      const t = setTimeout(() => window.dispatchEvent(new CustomEvent(s.prepareEvent!)), 60);
+      return () => clearTimeout(t);
     }
   }, [step, visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -191,7 +196,8 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     };
 
     // Small delay lets React finish painting after tab switch
-    const t = setTimeout(position, 120);
+    const delay = STEPS[step].prepareDelay ?? 120;
+    const t = setTimeout(position, delay);
     return () => clearTimeout(t);
   }, [step, visible, mobile, mode]);
 
