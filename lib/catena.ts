@@ -116,3 +116,160 @@ export function findMatchingBlocks(
       b.verseStart <= ref.verseEnd,
   );
 }
+
+// ─── Father name normalisation ────────────────────────────────────────────────
+// The Catena Aurea source data uses a mix of full names, Latin abbreviations,
+// and inconsistent casing inherited from the original Aquinas text.
+// This map normalises every known variant to a clean display name.
+
+const FATHER_NAME_MAP: Record<string, string> = {
+  // Augustine
+  "aug":              "Augustine",
+  "Aug":              "Augustine",
+  "AUG":              "Augustine",
+  "AUGUSTINE":        "Augustine",
+
+  // John Chrysostom
+  "Chrys":            "John Chrysostom",
+  "CHRYS":            "John Chrysostom",
+  "CHRYSOSTOM":       "John Chrysostom",
+
+  // Peter Chrysologus
+  "Chrysol":          "Peter Chrysologus",
+  "Chrysologus":      "Peter Chrysologus",
+
+  // Gregory the Great
+  "Greg":             "Gregory the Great",
+  "greg":             "Gregory the Great",
+  "GREG":             "Gregory the Great",
+  "Gregory":          "Gregory the Great",
+
+  // Gregory of Nazianzus
+  "Greg NAZ":         "Gregory of Nazianzus",
+  "GREG NAZ":         "Gregory of Nazianzus",
+  "GREG. NAZ":        "Gregory of Nazianzus",
+
+  // Gregory of Nyssa
+  "Greg NYSS":        "Gregory of Nyssa",
+  "GREG NYSS":        "Gregory of Nyssa",
+  "GREG. NYSS":       "Gregory of Nyssa",
+
+  // Hilary of Poitiers
+  "Hil":              "Hilary of Poitiers",
+  "Hilary":           "Hilary of Poitiers",
+
+  // Ambrose
+  "AMBROSE":          "Ambrose",
+
+  // Jerome
+  "JEROME":           "Jerome",
+
+  // Origen
+  "ORIGEN":           "Origen",
+
+  // Bede
+  "bede":             "Bede",
+  "BEDE":             "Bede",
+
+  // Leo the Great
+  "Leo":              "Leo the Great",
+  "leo":              "Leo the Great",
+
+  // Cyril of Alexandria
+  "Cyril":            "Cyril of Alexandria",
+  "CYRIL":            "Cyril of Alexandria",
+  "Cyril of Alexandria": "Cyril of Alexandria",
+
+  // Eusebius of Caesarea
+  "Euseb":            "Eusebius of Caesarea",
+  "Eusebius":         "Eusebius of Caesarea",
+  "EUSEBIUS":         "Eusebius of Caesarea",
+
+  // Glossa Ordinaria
+  "Gloss":            "Glossa Ordinaria",
+  "gloss":            "Glossa Ordinaria",
+  "GLOSS":            "Glossa Ordinaria",
+
+  // Rabanus Maurus
+  "Raban":            "Rabanus Maurus",
+  "Rabanus":          "Rabanus Maurus",
+
+  // Remigius of Auxerre
+  "Remig":            "Remigius of Auxerre",
+  "REMIG":            "Remigius of Auxerre",
+  "Remigius":         "Remigius of Auxerre",
+
+  // Athanasius
+  "ATHAN":            "Athanasius",
+  "ATHANASIUS":       "Athanasius",
+
+  // Theophylact
+  "Theophylact":      "Theophylact",
+  "THEOPHYL":         "Theophylact",
+  "THEOPHYLACT":      "Theophylact",
+
+  // Basil the Great
+  "BASIL":            "Basil the Great",
+
+  // John of Damascus
+  "DAMASCENE":        "John of Damascus",
+
+  // Dionysius the Areopagite
+  "Dionys":           "Dionysius the Areopagite",
+  "DIONYSIUS AR":     "Dionysius the Areopagite",
+
+  // Epiphanius
+  "EPIPHAN":          "Epiphanius",
+
+  // Maximus the Confessor
+  "MAXIM":            "Maximus the Confessor",
+
+  // Titus of Bostra
+  "TITUS BOST":       "Titus of Bostra",
+  "TITUS BOSTRENSIS": "Titus of Bostra",
+
+  // Isidore
+  "ISIDORE PELEUS":   "Isidore of Pelusium",
+  "Isidore":          "Isidore of Seville",
+
+  // Cyprian
+  "CYPRIAN":          "Cyprian",
+
+  // Haymo of Auxerre
+  "HAYMO":            "Haymo of Auxerre",
+
+  // Alcuin
+  "ALCUIN":           "Alcuin",
+
+  // Council of Ephesus
+  "EX GESTIS CONC. EPH": "Council of Ephesus",
+  "The Council of Ephesus": "Council of Ephesus",
+
+  // Greek Expositor
+  "GREEK EX":         "Greek Expositor",
+  "GREEK EXPOSITOR":  "Greek Expositor",
+
+  // Pseudo-authors
+  "Pseudo-Athan":     "Pseudo-Athanasius",
+  "Pseudo-Aug":       "Pseudo-Augustine",
+  "PSEUDO-AUG":       "Pseudo-Augustine",
+  "Pseudo-Augustine": "Pseudo-Augustine",
+  "Pseudo-Chrys":     "Pseudo-Chrysostom",
+  "PSEUDO-CHRYS":     "Pseudo-Chrysostom",
+  "Pseudo-Chys":      "Pseudo-Chrysostom",
+  "Psuedo-Chrys":     "Pseudo-Chrysostom",
+  "Pseudo-Origen":    "Pseudo-Origen",
+  "Pseudo-Jerome":    "Pseudo-Jerome",
+  "Pseudo-Basil":     "Pseudo-Basil",
+  "PSEUDO-BASIL":     "Pseudo-Basil",
+  "Pseudo-Augustine": "Pseudo-Augustine",
+};
+
+/**
+ * Expand abbreviated or inconsistently-cased Father names from the Catena Aurea
+ * source data into clean display names. Unknown names are returned as-is.
+ */
+export function normalizeFatherName(name: string | null): string {
+  if (!name) return "Unknown";
+  return FATHER_NAME_MAP[name] ?? name;
+}

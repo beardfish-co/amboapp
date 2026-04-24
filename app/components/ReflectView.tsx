@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { selectPrompts, detectSeason } from "@/lib/prompts";
 import type { CatenaBlock } from "@/lib/catena";
+import { normalizeFatherName } from "@/lib/catena";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
@@ -820,7 +821,7 @@ export default function ReflectView({
                                   color: "var(--ambo-text-primary)",
                                   marginRight: 6,
                                 }}>
-                                  {ent.father ?? "—"}
+                                  {normalizeFatherName(ent.father)}
                                 </span>
                                 {ent.citation && (
                                   <span style={{
@@ -837,7 +838,7 @@ export default function ReflectView({
                               <button
                                 onClick={() => {
                                   const cite = ent.father
-                                    ? `${ent.father}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`
+                                    ? `${normalizeFatherName(ent.father)}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`
                                     : `${r.reference}`;
                                   appendToNotes(cite, ent.text);
                                 }}
