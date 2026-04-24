@@ -18,6 +18,7 @@ interface DayReadings {
 }
 
 interface ReadingsDrawerProps {
+  readingsSource?: import("@/lib/jurisdiction").ReadingsSource;
   open: boolean;
   sundayDate: string | null; // ISO YYYY-MM-DD
   homilyId?: string | null;  // Drives snapshot-first loading + snapshot write-back.
@@ -63,6 +64,7 @@ export default function ReadingsDrawer({
   homilyId,
   onClose,
   onInsert,
+  readingsSource = "universalis",
 }: ReadingsDrawerProps) {
   const [data, setData] = useState<DayReadings | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ export default function ReadingsDrawer({
     setSelection(null);
 
     (async () => {
-      const { payload, status } = await loadReadings(sundayDate, homilyId);
+      const { payload, status } = await loadReadings(sundayDate, homilyId, readingsSource);
       if (cancelled) return;
       if (payload) {
         setData(payload);

@@ -24,6 +24,7 @@ interface DayReadings {
 }
 
 interface ReflectViewProps {
+  readingsSource?: import("@/lib/jurisdiction").ReadingsSource;
   currentId: string | null;
   onOpenList: () => void;
   onGoWrite: () => void;
@@ -62,6 +63,7 @@ function fmtSundayShort(iso: string | null): string {
 
 export default function ReflectView({
   currentId,
+  readingsSource = "universalis",
   onOpenList,
   onGoWrite,
 }: ReflectViewProps) {
@@ -192,7 +194,7 @@ export default function ReflectView({
     let cancelled = false;
     setReadingsLoading(true);
     (async () => {
-      const { payload, status } = await loadReadings(sundayDate, currentId);
+      const { payload, status } = await loadReadings(sundayDate, currentId, readingsSource);
       if (cancelled) return;
       setReadingsStatus(status);
       if (payload) {
@@ -246,7 +248,7 @@ export default function ReflectView({
     const todayIso = `${y}-${m}-${d}`;
     let cancelled = false;
     (async () => {
-      const { payload } = await loadReadings(todayIso);
+      const { payload } = await loadReadings(todayIso, null, readingsSource);
       if (!cancelled && payload) setTodayReadings(payload);
     })();
     return () => { cancelled = true; };

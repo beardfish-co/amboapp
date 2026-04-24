@@ -1,17 +1,18 @@
 // Central readings loader with snapshot-first policy.
 //
 // Universalis' free JSONP serves a narrow sliding window around today:
-// ~3 days of past lookback, ~9 days of future lookahead. Our route layer
-// now rejects silent-redirect responses (404), so future dates outside
-// the window surface as "not published yet" rather than silently returning
-// today's readings.
+// ~3 days of past lookback, ~9 days of future lookahead. Evangelizo's XML
+// feed covers up to 30 days ahead. Our route layer rejects silent-redirect
+// responses (404), so future dates outside the window surface as
+// "not published yet" rather than silently returning today's readings.
 //
 // To make a priest's body of work durable, we snapshot the readings onto
 // the homily row the first time we fetch them successfully. Subsequent
 // loads prefer the snapshot, so historical homilies keep their original
-// readings forever — independent of Universalis uptime.
+// readings forever — independent of upstream uptime.
 
 import { createClient } from "@/lib/supabase/client";
+import type { ReadingsSource } from "@/lib/jurisdiction";
 
 export interface Reading {
   id: string;
@@ -22,16 +23,17 @@ export interface Reading {
 }
 
 export interface ReadingsPayload {
-  date: string;   // Universalis-formatted, e.g. "Sunday 26 April 2026"
-  number: number; // YYYYMMDD as integer
+  date: string;
+  number: number;
   dayName: string;
+  source: ReadingsSource;
   readings: Reading[];
 }
 
 export type ReadingsStatus =
   | "snapshot"         // served from the homily's stored snapshot
-  | "live"             // fresh from Universalis (also written back to the snapshot)
-  | "not_published"    // Universalis hasn't published readings for this date yet
+  | "live"             // fresh from upstream (also written back to snapshot)
+  | "not_published"    // upstream hasn't published readings for this date yet
   | "unavailable";     // network error / unexpected format
 
 export interface ReadingsResult {
@@ -44,22 +46,24 @@ function isoToCompact(iso: string): string {
 }
 
 /**
- * Load readings for a Sunday (or any date), preferring a stored snapshot.
+ * Load readings for a given date, preferring a stored snapshot.
  *
- * Caller may pass `homilyId` to opt in to snapshot semantics:
- *   - if the homily already has a snapshot for this date, return it (no network)
- *   - else live-fetch and — on success — persist the payload onto the homily
- *
- * When called without a homilyId (e.g. HomilyList name lookup), the helper
- * skips snapshot I/O entirely and just live-fetches.
+ * @param isoDate   Date in YYYY-MM-DD format.
+ * @param homilyId  Optional — enables snapshot read/write for archival durability.
+ * @param source    Which upstream adapter to use ("universalis" | "evangelizo").
+ *                  Defaults to "universalis" for backwards compatibility.
  */
 export async function loadReadings(
   isoDate: string,
   homilyId?: string | null,
+  source: ReadingsSource = "universalis",
 ): Promise<ReadingsResult> {
   if (!isoDate) return { payload: null, status: "unavailable" };
 
   // 1. Snapshot lookup (homily-scoped).
+  // The snapshot was written with whichever source was active at the time,
+  // so historical homilies always show the same readings regardless of later
+  // source changes. We only use the snapshot when the date matches exactly.
   if (homilyId) {
     try {
       const supabase = createClient();
@@ -84,7 +88,9 @@ export async function loadReadings(
 
   // 2. Live fetch.
   try {
-    const res = await fetch(`/api/readings?date=${isoToCompact(isoDate)}`);
+    const res = await fetch(
+      `/api/readings?date=${isoToCompact(isoDate)}&source=${source}`,
+    );
     if (res.status === 404) {
       return { payload: null, status: "not_published" };
     }
@@ -117,13 +123,13 @@ export async function loadReadings(
 
 /**
  * Fetches just the liturgical day name (e.g. "4th Sunday of Easter").
- * Pass `homilyId` to benefit from snapshot-first lookup — historical homilies
- * resolve instantly from their stored snapshot without a network call.
+ * Pass `homilyId` to benefit from snapshot-first lookup.
  */
 export async function loadDayName(
   isoDate: string,
   homilyId?: string | null,
+  source: ReadingsSource = "universalis",
 ): Promise<string | null> {
-  const { payload } = await loadReadings(isoDate, homilyId);
+  const { payload } = await loadReadings(isoDate, homilyId, source);
   return payload?.dayName ?? null;
 }

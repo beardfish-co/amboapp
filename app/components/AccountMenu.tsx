@@ -3,11 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import JurisdictionPicker from "@/app/components/JurisdictionPicker";
+import {
+  LectionaryFamily,
+  JURISDICTION_OPTIONS,
+} from "@/lib/jurisdiction";
 
-export default function AccountMenu() {
+interface Props {
+  lectionaryFamily?: LectionaryFamily | null;
+  onSelectFamily: (family: LectionaryFamily) => Promise<void>;
+}
+
+export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [changing, setChanging] = useState(false);
+  const [changingTranslation, setChangingTranslation] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,7 +27,6 @@ export default function AccountMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Load current user email
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -24,21 +34,25 @@ export default function AccountMenu() {
     });
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setChanging(false);
-        setNewEmail("");
-        setMessage("");
-        setError("");
+        closeMenu();
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  const closeMenu = () => {
+    setOpen(false);
+    setChanging(false);
+    setChangingTranslation(false);
+    setNewEmail("");
+    setMessage("");
+    setError("");
+  };
 
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,11 +81,13 @@ export default function AccountMenu() {
     router.push("/login");
   };
 
+  // Find the label for the current family
+  const currentOption = JURISDICTION_OPTIONS.find(o => o.family === lectionaryFamily);
+
   return (
     <div ref={menuRef} style={{ position: "relative" }}>
-      {/* Trigger button */}
       <button
-        onClick={() => { setOpen((v) => !v); setChanging(false); setMessage(""); setError(""); }}
+        onClick={() => { setOpen((v) => !v); setChanging(false); setChangingTranslation(false); setMessage(""); setError(""); }}
         style={{
           border: "1px solid var(--ambo-border)",
           background: open ? "var(--ambo-accent-light)" : "transparent",
@@ -91,13 +107,12 @@ export default function AccountMenu() {
         <PersonIcon />
       </button>
 
-      {/* Dropdown */}
       {open && (
         <div style={{
           position: "absolute",
           top: "calc(100% + 8px)",
           right: 0,
-          width: 280,
+          width: 300,
           background: "var(--ambo-surface-solid)",
           border: "1px solid var(--ambo-border)",
           borderRadius: 12,
@@ -105,11 +120,9 @@ export default function AccountMenu() {
           overflow: "hidden",
           zIndex: 100,
         }}>
-          {/* Email display */}
-          <div style={{
-            padding: "14px 16px",
-            borderBottom: "1px solid var(--ambo-border)",
-          }}>
+
+          {/* Email */}
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--ambo-border)" }}>
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 3 }}>
               Signed in as
             </div>
@@ -118,7 +131,6 @@ export default function AccountMenu() {
             </div>
           </div>
 
-          {/* Success message */}
           {message && (
             <div style={{ padding: "12px 16px", fontSize: 13, color: "var(--ambo-accent)", lineHeight: 1.5, borderBottom: "1px solid var(--ambo-border)" }}>
               {message}
@@ -126,12 +138,9 @@ export default function AccountMenu() {
           )}
 
           {/* Change email */}
-          <div style={{ padding: "8px 0" }}>
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
             {!changing ? (
-              <button
-                onClick={() => { setChanging(true); setMessage(""); }}
-                style={menuItemStyle}
-              >
+              <button onClick={() => { setChanging(true); setChangingTranslation(false); setMessage(""); }} style={menuItemStyle}>
                 Change email
               </button>
             ) : (
@@ -162,23 +171,16 @@ export default function AccountMenu() {
                   onFocus={(e) => e.target.style.borderColor = "var(--ambo-accent)"}
                   onBlur={(e) => e.target.style.borderColor = "var(--ambo-border)"}
                 />
-                {error && (
-                  <p style={{ fontSize: 12, color: "#c0392b", margin: "0 0 8px" }}>{error}</p>
-                )}
+                {error && <p style={{ fontSize: 12, color: "#c0392b", margin: "0 0 8px" }}>{error}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="submit"
                     disabled={saving || !newEmail.trim() || newEmail.trim() === email}
                     style={{
-                      flex: 1,
-                      padding: "8px",
+                      flex: 1, padding: "8px",
                       background: saving || !newEmail.trim() || newEmail.trim() === email ? "var(--ambo-border)" : "var(--ambo-accent)",
                       color: saving || !newEmail.trim() || newEmail.trim() === email ? "var(--ambo-text-muted)" : "#fff",
-                      border: "none",
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 600,
-                      fontFamily: "inherit",
+                      border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: "inherit",
                       cursor: saving || !newEmail.trim() ? "default" : "pointer",
                     }}
                   >
@@ -187,16 +189,7 @@ export default function AccountMenu() {
                   <button
                     type="button"
                     onClick={() => { setChanging(false); setNewEmail(""); setError(""); }}
-                    style={{
-                      padding: "8px 12px",
-                      background: "transparent",
-                      border: "1px solid var(--ambo-border)",
-                      borderRadius: 8,
-                      fontSize: 13,
-                      color: "var(--ambo-text-muted)",
-                      fontFamily: "inherit",
-                      cursor: "pointer",
-                    }}
+                    style={{ padding: "8px 12px", background: "transparent", border: "1px solid var(--ambo-border)", borderRadius: 8, fontSize: 13, color: "var(--ambo-text-muted)", fontFamily: "inherit", cursor: "pointer" }}
                   >
                     Cancel
                   </button>
@@ -205,23 +198,51 @@ export default function AccountMenu() {
             )}
           </div>
 
+          {/* Reading translation */}
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
+            {!changingTranslation ? (
+              <button
+                onClick={() => { setChangingTranslation(true); setChanging(false); }}
+                style={menuItemStyle}
+              >
+                <span style={{ display: "block" }}>Reading translation</span>
+                {currentOption && (
+                  <span style={{ display: "block", fontSize: 11, color: "var(--ambo-text-muted)", marginTop: 1 }}>
+                    {currentOption.label}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <div style={{ padding: "8px 16px 12px" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 10 }}>
+                  Reading translation
+                </div>
+                <JurisdictionPicker
+                  mode="settings"
+                  current={lectionaryFamily}
+                  onSelect={onSelectFamily}
+                  onDismiss={() => setChangingTranslation(false)}
+                />
+                <button
+                  onClick={() => setChangingTranslation(false)}
+                  style={{ marginTop: 10, fontSize: 12, color: "var(--ambo-text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* About */}
-          <div style={{ borderTop: "1px solid var(--ambo-border)", padding: "8px 0" }}>
-            <button
-              onClick={() => { setOpen(false); router.push("/about"); }}
-              style={menuItemStyle}
-            >
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
+            <button onClick={() => { closeMenu(); router.push("/about"); }} style={menuItemStyle}>
               About Ambo
             </button>
           </div>
 
           {/* Sign out */}
-          <div style={{ borderTop: "1px solid var(--ambo-border)", padding: "8px 0" }}>
-            <button
-              onClick={handleSignOut}
-              disabled={signingOut}
-              style={{ ...menuItemStyle, color: "#c0392b" }}
-            >
+          <div style={{ padding: "8px 0" }}>
+            <button onClick={handleSignOut} disabled={signingOut} style={{ ...menuItemStyle, color: "#c0392b" }}>
               {signingOut ? "Signing out…" : "Sign out"}
             </button>
           </div>

@@ -24,6 +24,7 @@ const sundayNameCache: Map<string, string> = (globalThis as typeof globalThis & 
 }).__amboSundayNameCache ??= new Map<string, string>();
 
 interface WriteViewProps {
+  readingsSource?: import("@/lib/jurisdiction").ReadingsSource;
   currentId: string | null;
   onCurrentIdChange: (id: string) => void;
   onSaved?: () => void;
@@ -138,6 +139,7 @@ export default function WriteView({
   discernmentVersion,
   onFlushRef,
   onLiveContent,
+  readingsSource = "universalis",
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
   // while the async DB fetch runs. The load effect confirms/updates the value.
@@ -1301,6 +1303,7 @@ export default function WriteView({
         open={readingsOpen}
         sundayDate={sundayDate}
         homilyId={draftIdRef.current}
+        readingsSource={readingsSource}
         onClose={() => setReadingsOpen(false)}
         onInsert={handleInsertReading}
       />

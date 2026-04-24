@@ -8,6 +8,13 @@ import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList from "./components/HomilyList";
+import JurisdictionPicker from "./components/JurisdictionPicker";
+import {
+  LectionaryFamily,
+  ReadingsSource,
+  SOURCE_ATTRIBUTION,
+  sourceForFamily,
+} from "@/lib/jurisdiction";
 
 type Mode = "reflect" | "write" | "preach";
 
@@ -19,35 +26,45 @@ export default function AmboApp() {
   const [preachVersion, setPreachVersion] = useState(0);
   const [liveContent, setLiveContent] = useState<{ title: string; content: string } | null>(null);
   const flushWriteRef = useRef<(() => Promise<void>) | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
 
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  // Bumped after every autosave so HomilyList refetches next time it opens
   const [listRefreshKey, setListRefreshKey] = useState(0);
-  // Tracks whether we've resolved the initial currentId (from localStorage or fallback)
   const [idHydrated, setIdHydrated] = useState(false);
 
-  // Resolve the starting homily id on mount:
-  //  1. localStorage ambo-current-id, if it still exists for this user
-  //  2. Most recently edited homily for this user
-  //  3. null — fresh blank draft (first save will create a row)
+  // Jurisdiction state
+  // null = not yet loaded from auth; undefined = loaded, not set (show picker)
+  const [lectionaryFamily, setLectionaryFamily] = useState<LectionaryFamily | null | undefined>(null);
+  const [showPicker, setShowPicker] = useState(false);
+
+  const readingsSource: ReadingsSource =
+    lectionaryFamily ? sourceForFamily(lectionaryFamily) : "universalis";
+
+  // ── Auth + jurisdiction hydration ──────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       let resolved: string | null = null;
       let candidate: string | null = null;
-      try {
-        candidate = localStorage.getItem(CURRENT_ID_KEY);
-      } catch { /* ignore */ }
+      try { candidate = localStorage.getItem(CURRENT_ID_KEY); } catch { /* ignore */ }
 
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
+
         if (user) {
+          // Load jurisdiction from user metadata
+          const family = (user.user_metadata?.lectionary_family as LectionaryFamily) ?? undefined;
+          if (!cancelled) {
+            setLectionaryFamily(family ?? null);
+            // Show picker if not set — brief delay so the app is visible first
+            if (!family) setTimeout(() => setShowPicker(true), 300);
+          }
+
+          // Resolve starting homily id
           if (candidate) {
             const { data } = await supabase
               .from("homilies")
@@ -68,7 +85,7 @@ export default function AmboApp() {
             if (data?.id) resolved = data.id;
           }
         }
-      } catch { /* offline — leave resolved as null */ }
+      } catch { /* offline — leave as defaults */ }
 
       if (cancelled) return;
 
@@ -84,6 +101,15 @@ export default function AmboApp() {
     return () => { cancelled = true; };
   }, []);
 
+  // ── Jurisdiction selection ─────────────────────────────────────────────────
+  const handleSelectFamily = useCallback(async (family: LectionaryFamily) => {
+    const supabase = createClient();
+    await supabase.auth.updateUser({ data: { lectionary_family: family } });
+    setLectionaryFamily(family);
+    setShowPicker(false);
+  }, []);
+
+  // ── Homily management ──────────────────────────────────────────────────────
   const persistCurrentId = useCallback((id: string | null) => {
     setCurrentId(id);
     try {
@@ -92,21 +118,9 @@ export default function AmboApp() {
     } catch { /* ignore */ }
   }, []);
 
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    try {
-      localStorage.removeItem(CURRENT_ID_KEY);
-      localStorage.removeItem("ambo-draft");
-    } catch { /* ignore */ }
-    router.push("/login");
-  };
-
   const handleSelectHomily = useCallback((id: string) => {
     persistCurrentId(id);
     setDrawerOpen(false);
-    // Stay on whatever tab they were on — Reflect is a valid landing place
   }, [persistCurrentId]);
 
   const handleCreateHomily = useCallback(() => {
@@ -121,6 +135,8 @@ export default function AmboApp() {
 
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
 
+  const attribution = SOURCE_ATTRIBUTION[readingsSource];
+
   return (
     <div style={{
       height: "100svh",
@@ -129,6 +145,15 @@ export default function AmboApp() {
       flexDirection: "column",
       overflow: "hidden",
     }}>
+
+      {/* Jurisdiction picker — onboarding overlay */}
+      {showPicker && (
+        <JurisdictionPicker
+          mode="onboarding"
+          current={lectionaryFamily}
+          onSelect={handleSelectFamily}
+        />
+      )}
 
       {/* Header */}
       <header style={{
@@ -149,7 +174,6 @@ export default function AmboApp() {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          {/* Logo / wordmark */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <AmboLogo />
             <span className="ambo-wordmark" style={{
@@ -162,7 +186,6 @@ export default function AmboApp() {
             </span>
           </div>
 
-          {/* Mode switcher */}
           <nav className="mode-pill">
             {(["reflect", "write", "preach"] as Mode[]).map((m) => (
               <button
@@ -182,8 +205,10 @@ export default function AmboApp() {
             ))}
           </nav>
 
-          {/* Account menu */}
-          <AccountMenu />
+          <AccountMenu
+            lectionaryFamily={lectionaryFamily}
+            onSelectFamily={handleSelectFamily}
+          />
         </div>
       </header>
 
@@ -194,14 +219,12 @@ export default function AmboApp() {
         overflowY: "auto",
         padding: mode === "preach" ? "36px 0 0" : "36px 0",
       }}>
-        {/* All three views stay mounted once idHydrated — CSS-hidden when
-            inactive. This prevents the blank-then-populated title flash that
-            occurs when WriteView unmounts and remounts on every mode switch. */}
         {idHydrated && (
           <>
             <div className="view-wrapper view-wrapper--reflect" style={{ display: mode === "reflect" ? undefined : "none" }}>
               <ReflectView
                 currentId={currentId}
+                readingsSource={readingsSource}
                 onOpenList={openDrawer}
                 onGoWrite={() => { setMode("write"); setDiscernmentVersion(v => v + 1); }}
               />
@@ -209,6 +232,7 @@ export default function AmboApp() {
             <div className="view-wrapper view-wrapper--write" style={{ display: mode === "write" ? undefined : "none" }}>
               <WriteView
                 currentId={currentId}
+                readingsSource={readingsSource}
                 onCurrentIdChange={persistCurrentId}
                 onSaved={handleSaved}
                 onOpenList={openDrawer}
@@ -225,11 +249,8 @@ export default function AmboApp() {
         )}
       </main>
 
-      {/* Attribution footer — present on every view */}
-      <footer style={{
-        padding: "16px 24px 16px",
-        textAlign: "center",
-      }}>
+      {/* Attribution footer */}
+      <footer style={{ padding: "16px 24px", textAlign: "center" }}>
         <p style={{
           fontSize: 11,
           color: "var(--ambo-text-muted)",
@@ -238,12 +259,12 @@ export default function AmboApp() {
         }}>
           Scripture readings provided by{" "}
           <a
-            href="https://universalis.com"
+            href={attribution.url}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: "var(--ambo-accent)", textDecoration: "none" }}
           >
-            Universalis
+            {attribution.name}
           </a>
         </p>
       </footer>
@@ -264,7 +285,6 @@ export default function AmboApp() {
 function AmboLogo() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      {/* Stylised ambo — a lectern shape */}
       <rect x="9" y="2" width="6" height="12" rx="1.5" fill="var(--ambo-accent)" opacity="0.85" />
       <rect x="5" y="10" width="14" height="2.5" rx="1.25" fill="var(--ambo-accent)" />
       <rect x="11" y="14.5" width="2" height="7.5" rx="1" fill="var(--ambo-accent)" opacity="0.6" />
