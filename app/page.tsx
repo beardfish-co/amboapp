@@ -289,6 +289,9 @@ export default function AmboApp() {
         refreshKey={listRefreshKey}
       />
       </ErrorBoundary>
+
+      {/* Onboarding tour */}
+      <OnboardingTour mode={mode} setMode={setMode} />
     </div>
   );
 }
