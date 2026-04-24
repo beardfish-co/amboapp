@@ -257,6 +257,20 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
             )}
           </div>
 
+          {/* Take the tour */}
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
+            <button
+              onClick={() => {
+                closeMenu();
+                localStorage.removeItem("ambo_tour_v1_complete");
+                window.dispatchEvent(new CustomEvent("ambo:start-tour"));
+              }}
+              style={menuItemStyle}
+            >
+              Take the tour
+            </button>
+          </div>
+
           {/* About */}
           <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
             <button onClick={() => { closeMenu(); router.push("/about"); }} style={menuItemStyle}>

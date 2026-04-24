@@ -159,6 +159,17 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Listen for manual tour restart from AccountMenu
+  useEffect(() => {
+    const handler = () => {
+      setStep(0);
+      setPos(null);
+      setVisible(true);
+    };
+    window.addEventListener("ambo:start-tour", handler);
+    return () => window.removeEventListener("ambo:start-tour", handler);
+  }, []);
+
   // Switch tab when step requires it
   useEffect(() => {
     if (!visible) return;
