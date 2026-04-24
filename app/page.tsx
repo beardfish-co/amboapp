@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import AccountMenu from "@/app/components/AccountMenu";
+import ErrorBoundary from "@/app/components/ErrorBoundary";
 import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
@@ -222,14 +223,17 @@ export default function AmboApp() {
         {idHydrated && (
           <>
             <div className="view-wrapper view-wrapper--reflect" style={{ display: mode === "reflect" ? undefined : "none" }}>
+              <ErrorBoundary label="Reflect">
               <ReflectView
                 currentId={currentId}
                 readingsSource={readingsSource}
                 onOpenList={openDrawer}
                 onGoWrite={() => { setMode("write"); setDiscernmentVersion(v => v + 1); }}
               />
+              </ErrorBoundary>
             </div>
             <div className="view-wrapper view-wrapper--write" style={{ display: mode === "write" ? undefined : "none" }}>
+              <ErrorBoundary label="Write">
               <WriteView
                 currentId={currentId}
                 readingsSource={readingsSource}
@@ -241,9 +245,12 @@ export default function AmboApp() {
                 onFlushRef={flushWriteRef}
                 onLiveContent={setLiveContent}
               />
+              </ErrorBoundary>
             </div>
             <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
+              <ErrorBoundary label="Preach">
               <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} />
+              </ErrorBoundary>
             </div>
           </>
         )}
@@ -270,6 +277,7 @@ export default function AmboApp() {
       </footer>
 
       {/* Homily drawer */}
+      <ErrorBoundary label="HomilyList">
       <HomilyList
         open={drawerOpen}
         currentId={currentId}
@@ -278,6 +286,7 @@ export default function AmboApp() {
         onCreate={handleCreateHomily}
         refreshKey={listRefreshKey}
       />
+      </ErrorBoundary>
     </div>
   );
 }
