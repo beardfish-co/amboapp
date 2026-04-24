@@ -144,6 +144,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos]         = useState<PopoverPos | null>(null);
   const [mobile, setMobile]   = useState(false);
+  const [ready, setReady]     = useState(false); // false while awaiting position calculation
 
   // Show on first visit
   useEffect(() => {
@@ -186,17 +187,26 @@ export default function OnboardingTour({ mode, setMode }: Props) {
 
   // Position popover after tab switch + paint
   useLayoutEffect(() => {
-    if (!visible || mobile) return;
+    if (!visible) return;
 
-    // Clear immediately so the previous step's position doesn't flash
-    // with the new step's copy while we wait for prepareDelay.
+    if (mobile) {
+      // Mobile bottom sheet: always ready immediately, no positioning needed
+      setReady(true);
+      return;
+    }
+
+    // Hide while we wait so there's no flash at the wrong location
     setPos(null);
+    setReady(false);
 
     const position = () => {
       const el = document.querySelector(`[data-tour="${STEPS[step].target}"]`) as HTMLElement | null;
-      if (!el) { setPos(null); return; }
-      const rect = el.getBoundingClientRect();
-      setPos(calcPos(rect, STEPS[step].prefer));
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        setPos(calcPos(rect, STEPS[step].prefer));
+      }
+      // Mark ready whether or not target was found — centred fallback is fine
+      setReady(true);
     };
 
     const delay = STEPS[step].prepareDelay ?? 120;
@@ -247,6 +257,8 @@ export default function OnboardingTour({ mode, setMode }: Props) {
   }
 
   // ── Desktop: positioned popover ───────────────────────────────────────────
+  if (!ready) return null;
+
   const centered = !pos;
   const style: React.CSSProperties = centered
     ? { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 1000 }
