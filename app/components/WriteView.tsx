@@ -698,14 +698,14 @@ export default function WriteView({
         marginBottom: 24,
       }}>
         {/* Left: My homilies alone */}
-        <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies">
+        <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies" data-tour="my-homilies">
           My homilies
         </PillButton>
 
         <div style={{ flex: 1 }} />
 
         {/* Right group: Notes + Examine — both pre-preach tools */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div data-tour="write-notes" style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {notes.trim().length > 0 && (
             <PillButton
               variant={notesOpen ? "active" : "ghost"}
@@ -723,6 +723,7 @@ export default function WriteView({
               icon={<ExamineIcon />}
               onClick={() => setExamineOpen((v) => !v)}
               title="A gentle last look before preaching"
+              data-tour="write-examine"
             >
               Examine
             </PillButton>
@@ -861,6 +862,7 @@ export default function WriteView({
         </div>
       </SlideReveal>
 
+      <div data-tour="write-discernment">
       {/* Discernment anchor — above the glass Panel, left-aligned.
           Shows only when the priest has named a thread. Read-only; the priest
           has committed to his thread. "Further Listening" expands sub-questions. */}
@@ -941,6 +943,8 @@ export default function WriteView({
           )}
         </div>
       )}
+
+      </div>
 
       {/* Glass Panel: title + body live on one surface, a single sheet
           of paper inside the Ambo room. 72% glass, blur+saturate chrome. */}
@@ -1198,6 +1202,7 @@ export default function WriteView({
           variant={readingsOpen ? "active" : "ghost"}
           icon={<BookIconShared />}
           onClick={() => setReadingsOpen(true)}
+          data-tour="readings-drawer"
           title="Open today’s readings"
           style={{
             height: 34,

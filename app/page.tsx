@@ -9,6 +9,7 @@ import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList from "./components/HomilyList";
+import OnboardingTour from "./components/OnboardingTour";
 import JurisdictionPicker from "./components/JurisdictionPicker";
 import {
   LectionaryFamily,
@@ -187,10 +188,11 @@ export default function AmboApp() {
             </span>
           </div>
 
-          <nav className="mode-pill">
+          <nav className="mode-pill" data-tour="nav-tabs">
             {(["reflect", "write", "preach"] as Mode[]).map((m) => (
               <button
                 key={m}
+                data-tour={`${m}-tab`}
                 className={`mode-pill-btn ${mode === m ? "active" : ""}`}
                 onClick={async () => {
                   if (m === "preach") {

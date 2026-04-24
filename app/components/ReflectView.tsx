@@ -548,7 +548,7 @@ export default function ReflectView({
           </div>
         )}
 
-        {!loading && readings && readings.readings.map((r) => {
+        {!loading && readings && readings.readings.map((r, idx) => {
           const slot: ReadingSlot | null = isReadingSlot(r.id) ? r.id : null;
           const paragraphs = splitReadingParagraphs(r.text);
           // Prefer AI-generated prompts (text-specific, with sub-note basis);
@@ -580,6 +580,7 @@ export default function ReflectView({
           return (
             <section
               key={r.id}
+              {...(idx === 0 ? { "data-tour": "reading-panels" } : {})}
               className="glass-card reflect-reading-card"
               style={{
                 marginBottom: 32,
@@ -691,7 +692,9 @@ export default function ReflectView({
                   </button>
 
                   <SlideReveal open={expanded} marginTop={expanded ? 12 : 0}>
-                    <div style={{
+                    <div
+                      {...(idx === 0 ? { "data-tour": "reflect-prompts" } : {})}
+                      style={{
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
                     }}>
@@ -1083,6 +1086,7 @@ export default function ReflectView({
         {/* DISCERNMENT panel */}
         <div
           className="reflect-seed glass-card"
+          data-tour="reflect-discernment"
           style={{
             background: "var(--ambo-surface)",
             boxShadow: "var(--ambo-shadow-md)",
@@ -1287,6 +1291,7 @@ export default function ReflectView({
         {/* Notes pad — unchanged */}
         <aside
           className="reflect-notes"
+          data-tour="reflect-notes"
           style={{
             flex: 1,
             minHeight: 0,
