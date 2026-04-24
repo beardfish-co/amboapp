@@ -165,14 +165,14 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
   }
 
   return (
-    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 32px 80px" : "0 32px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${fontSize}px` }}>
+    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 20px 80px" : "0 20px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${fontSize}px` }}>
 
       {/* Controls */}
       <div className="preach-controls" style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 32,
+        marginBottom: 20,
         gap: 16,
       }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -268,7 +268,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
       <div
         className="glass-card"
         style={{
-          padding: isScrollMode ? "48px 40px" : "48px 40px 32px",
+          padding: isScrollMode ? "56px 44px" : "56px 44px 36px",
           marginBottom: isScrollMode ? 40 : 0,
           ...(isScrollMode ? {} : { flex: 1, display: "flex", flexDirection: "column" as const, minHeight: 0 }),
         }}
@@ -281,7 +281,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
           flexShrink: 0,
           color: "var(--ambo-text-primary)",
           letterSpacing: "-0.02em",
-          marginBottom: 40,
+          marginBottom: 48,
         }}>
           {title}
         </h1>
@@ -312,7 +312,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
                   fontSize: fontSize,
                   lineHeight: "var(--ambo-lh-reading)",
                   color: "var(--ambo-text-primary)",
-                  marginBottom: "1.6em",
+                  marginBottom: "2em",
                   letterSpacing: "0.01em",
                   whiteSpace: "pre-wrap",
                 }}
