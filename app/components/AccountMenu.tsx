@@ -24,6 +24,9 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -52,6 +55,8 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
     setNewEmail("");
     setMessage("");
     setError("");
+    setConfirmDelete(false);
+    setDeleteError("");
   };
 
   const handleChangeEmail = async (e: React.FormEvent) => {
@@ -79,6 +84,25 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const resp = await fetch("/api/delete-account", { method: "POST" });
+      const result = await resp.json() as { ok?: boolean; error?: string };
+      if (!resp.ok || !result.ok) {
+        setDeleteError(result.error ?? "Something went wrong. Please contact us.");
+        setDeleting(false);
+        return;
+      }
+      // Account deleted — go to login
+      router.push("/login");
+    } catch {
+      setDeleteError("Network error. Please try again.");
+      setDeleting(false);
+    }
   };
 
   // Find the label for the current family
@@ -160,7 +184,7 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
                     padding: "9px 12px",
                     border: "1px solid var(--ambo-border)",
                     borderRadius: 8,
-                    background: "rgba(255,255,255,0.6)",
+                    background: "var(--ambo-surface-raised)",
                     fontSize: 14,
                     color: "var(--ambo-text-primary)",
                     fontFamily: "inherit",
@@ -240,11 +264,59 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
             </button>
           </div>
 
+          {/* Delete account */}
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
+            {!confirmDelete ? (
+              <button
+                onClick={() => { setConfirmDelete(true); setChanging(false); setChangingTranslation(false); }}
+                style={{ ...menuItemStyle, color: "var(--ambo-text-muted)", fontSize: 12 }}
+              >
+                Delete account
+              </button>
+            ) : (
+              <div style={{ padding: "10px 16px 12px" }}>
+                <p style={{ fontSize: 12, color: "var(--ambo-text-secondary)", lineHeight: 1.5, margin: "0 0 10px" }}>
+                  This will permanently delete your account and all your homilies. This cannot be undone.
+                </p>
+                {deleteError && (
+                  <p style={{ fontSize: 12, color: "#c0392b", margin: "0 0 8px" }}>{deleteError}</p>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleting}
+                    style={{
+                      flex: 1, padding: "8px",
+                      background: deleting ? "var(--ambo-border)" : "#c0392b",
+                      color: deleting ? "var(--ambo-text-muted)" : "#fff",
+                      border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      fontFamily: "inherit", cursor: deleting ? "default" : "pointer",
+                    }}
+                  >
+                    {deleting ? "Deleting…" : "Yes, delete everything"}
+                  </button>
+                  <button
+                    onClick={() => { setConfirmDelete(false); setDeleteError(""); }}
+                    style={{ padding: "8px 12px", background: "transparent", border: "1px solid var(--ambo-border)", borderRadius: 8, fontSize: 12, color: "var(--ambo-text-muted)", fontFamily: "inherit", cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Sign out */}
-          <div style={{ padding: "8px 0" }}>
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
             <button onClick={handleSignOut} disabled={signingOut} style={{ ...menuItemStyle, color: "#c0392b" }}>
               {signingOut ? "Signing out…" : "Sign out"}
             </button>
+          </div>
+
+          {/* Privacy / Terms */}
+          <div style={{ padding: "10px 16px", display: "flex", gap: 12 }}>
+            <a href="/privacy" style={{ fontSize: 11, color: "var(--ambo-text-muted)", textDecoration: "none" }}>Privacy</a>
+            <a href="/terms" style={{ fontSize: 11, color: "var(--ambo-text-muted)", textDecoration: "none" }}>Terms</a>
           </div>
         </div>
       )}
