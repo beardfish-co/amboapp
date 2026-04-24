@@ -107,12 +107,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Keep only the four standard Sunday slots.
-  const slots = new Set(["r1", "ps", "r2", "gospel"]);
-  const filtered = readingsResult.readings.filter((r) => slots.has(r.id));
-  if (filtered.length < 4) {
+  // Keep only the standard liturgical slots. Weekday Masses have 3 (r1, ps,
+  // gospel — no r2); Sunday Masses have 4. Require at least gospel + one other.
+  const standardSlots = new Set(["r1", "ps", "r2", "gospel"]);
+  const filtered = readingsResult.readings.filter((r) => standardSlots.has(r.id));
+  if (filtered.length < 2) {
     return NextResponse.json(
-      { error: "readings missing one or more standard slots (r1/ps/r2/gospel)" },
+      { error: "readings missing required slots" },
       { status: 422 },
     );
   }
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
 
   // 4. Persist (ignore duplicate-key races silently).
   const { error: insertErr } = await supabase.from("day_prompts").insert({
-    sunday_date: isoDate,
+    sunday_date: isoDate, // column name is historical; stores any liturgical date
     prompts: result.prompts,
     generator_model: result.generatorModel,
     evaluator_verdict: result.verdict,

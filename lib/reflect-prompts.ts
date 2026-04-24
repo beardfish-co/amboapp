@@ -51,7 +51,7 @@ export interface EvaluatorScore {
 export interface PromptSet {
   r1: GeneratedPrompt[];
   ps: GeneratedPrompt[];
-  r2: GeneratedPrompt[];
+  r2?: GeneratedPrompt[];  // absent on weekday readings
   gospel: GeneratedPrompt[];
 }
 
@@ -73,7 +73,7 @@ Read each passage prayerfully. Notice its mood and one point of pressure. Write 
 
 The displayed prompt may be very short — even five words — but your hidden reasoning must remain text-specific. Every prompt must arise from a real textual feature in the passage in front of you.
 
-For each of the four readings (r1, ps, r2, gospel), produce exactly 3 prompts that together cover these three shapes:
+For each reading provided (typically r1, ps, r2, gospel on Sundays; r1, ps, gospel on weekdays), produce exactly 3 prompts that together cover these three shapes:
 
 1. **Text-attentive** — typically begins "Stay with…" and names one specific feature in the text (an image, a word, a silence, an interval, a repetition, a turn). Example: "Stay with the interval."
 2. **Phenomenological** — where the passage finds the priest himself. Usually a form of "Where does this passage find you?" or "Where in this passage are you most uneasy?" Kept bare; no triadic options.
@@ -87,7 +87,7 @@ Avoid at all costs:
 - Sermon strategy ("What do your people need this Sunday?")
 - Generic spiritual language that could fit any passage
 
-Return a JSON object exactly matching this shape (no preamble, no markdown fences):
+Return a JSON object with one key per reading provided (no preamble, no markdown fences). Only include keys for readings that were given to you. Example for a Sunday (all four readings):
 
 {
   "r1": [
@@ -97,7 +97,9 @@ Return a JSON object exactly matching this shape (no preamble, no markdown fence
   "ps": [...],
   "r2": [...],
   "gospel": [...]
-}`;
+}
+
+For a weekday (no r2), omit the "r2" key entirely.`;
 
 // ─── Evaluator ────────────────────────────────────────────────────────
 
@@ -177,8 +179,9 @@ function buildReadingsBlock(readings: PromptReading[]): string {
 function buildPromptsBlock(set: PromptSet): string {
   const slots: Array<keyof PromptSet> = ["r1", "ps", "r2", "gospel"];
   return slots
+    .filter((slot) => Array.isArray(set[slot]))
     .map((slot) => {
-      const lines = set[slot]
+      const lines = set[slot]!
         .map((p, i) => `  [${i + 1}] prompt: ${p.prompt}\n      pressure: ${p.pressure}\n      mood: ${p.mood}`)
         .join("\n");
       return `${slot.toUpperCase()}:\n${lines}`;
@@ -214,12 +217,13 @@ async function callGenerator(
     throw new Error(`Generator returned invalid JSON: ${(err as Error).message}`);
   }
 
-  // Minimal structural validation.
-  for (const slot of ["r1", "ps", "r2", "gospel"] as const) {
+  // Minimal structural validation — only check slots that were passed in.
+  const expectedSlots = readings.map((r) => r.id) as Array<keyof PromptSet>;
+  for (const slot of expectedSlots) {
     if (!Array.isArray(parsed[slot]) || parsed[slot].length !== 3) {
       throw new Error(`Generator output missing/invalid slot ${slot}`);
     }
-    for (const p of parsed[slot]) {
+    for (const p of parsed[slot]!) {
       if (!p.prompt || !p.basis || !p.pressure || !p.mood) {
         throw new Error(`Generator output ${slot} prompt missing required fields`);
       }
@@ -261,7 +265,7 @@ async function callEvaluator(
   const allPass =
     parsed.r1.every((s) => s.pass) &&
     parsed.ps.every((s) => s.pass) &&
-    parsed.r2.every((s) => s.pass) &&
+    (!parsed.r2 || parsed.r2.every((s) => s.pass)) &&
     parsed.gospel.every((s) => s.pass);
 
   return { ...parsed, allPass };

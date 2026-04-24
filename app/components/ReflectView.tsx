@@ -947,6 +947,78 @@ export default function ReflectView({
                               {p}
                             </p>
                           ))}
+
+                          {/* Reflect prompts for weekday readings */}
+                          {(() => {
+                            const slot = isReadingSlot(r.id) ? r.id : null;
+                            const wdPrompts: AiPrompt[] = slot
+                              ? (todayAiPrompts?.[slot] && todayAiPrompts[slot]!.length > 0
+                                ? todayAiPrompts[slot]!
+                                : selectPrompts(slot, detectSeason(todayReadings.dayName), `${todayReadings.date}|${r.id}`, 3).map((text) => ({
+                                    prompt: text,
+                                    basis: "",
+                                    mood: "",
+                                    pressure: "",
+                                  })))
+                              : [];
+                            if (wdPrompts.length === 0) return null;
+                            const slotExpanded = todayExpandedSlot === r.id;
+                            return (
+                              <>
+                                <div style={{ height: 1, background: "var(--ambo-border)", margin: "4px 0 10px" }} />
+                                <button
+                                  onClick={() => setTodayExpandedSlot(slotExpanded ? null : r.id)}
+                                  style={affordanceStyle}
+                                  aria-expanded={slotExpanded}
+                                >
+                                  <span style={{ fontStyle: "italic" }}>reflect</span>
+                                  <span style={{ fontSize: 10, opacity: 0.6 }}>{slotExpanded ? "–" : "+"}</span>
+                                </button>
+                                <SlideReveal open={slotExpanded} marginTop={slotExpanded ? 12 : 0}>
+                                  <div style={{ paddingLeft: 12, borderLeft: "2px solid var(--ambo-accent-light)" }}>
+                                    {wdPrompts.map((p) => (
+                                      <div key={p.prompt} style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        justifyContent: "space-between",
+                                        gap: 10,
+                                        padding: "6px 0",
+                                      }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{
+                                            fontSize: 14,
+                                            fontStyle: "italic",
+                                            color: "var(--ambo-text-secondary)",
+                                            lineHeight: 1.55,
+                                          }}>
+                                            {p.prompt}
+                                          </div>
+                                          {p.basis && (
+                                            <div style={{
+                                              fontSize: 11,
+                                              color: "var(--ambo-text-muted)",
+                                              lineHeight: 1.4,
+                                              marginTop: 2,
+                                              opacity: 0.75,
+                                            }}>
+                                              {p.basis}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <button
+                                          onClick={() => appendToNotes(`${r.title} · ${r.reference}`, p.prompt)}
+                                          style={sendToNotesStyle}
+                                          title="Add to your notes"
+                                        >
+                                          → note
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </SlideReveal>
+                              </>
+                            );
+                          })()}
                         </div>
                       </SlideReveal>
                     </section>
