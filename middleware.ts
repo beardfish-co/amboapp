@@ -6,7 +6,13 @@ export async function middleware(request: NextRequest) {
 
   // Skip auth entirely for API routes and auth callbacks —
   // they handle their own auth or are public (readings are public data)
-  if (pathname.startsWith("/api") || pathname.startsWith("/auth")) {
+  // Public routes — no auth required
+  const publicRoutes = ["/login", "/privacy", "/terms"];
+  if (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/auth") ||
+    publicRoutes.some((r) => pathname === r)
+  ) {
     return NextResponse.next();
   }
 
@@ -36,17 +42,15 @@ export async function middleware(request: NextRequest) {
   // Refresh session — keeps auth tokens alive
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isLoginRoute = pathname === "/login";
-
-  // Redirect unauthenticated users to login
-  if (!user && !isLoginRoute) {
+  // Redirect unauthenticated users to login (public routes already returned above)
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
   // Redirect logged-in users away from login
-  if (user && isLoginRoute) {
+  if (user && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
