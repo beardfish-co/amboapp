@@ -245,6 +245,32 @@ export default function ReflectView({
     return () => { cancelled = true; };
   }, [sundayDate]);
 
+  // Fetch AI-generated reflective prompts for today's weekday readings.
+  // Uses the same route as Sunday prompts — the route now accepts weekday
+  // slots (r1, ps, gospel). Silently falls back to deterministic bank on failure.
+  useEffect(() => {
+    const today = new Date();
+    if (today.getDay() === 0) return; // Sunday handled via sundayDate path
+    let cancelled = false;
+    (async () => {
+      try {
+        const t = new Date();
+        const y = t.getFullYear();
+        const m = String(t.getMonth() + 1).padStart(2, "0");
+        const d = String(t.getDate()).padStart(2, "0");
+        const iso = `${y}-${m}-${d}`;
+        const resp = await fetch(`/api/reflect-prompts?date=${iso}`, { cache: "no-store" });
+        if (!resp.ok || cancelled) return;
+        const data = (await resp.json()) as { prompts: AiPromptSet | null };
+        if (cancelled || !data.prompts) return;
+        setTodayAiPromptsData({ date: iso, data: data.prompts });
+      } catch {
+        // Silent — deterministic prompts render instead.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // Fetch today's weekday readings (only when today isn't Sunday).
   // Kept separate from the Sunday fetch so the Sunday homily prep doesn't
   // wait on the weekday lookup.
