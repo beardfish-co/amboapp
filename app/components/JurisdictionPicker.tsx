@@ -82,7 +82,7 @@ export default function JurisdictionPicker({ mode, current, onSelect, onDismiss 
                   : "var(--ambo-surface-solid)",
                 textAlign: "left",
                 cursor: opt.available && !saving ? "pointer" : "default",
-                opacity: opt.available ? 1 : 0.45,
+                opacity: opt.available ? 1 : 0.55,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
@@ -93,13 +93,17 @@ export default function JurisdictionPicker({ mode, current, onSelect, onDismiss 
               <span style={{
                 fontSize: 14,
                 fontWeight: 600,
-                color: isSelected ? "var(--ambo-accent)" : "var(--ambo-text-primary)",
+                color: isSelected
+                  ? "var(--ambo-accent)"
+                  : opt.available
+                  ? "var(--ambo-text-primary)"
+                  : "var(--ambo-text-secondary)",
               }}>
                 {isSavingThis ? "Saving…" : opt.label}
               </span>
               <span style={{
                 fontSize: 12,
-                color: "var(--ambo-text-muted)",
+                color: isSelected ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
               }}>
                 {opt.sublabel}
               </span>
