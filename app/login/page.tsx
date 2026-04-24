@@ -118,7 +118,7 @@ export default function LoginPage() {
           color: "var(--ambo-text-secondary)",
           textAlign: "center",
         }}>
-          A place to write your homily
+          Reflect. Write. Preach.
         </p>
       </div>
 
