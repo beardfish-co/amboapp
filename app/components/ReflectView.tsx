@@ -409,21 +409,27 @@ export default function ReflectView({
     };
   }, []);
 
-  // Tour support: open the first reading panel and expand its prompts on request
+  // Tour support: open the first reading panel, then stagger the prompts expand.
+  // Opening both at once makes the prompts rush in before the body has settled.
+  // Instead: open body → wait 900ms for it to breathe open → then expand prompts.
   useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
     const handler = () => {
-      // Ensure first reading body is open
+      // Step 1: open the reading body
       setOpenBodies((prev) => {
         if (prev.has("r1")) return prev;
         const next = new Set(prev);
         next.add("r1");
         return next;
       });
-      // Expand the prompts for r1
-      setExpandedSlot("r1");
+      // Step 2: expand prompts after the body animation has settled
+      t = setTimeout(() => setExpandedSlot("r1"), 900);
     };
     window.addEventListener("ambo:tour-open-r1-prompts", handler);
-    return () => window.removeEventListener("ambo:tour-open-r1-prompts", handler);
+    return () => {
+      window.removeEventListener("ambo:tour-open-r1-prompts", handler);
+      clearTimeout(t);
+    };
   }, []);
 
   const handleNotesChange = (v: string) => {
