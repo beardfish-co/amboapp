@@ -28,7 +28,7 @@ const STEPS: Step[] = [
   { target: "write-tab",            copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
   { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
   { target: "write-notes",          copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
-  { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "left"   },
+  { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
   { target: "write-examine",        copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
   { target: "preach-tab",           copy: "Where the homily is preached.",                                       tab: "preach",  prefer: "bottom" },
   { target: "my-homilies",          copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom" },

@@ -17,6 +17,7 @@ type Props = {
   title?: string;
   disabled?: boolean;
   style?: CSSProperties;
+  "data-tour"?: string;
 };
 
 const base: CSSProperties = {
@@ -60,12 +61,14 @@ export function PillButton({
   title,
   disabled,
   style,
+  "data-tour": dataTour,
 }: Props) {
   return (
     <button
       onClick={onClick}
       title={title}
       disabled={disabled}
+      data-tour={dataTour}
       className="mode-pill-btn"
       style={{
         ...base,

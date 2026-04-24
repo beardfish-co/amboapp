@@ -163,6 +163,18 @@ export default function WriteView({
   const [seedEucharist, setSeedEucharist] = useState("");
   const [seedResponse, setSeedResponse] = useState("");
 
+  // Tour support: open/close readings drawer during step 10
+  useEffect(() => {
+    const open  = () => setReadingsOpen(true);
+    const close = () => setReadingsOpen(false);
+    window.addEventListener("ambo:tour-open-readings",  open);
+    window.addEventListener("ambo:tour-close-readings", close);
+    return () => {
+      window.removeEventListener("ambo:tour-open-readings",  open);
+      window.removeEventListener("ambo:tour-close-readings", close);
+    };
+  }, []);
+
   // Tour support: show dummy discernment content while onboarding
   useEffect(() => {
     const TOUR_SEED = "To speak of mercy not as concept, but as encounter.";
