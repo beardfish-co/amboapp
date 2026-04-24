@@ -32,7 +32,7 @@ const STEPS: Step[] = [
 
 const STORAGE_KEY = "ambo_tour_v1_complete";
 const POPOVER_W   = 280;
-const POPOVER_PAD = 12; // gap between target and popover
+const POPOVER_PAD = 16; // gap between target and popover (matches arrow size)
 const MOBILE_BP   = 768;
 
 // ─── Positioning ─────────────────────────────────────────────────────────────
@@ -87,21 +87,45 @@ function calcPos(rect: DOMRect, prefer: Step["prefer"]): PopoverPos {
 }
 
 // ─── Arrow ───────────────────────────────────────────────────────────────────
+// Two-layer CSS triangles: outer border triangle + inner fill triangle.
+// The outer sits 1px further out, in the panel border colour;
+// the inner sits flush against the panel, in the surface colour.
 
 function Arrow({ dir, offset }: { dir: Dir; offset: number }) {
   if (dir === "none") return null;
-  const size = 8;
+
+  const fill   = "var(--ambo-surface-solid)";
+  const border = "var(--ambo-border-strong)";
+  const fi = 13; // inner (fill) triangle size
+  const fo = 15; // outer (border) triangle size — 2px bigger on each side
+
   const base: React.CSSProperties = { position: "absolute", width: 0, height: 0 };
 
-  const styles: Record<Dir, React.CSSProperties> = {
-    up:    { ...base, top: -size, left: offset - size, borderLeft: `${size}px solid transparent`, borderRight: `${size}px solid transparent`, borderBottom: `${size}px solid var(--ambo-surface-solid)` },
-    down:  { ...base, bottom: -size, left: offset - size, borderLeft: `${size}px solid transparent`, borderRight: `${size}px solid transparent`, borderTop: `${size}px solid var(--ambo-surface-solid)` },
-    left:  { ...base, left: -size, top: offset - size, borderTop: `${size}px solid transparent`, borderBottom: `${size}px solid transparent`, borderRight: `${size}px solid var(--ambo-surface-solid)` },
-    right: { ...base, right: -size, top: offset - size, borderTop: `${size}px solid transparent`, borderBottom: `${size}px solid transparent`, borderLeft: `${size}px solid var(--ambo-surface-solid)` },
+  // Outer border triangle
+  const outerStyles: Record<Dir, React.CSSProperties> = {
+    up:    { ...base, top: -(fo),     left: offset - fo,  borderLeft: `${fo}px solid transparent`, borderRight: `${fo}px solid transparent`, borderBottom: `${fo}px solid ${border}` },
+    down:  { ...base, bottom: -(fo),  left: offset - fo,  borderLeft: `${fo}px solid transparent`, borderRight: `${fo}px solid transparent`, borderTop:    `${fo}px solid ${border}` },
+    left:  { ...base, left: -(fo),    top:  offset - fo,  borderTop:  `${fo}px solid transparent`, borderBottom: `${fo}px solid transparent`, borderRight: `${fo}px solid ${border}` },
+    right: { ...base, right: -(fo),   top:  offset - fo,  borderTop:  `${fo}px solid transparent`, borderBottom: `${fo}px solid transparent`, borderLeft:  `${fo}px solid ${border}` },
     none:  {},
   };
 
-  return <div style={styles[dir]} />;
+  // Inner fill triangle — sits 2px closer to the panel
+  const innerOffset = 2;
+  const innerStyles: Record<Dir, React.CSSProperties> = {
+    up:    { ...base, top: -(fi - innerOffset),    left: offset - fi,  borderLeft: `${fi}px solid transparent`, borderRight: `${fi}px solid transparent`, borderBottom: `${fi}px solid ${fill}` },
+    down:  { ...base, bottom: -(fi - innerOffset), left: offset - fi,  borderLeft: `${fi}px solid transparent`, borderRight: `${fi}px solid transparent`, borderTop:    `${fi}px solid ${fill}` },
+    left:  { ...base, left: -(fi - innerOffset),   top:  offset - fi,  borderTop:  `${fi}px solid transparent`, borderBottom: `${fi}px solid transparent`, borderRight: `${fi}px solid ${fill}` },
+    right: { ...base, right: -(fi - innerOffset),  top:  offset - fi,  borderTop:  `${fi}px solid transparent`, borderBottom: `${fi}px solid transparent`, borderLeft:  `${fi}px solid ${fill}` },
+    none:  {},
+  };
+
+  return (
+    <>
+      <div style={outerStyles[dir]} />
+      <div style={innerStyles[dir]} />
+    </>
+  );
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -215,10 +239,10 @@ export default function OnboardingTour({ mode, setMode }: Props) {
         ...style,
         width: POPOVER_W,
         background: "var(--ambo-surface-solid)",
-        border: "1px solid var(--ambo-border)",
-        borderRadius: 12,
-        boxShadow: "var(--ambo-shadow-md)",
-        padding: "18px 18px 14px",
+        border: "1.5px solid var(--ambo-border-strong)",
+        borderRadius: 14,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.10), 0 0 0 1px rgba(74,111,165,0.06)",
+        padding: "20px 20px 16px",
       }}>
         {pos && <Arrow dir={pos.arrowDir} offset={pos.arrowOffset} />}
         <StepContent step={step} total={STEPS.length} copy={current.copy}
