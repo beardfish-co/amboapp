@@ -34,20 +34,25 @@ export default function LoginPage() {
     const normalised = email.trim().toLowerCase();
 
     // Check allowlist before issuing OTP — unauthorised emails never receive a code.
+    // Fail open on any server error (missing env vars, table not yet created, network issues)
+    // so infrastructure problems never lock out legitimate users.
     try {
       const check = await fetch("/api/check-allowlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: normalised }),
       });
-      const result = await check.json() as { allowed?: boolean; error?: string };
-      if (!result.allowed) {
-        setError("This email hasn't been invited to the beta yet. If you're expecting access, contact us.");
-        setLoading(false);
-        return;
+      if (check.ok) {
+        const result = await check.json() as { allowed?: boolean; error?: string };
+        if (result.allowed === false) {
+          setError("This email hasn't been invited to the beta yet. If you're expecting access, contact us.");
+          setLoading(false);
+          return;
+        }
       }
+      // Non-200 response (server error) → fail open, let OTP proceed
     } catch {
-      // Network failure — fail open so the OTP attempt itself will reveal any real auth issue
+      // Network failure → fail open
     }
 
     const supabase = createClient();
