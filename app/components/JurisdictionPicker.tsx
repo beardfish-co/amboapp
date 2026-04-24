@@ -79,12 +79,10 @@ export default function JurisdictionPicker({ mode, current, onSelect, onDismiss 
                 borderRadius: 10,
                 background: isSelected
                   ? "var(--ambo-accent-light)"
-                  : opt.available
-                  ? "rgba(255,255,255,0.5)"
-                  : "rgba(255,255,255,0.2)",
+                  : "var(--ambo-surface-solid)",
                 textAlign: "left",
                 cursor: opt.available && !saving ? "pointer" : "default",
-                opacity: opt.available ? 1 : 0.5,
+                opacity: opt.available ? 1 : 0.45,
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
