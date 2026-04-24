@@ -10,6 +10,7 @@ import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList from "./components/HomilyList";
 import OnboardingTour from "./components/OnboardingTour";
+import ThemeToggle from "./components/ThemeToggle";
 import JurisdictionPicker from "./components/JurisdictionPicker";
 import {
   LectionaryFamily,
@@ -208,10 +209,13 @@ export default function AmboApp() {
             ))}
           </nav>
 
-          <AccountMenu
-            lectionaryFamily={lectionaryFamily}
-            onSelectFamily={handleSelectFamily}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <ThemeToggle />
+            <AccountMenu
+              lectionaryFamily={lectionaryFamily}
+              onSelectFamily={handleSelectFamily}
+            />
+          </div>
         </div>
       </header>
 

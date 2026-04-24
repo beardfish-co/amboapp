@@ -505,12 +505,13 @@ body {
 
 /* =============================================================
    Dark mode — midnight candlelight. Deep navy, restrained light.
-   Follows the system preference automatically.
+   Activates via system preference OR explicit [data-theme="dark"].
+   Explicit [data-theme="light"] forces light even on dark systems.
    ============================================================= */
 
+/* ── Dark CSS variables ─────────────────────────────────────── */
 @media (prefers-color-scheme: dark) {
-  :root {
-    /* ---------- Palette ---------- */
+  :root:not([data-theme="light"]) {
     --ambo-bg:               #0F1824;
     --ambo-surface:          rgba(255, 255, 255, 0.06);
     --ambo-surface-solid:    #1C2A3D;
@@ -525,47 +526,85 @@ body {
     --ambo-border-strong:    rgba(107, 147, 200, 0.22);
     --ambo-rule-subtle:      rgba(107, 147, 200, 0.08);
 
-    /* ---------- Text ---------- */
     --ambo-text-primary:     #DDE6F0;
     --ambo-text-secondary:   #7A97B4;
     --ambo-text-muted:       #4E6A87;
     --ambo-text-inverse-soft:#0F1824;
 
-    /* ---------- Shadows — deeper on dark ---------- */
     --ambo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
     --ambo-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.30);
     --ambo-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
   }
+}
 
-  /* Mode pill active tab — use solid dark surface */
-  .mode-pill-btn.active {
+[data-theme="dark"] {
+  --ambo-bg:               #0F1824;
+  --ambo-surface:          rgba(255, 255, 255, 0.06);
+  --ambo-surface-solid:    #1C2A3D;
+  --ambo-surface-raised:   rgba(255, 255, 255, 0.09);
+
+  --ambo-accent:           #6B93C8;
+  --ambo-accent-light:     rgba(107, 147, 200, 0.15);
+  --ambo-accent-hover:     #88AADB;
+  --ambo-accent-faint:     rgba(107, 147, 200, 0.08);
+
+  --ambo-border:           rgba(107, 147, 200, 0.14);
+  --ambo-border-strong:    rgba(107, 147, 200, 0.22);
+  --ambo-rule-subtle:      rgba(107, 147, 200, 0.08);
+
+  --ambo-text-primary:     #DDE6F0;
+  --ambo-text-secondary:   #7A97B4;
+  --ambo-text-muted:       #4E6A87;
+  --ambo-text-inverse-soft:#0F1824;
+
+  --ambo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --ambo-shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.30);
+  --ambo-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Dark component overrides ───────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .mode-pill-btn.active {
     background: var(--ambo-surface-solid);
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   }
-
-  /* Mode pill hover */
-  .mode-pill-btn:hover {
+  :root:not([data-theme="light"]) .mode-pill-btn:hover {
     background: rgba(255, 255, 255, 0.07);
   }
-
-  /* Scrollbar thumb — lighter on dark */
-  ::-webkit-scrollbar-thumb {
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb {
     background: rgba(107, 147, 200, 0.2);
   }
-  ::-webkit-scrollbar-thumb:hover {
+  :root:not([data-theme="light"]) ::-webkit-scrollbar-thumb:hover {
     background: rgba(107, 147, 200, 0.35);
   }
-
-  /* Glass card — give it a bit more substance on dark */
-  .glass-card {
+  :root:not([data-theme="light"]) .glass-card {
     background: rgba(28, 42, 61, 0.75);
     border-color: var(--ambo-border);
   }
-
-  /* Header backdrop */
-  header {
+  :root:not([data-theme="light"]) header {
     background: rgba(15, 24, 36, 0.88) !important;
   }
+}
+
+[data-theme="dark"] .mode-pill-btn.active {
+  background: var(--ambo-surface-solid);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .mode-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(107, 147, 200, 0.2);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 147, 200, 0.35);
+}
+[data-theme="dark"] .glass-card {
+  background: rgba(28, 42, 61, 0.75);
+  border-color: var(--ambo-border);
+}
+[data-theme="dark"] header {
+  background: rgba(15, 24, 36, 0.88) !important;
 }
 
 /* =============================================================

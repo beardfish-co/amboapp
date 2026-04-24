@@ -47,6 +47,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${newsreader.variable}`} style={{ height: "100%" }}>
+      {/* Theme bootstrap — apply saved preference before first paint to prevent flash */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){try{var t=localStorage.getItem('ambo-theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`,
+        }}
+      />
       <body style={{ height: "100%", margin: 0 }}><ServiceWorkerRegistration />{children}</body>
     </html>
   );
