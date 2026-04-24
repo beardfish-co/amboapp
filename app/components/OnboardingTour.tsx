@@ -188,6 +188,10 @@ export default function OnboardingTour({ mode, setMode }: Props) {
   useLayoutEffect(() => {
     if (!visible || mobile) return;
 
+    // Clear immediately so the previous step's position doesn't flash
+    // with the new step's copy while we wait for prepareDelay.
+    setPos(null);
+
     const position = () => {
       const el = document.querySelector(`[data-tour="${STEPS[step].target}"]`) as HTMLElement | null;
       if (!el) { setPos(null); return; }
@@ -195,7 +199,6 @@ export default function OnboardingTour({ mode, setMode }: Props) {
       setPos(calcPos(rect, STEPS[step].prefer));
     };
 
-    // Small delay lets React finish painting after tab switch
     const delay = STEPS[step].prepareDelay ?? 120;
     const t = setTimeout(position, delay);
     return () => clearTimeout(t);
