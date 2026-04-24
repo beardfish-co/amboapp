@@ -9,6 +9,7 @@ type Dir = "up" | "down" | "left" | "right" | "none";
 
 interface Step {
   target: string;           // data-tour value
+  title: string;            // names the element being pointed at
   copy: string;
   tab: Tab;
   prefer: "top" | "bottom" | "left" | "right";
@@ -19,19 +20,19 @@ interface Step {
 }
 
 const STEPS: Step[] = [
-  { target: "nav-tabs",             copy: "For priests who want to preach from prayer.",                         tab: "reflect", prefer: "bottom" },
-  { target: "reflect-tab",          copy: "Let the Word speak before you begin composing.",                      tab: "reflect", prefer: "bottom" },
-  { target: "reading-panels",       copy: "The readings for the day, drawn from the lectionary.",                tab: "reflect", prefer: "right"  },
-  { target: "reflect-prompts",      copy: "Gentle invitations to sit with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1850 },
-  { target: "reflect-discernment",  copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
-  { target: "reflect-notes",        copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
-  { target: "write-tab",            copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
-  { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
-  { target: "write-notes",          copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
-  { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
-  { target: "write-examine",        copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
-  { target: "preach-tab",           copy: "Where the homily is preached.",                                       tab: "preach",  prefer: "bottom" },
-  { target: "my-homilies",          copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-open-homilies", prepareDelay: 300, cleanupEvent: "ambo:tour-close-homilies" },
+  { target: "nav-tabs",             title: "Reflect · Write · Preach",  copy: "For priests who want to preach from prayer.",                         tab: "reflect", prefer: "bottom" },
+  { target: "reflect-tab",          title: "Reflect",                    copy: "Let the Word speak before you begin composing.",                      tab: "reflect", prefer: "bottom" },
+  { target: "reading-panels",       title: "The Readings",               copy: "The readings for the day, drawn from the lectionary.",                tab: "reflect", prefer: "right"  },
+  { target: "reflect-prompts",      title: "Prompts for Prayer",         copy: "Gentle invitations to sit with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1850 },
+  { target: "reflect-discernment",  title: "Discernment",                copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
+  { target: "reflect-notes",        title: "Prayer Notes",               copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
+  { target: "write-tab",            title: "Write",                      copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
+  { target: "write-discernment",    title: "Your Thread",                copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
+  { target: "write-notes",          title: "Your Notes",                 copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
+  { target: "readings-drawer",      title: "The Readings Drawer",        copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
+  { target: "write-examine",        title: "Examine",                    copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
+  { target: "preach-tab",           title: "Preach",                     copy: "Where the homily is preached.",                                       tab: "preach",  prefer: "bottom" },
+  { target: "my-homilies",          title: "My Homilies",                copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-open-homilies", prepareDelay: 300, cleanupEvent: "ambo:tour-close-homilies" },
 ];
 
 const STORAGE_KEY = "ambo_tour_v1_complete";
@@ -261,7 +262,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     return (
       <>
         <div onClick={dismiss} style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.25)" }} />
-        <div style={{
+        <div className="ambo-tour-popover" style={{
           position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 1000,
           background: "var(--ambo-surface-solid)",
           borderTop: "1px solid var(--ambo-border)",
@@ -269,7 +270,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
           padding: "20px 20px 32px",
           boxShadow: "0 -4px 32px rgba(0,0,0,0.18)",
         }}>
-          <StepContent step={step} total={STEPS.length} copy={current.copy}
+          <StepContent step={step} total={STEPS.length} title={current.title} copy={current.copy}
             isLast={isLast} onPrev={prev} onNext={next} onDismiss={dismiss} />
         </div>
       </>
@@ -287,7 +288,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
   return (
     <>
       <div onClick={dismiss} style={{ position: "fixed", inset: 0, zIndex: 999 }} />
-      <div style={{
+      <div className="ambo-tour-popover" style={{
         ...style,
         width: POPOVER_W,
         background: "var(--ambo-surface-solid)",
@@ -297,7 +298,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
         padding: "20px 20px 16px",
       }}>
         {pos && <Arrow dir={pos.arrowDir} offset={pos.arrowOffset} />}
-        <StepContent step={step} total={STEPS.length} copy={current.copy}
+        <StepContent step={step} total={STEPS.length} title={current.title} copy={current.copy}
           isLast={isLast} onPrev={prev} onNext={next} onDismiss={dismiss} />
       </div>
     </>
@@ -306,23 +307,34 @@ export default function OnboardingTour({ mode, setMode }: Props) {
 
 // ─── Shared step content ──────────────────────────────────────────────────────
 
-function StepContent({ step, total, copy, isLast, onPrev, onNext, onDismiss }: {
-  step: number; total: number; copy: string; isLast: boolean;
+function StepContent({ step, total, title, copy, isLast, onPrev, onNext, onDismiss }: {
+  step: number; total: number; title: string; copy: string; isLast: boolean;
   onPrev: () => void; onNext: () => void; onDismiss: () => void;
 }) {
   return (
     <>
       {/* Step counter */}
-      <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", marginBottom: 10, letterSpacing: "0.04em" }}>
+      <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", marginBottom: 8, letterSpacing: "0.04em" }}>
         {step + 1} of {total}
+      </div>
+
+      {/* Title */}
+      <div style={{
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: "0.01em",
+        color: "var(--ambo-accent)",
+        marginBottom: 6,
+      }}>
+        {title}
       </div>
 
       {/* Copy */}
       <p style={{
-        fontSize: 15,
+        fontSize: 14,
         lineHeight: 1.6,
-        color: "var(--ambo-text-primary)",
-        margin: "0 0 18px",
+        color: "var(--ambo-text-secondary)",
+        margin: "0 0 16px",
         fontFamily: "var(--ambo-font-reading, inherit)",
       }}>
         {copy}
