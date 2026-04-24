@@ -78,6 +78,8 @@ export default function ReflectView({
   const [todayReadings, setTodayReadings] = useState<DayReadings | null>(null);
   const [showTodayReadings, setShowTodayReadings] = useState<boolean>(false);
   const [todayOpenBodies, setTodayOpenBodies] = useState<Set<string>>(new Set());
+  const [todayExpandedSlot, setTodayExpandedSlot] = useState<string | null>(null);
+  const [todayAiPromptsData, setTodayAiPromptsData] = useState<{ date: string; data: AiPromptSet } | null>(null);
   const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
   const [aiPromptsData, setAiPromptsData] = useState<{ date: string; data: AiPromptSet } | null>(null);
   // Stale-guard: prompts only surface if they were generated for the Sunday
@@ -85,6 +87,18 @@ export default function ReflectView({
   // deterministic prompt bank until the fresh fetch lands.
   const aiPrompts: AiPromptSet | null =
     aiPromptsData && aiPromptsData.date === sundayDate ? aiPromptsData.data : null;
+
+  // Today's ISO date — stable reference for weekday prompt fetch and stale-guard.
+  const todayIso = (() => {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, "0");
+    const d = String(t.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  })();
+  const todayAiPrompts: AiPromptSet | null =
+    todayAiPromptsData && todayAiPromptsData.date === todayIso ? todayAiPromptsData.data : null;
+
   // Which reading cards are expanded (body shown). Default: gospel open.
   const [openBodies, setOpenBodies] = useState<Set<string>>(new Set(["gospel"]));
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
