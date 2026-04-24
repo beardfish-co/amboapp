@@ -100,7 +100,7 @@ export default function LoginPage() {
     }}>
 
       {/* Logo */}
-      <div style={{ marginBottom: 40, textAlign: "center" }}>
+      <div style={{ marginBottom: 40, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <AmboLogo />
         <h1 style={{
           marginTop: 12,
@@ -108,6 +108,7 @@ export default function LoginPage() {
           fontWeight: 600,
           letterSpacing: "-0.02em",
           color: "var(--ambo-text-primary)",
+          textAlign: "center",
         }}>
           Ambo
         </h1>
@@ -115,6 +116,7 @@ export default function LoginPage() {
           marginTop: 6,
           fontSize: 15,
           color: "var(--ambo-text-secondary)",
+          textAlign: "center",
         }}>
           A place to write your homily
         </p>
@@ -363,7 +365,7 @@ const ghostBtnStyle: React.CSSProperties = {
 
 function AmboLogo() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ display: "block" }}>
       <rect x="9" y="2" width="6" height="12" rx="1.5" fill="var(--ambo-accent)" opacity="0.85" />
       <rect x="5" y="10" width="14" height="2.5" rx="1.25" fill="var(--ambo-accent)" />
       <rect x="11" y="14.5" width="2" height="7.5" rx="1" fill="var(--ambo-accent)" opacity="0.6" />
