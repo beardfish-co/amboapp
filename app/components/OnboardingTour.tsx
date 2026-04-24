@@ -12,6 +12,7 @@ interface Step {
   copy: string;
   tab: Tab;
   prefer: "top" | "bottom" | "left" | "right";
+  popoverAlign?: "center" | "start"; // horizontal alignment for top/bottom popovers (default center)
   prepareEvent?: string;    // custom window event to fire before positioning
   prepareDelay?: number;    // ms to wait after prepareEvent before measuring (default 120)
   cleanupEvent?: string;    // custom window event fired when navigating away from this step
@@ -25,7 +26,7 @@ const STEPS: Step[] = [
   { target: "reflect-discernment",  copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
   { target: "reflect-notes",        copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
   { target: "write-tab",            copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
-  { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
+  { target: "write-discernment",    copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
   { target: "write-notes",          copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
   { target: "readings-drawer",      copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "left"   },
   { target: "write-examine",        copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
@@ -47,7 +48,7 @@ interface PopoverPos {
   arrowOffset: number; // px from left/top of popover edge to center arrow
 }
 
-function calcPos(rect: DOMRect, prefer: Step["prefer"]): PopoverPos {
+function calcPos(rect: DOMRect, prefer: Step["prefer"], align: Step["popoverAlign"] = "center"): PopoverPos {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const ph = 120; // estimated popover height
@@ -66,14 +67,24 @@ function calcPos(rect: DOMRect, prefer: Step["prefer"]): PopoverPos {
 
   if (dir === "bottom") {
     top  = rect.bottom + POPOVER_PAD;
-    left = Math.min(Math.max(rect.left + rect.width / 2 - POPOVER_W / 2, 8), vw - POPOVER_W - 8);
-    arrowDir    = "up";
-    arrowOffset = rect.left + rect.width / 2 - left;
+    if (align === "start") {
+      left        = Math.min(Math.max(rect.left, 8), vw - POPOVER_W - 8);
+      arrowOffset = 28; // point near the start of the text
+    } else {
+      left        = Math.min(Math.max(rect.left + rect.width / 2 - POPOVER_W / 2, 8), vw - POPOVER_W - 8);
+      arrowOffset = rect.left + rect.width / 2 - left;
+    }
+    arrowDir = "up";
   } else if (dir === "top") {
     top  = rect.top - POPOVER_PAD - ph;
-    left = Math.min(Math.max(rect.left + rect.width / 2 - POPOVER_W / 2, 8), vw - POPOVER_W - 8);
-    arrowDir    = "down";
-    arrowOffset = rect.left + rect.width / 2 - left;
+    if (align === "start") {
+      left        = Math.min(Math.max(rect.left, 8), vw - POPOVER_W - 8);
+      arrowOffset = 28;
+    } else {
+      left        = Math.min(Math.max(rect.left + rect.width / 2 - POPOVER_W / 2, 8), vw - POPOVER_W - 8);
+      arrowOffset = rect.left + rect.width / 2 - left;
+    }
+    arrowDir = "down";
   } else if (dir === "right") {
     top  = Math.min(Math.max(rect.top + rect.height / 2 - ph / 2, 8), vh - ph - 8);
     left = rect.right + POPOVER_PAD;
@@ -204,7 +215,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
       const el = document.querySelector(`[data-tour="${STEPS[step].target}"]`) as HTMLElement | null;
       if (el) {
         const rect = el.getBoundingClientRect();
-        setPos(calcPos(rect, STEPS[step].prefer));
+        setPos(calcPos(rect, STEPS[step].prefer, STEPS[step].popoverAlign));
       }
       // Mark ready whether or not target was found — centred fallback is fine
       setReady(true);
