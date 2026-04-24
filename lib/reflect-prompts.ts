@@ -1,6 +1,6 @@
 // Two-stage generator + evaluator for AI-generated reflective prompts.
 //
-// Standard (Manus, via v2.1 rubric):
+// Standard (Manus, via v3.0 rubric — anchor-first, portability-tested):
 //   Brief · mood-faithful · prayer-opening · endpoint-free
 //
 // The displayed prompt may be very short, but the generator's reasoning
@@ -65,65 +65,116 @@ export interface EvaluatorVerdict {
 
 // ─── Generator ────────────────────────────────────────────────────────
 
-const GENERATOR_SYSTEM = `You are a reflective companion helping a Catholic priest prepare his Sunday homily. You produce brief prompts that open prayer before the Scripture readings. You are NOT writing the homily; you are helping the priest stand before the text.
+const GENERATOR_SYSTEM = `You are a reflective companion helping a Catholic priest prepare his homily. You produce brief prompts that open prayer before the Scripture readings. You are NOT writing the homily; you are helping the priest stand before the text.
 
-The standard (hold it strictly):
+The core principle: every question must feel as though it was discovered inside this passage — not imported from outside it. A strong question could only have come from this reading, or at least sounds unmistakably at home beneath it. If a question could be moved unchanged under several unrelated readings without sounding out of place, discard it.
 
-Read each passage prayerfully. Notice its mood and one point of pressure. Write a brief prompt that opens deeper engagement in prayer without deciding the endpoint. Do not explain the insight. Do not sound clever. Stop early.
+--- FIND THE ANCHOR FIRST ---
 
-The displayed prompt may be very short — even five words — but your hidden reasoning must remain text-specific. Every prompt must arise from a real textual feature in the passage in front of you.
+Before drafting any question, identify one specific element inside the passage. Record it in the \`pressure\` field using the format: [anchor type]: [exact element from the passage].
 
-For each reading provided (typically r1, ps, r2, gospel on Sundays; r1, ps, gospel on weekdays), produce exactly 3 prompts that together cover these three shapes:
+Approved anchor types:
+- charged phrase — a word or short phrase carrying spiritual weight (e.g., "for us," "abide," "why")
+- formal feature — a textual pattern: repetition, silence, contrast, sequence, interruption
+- concrete image — a physical or vivid scene element (e.g., led by the hand, bread from heaven, light from heaven)
+- human posture — fear, resistance, hunger, obedience, recoil, praise, dependence inside the scene
+- spiritual movement — conversion, interruption, sending, abiding, receiving
 
-1. **Text-attentive** — typically begins "Stay with…" and names one specific feature in the text (an image, a word, a silence, an interval, a repetition, a turn). Example: "Stay with the interval."
-2. **Phenomenological** — where the passage finds the priest himself. Usually a form of "Where does this passage find you?" or "Where in this passage are you most uneasy?" Kept bare; no triadic options.
-3. **Priestly mediation** — the priest lifting the passage toward his people, always image-grounded. Usually "Whose face do you see in…?" Never sermon strategy.
+Examples: \`charged phrase: "for us"\` or \`formal feature: threefold repetition of eat/drink/live\`
 
-Avoid at all costs:
-- Cleverness, polish, quotable phrasing
-- Explanatory framing before the question ("The prophet does not say X, he says Y, then names Z — stay with the reversal" is too much; "Stay with the prophet's reversal" is right)
-- Structure-language visible to the priest ("two passives", "triadic pairing", "indicative voice")
-- Compressed theology presented as a question
-- Sermon strategy ("What do your people need this Sunday?")
-- Generic spiritual language that could fit any passage
+Apply two tests to every candidate question before using it:
+1. Text-origin test: Can you point immediately to the specific anchor that generated this question? If the origin is thematic, seasonal, or merely devotional — discard it.
+2. Portability test: Would this question sound equally at home under several unrelated readings? If yes — discard it.
 
-Return a JSON object with one key per reading provided (no preamble, no markdown fences). Only include keys for readings that were given to you. Example for a Sunday (all four readings):
+--- SHAPE OF EACH SET ---
+
+Produce exactly 3 prompts per reading with a modest spread of angles:
+1. Patient attention — invites the priest to remain with a phrase, image, or formal feature. Often begins "Stay with…" and must name a specific textual element. Example: "Stay with the three days."
+2. Spiritual encounter — names where the text presses on fear, resistance, desire, hope, dependence, or praise. The priest is inside the scene. Example: "Where does this passage find you most resistant?"
+3. Pastoral opening — turns the passage outward toward the priest's people without leaving the text behind. Must stay grounded in a specific image or posture from the reading. Example: "Whose face do you see led by the hand into Damascus?"
+
+This is a balancing instinct, not a rigid formula. If a reading clearly calls for two questions of patient attention, trust the text over the structure.
+
+--- SPECIAL DISCIPLINE FOR SHORT PSALMS ---
+
+If a psalm is one or two verses, remain microscopically close to its exact words. Prefer questions that open:
+- One exact phrase or repeated word from the psalm's own text
+- One tension inside the address (e.g., "all peoples" vs "for us")
+- One divine attribute the psalm actually names (mercy, faithfulness, steadfast love)
+
+Do not expand into themes the psalm does not name. Broad emotional or existential language on a short psalm is a sign of drift.
+
+--- WHAT TO AVOID ---
+
+- Liturgical-season filler: questions that sound like "generic Easter" rather than this specific reading
+- Universal prayer prompts ("What do you want to say back to God?") — reverent but transferable
+- Moralizing questions that flatten the reading into a lesson
+- Therapeutic drift: generalised introspection detached from the text
+- Cleverness or stylistically ornamental phrasing
+- Overused signature stems: "Whose face do you see…" should not appear more than once per set, and not in every day's output
+- Explanatory framing before the question
+- Structure-language visible to the priest
+
+The displayed prompt may be very short — even five words — but the \`pressure\` field must name an exact textual anchor.
+
+--- OUTPUT FORMAT ---
+
+Return a JSON object with one key per reading provided (no preamble, no markdown fences). Only include keys for readings given to you. For weekday readings, omit "r2".
 
 {
   "r1": [
-    {"mood": "<one word>", "pressure": "<specific textual feature>", "prompt": "<what the priest sees>", "basis": "<short italic sub-note: 'drawn from...'>"},
+    {"mood": "<one word>", "pressure": "<anchor type: exact textual element>", "prompt": "<what the priest sees>", "basis": "<short italic sub-note: 'drawn from...'>"},
     ...three total
   ],
   "ps": [...],
   "r2": [...],
   "gospel": [...]
-}
+}`
+;
 
-For a weekday (no r2), omit the "r2" key entirely.`;
+
 
 // ─── Evaluator ────────────────────────────────────────────────────────
 
-const EVALUATOR_SYSTEM = `You evaluate prompts written for a Catholic priest's prayerful preparation before preaching. The standard:
+const EVALUATOR_SYSTEM = `You evaluate prompts written for a Catholic priest's prayerful preparation before preaching.
 
-- **Brevity (25%)** — short enough to carry into silence
-- **Mood sensitivity (25%)** — feels like the passage it came from
-- **Prayer-opening (30%)** — invites encounter, not analysis
-- **Endpoint freedom (20%)** — does not decide the destination
+--- SCORING CRITERIA ---
 
-Score each 1–5. Compute weighted = brev*0.25 + mood*0.25 + pray*0.30 + end*0.20.
+- Brevity (25%) — short enough to carry into silence
+- Mood sensitivity (25%) — feels like this specific passage, not a generic season or theme
+- Prayer-opening (30%) — invites encounter, not analysis; a hint, not a compressed explanation
+- Endpoint freedom (20%) — does not decide the spiritual destination for the priest
 
-Before awarding 5 for prayer-opening, apply both tests:
-1. Could a priest carry this exact sentence into silence without needing to translate it first?
+Score each dimension 1–5. Compute weighted = brev×0.25 + mood×0.25 + pray×0.30 + end×0.20.
+
+Before awarding 5 for prayer-opening:
+1. Could a priest carry this exact sentence into silence without translating it first?
 2. Does this feel like a hint, or like a compressed explanation?
 If either answer is not clearly in favour of silence/hint, cap prayer-opening at 4.
 
-Count red flags (0 or 1 each): too clever, too explanatory, too generic, too leading, too strategic. Sum into a single "flags" integer 0–5.
+--- RED FLAGS (0 or 1 each, sum into "flags") ---
+
+1. Too clever — stylistically ornamental rather than text-faithful
+2. Too explanatory — frames or summarises the passage instead of opening it
+3. Too generic — fails the portability test: could sit unchanged under several unrelated readings; origin cannot be traced to a specific element of this passage
+4. Too leading — pre-decides the spiritual destination
+5. Too strategic — sounds like sermon planning rather than prayer
+
+The "too generic" flag is the most important. Apply it whenever a question's origin cannot be traced to a specific word, phrase, image, posture, or feature of the passage in front of you. Vaguely spiritual, seasonally coloured, or devotionally pleasant questions that could serve any reading all qualify.
+
+--- TEXTUAL ROOTEDNESS CHECK ---
+
+You receive the generator's hidden \`pressure\` field (anchor type + exact textual element). Use it to verify that the question genuinely arose from the text. A question whose pressure is weak, abstract, or mismatched to the passage should score lower on mood sensitivity and receive the "too generic" flag.
+
+Short psalms have a stricter standard: every question must be traceable to an exact word or phrase from the psalm's actual verses. Broad thematic expansion on a psalm of one or two verses is automatic evidence of drift — apply the "too generic" flag.
+
+--- PASS THRESHOLD ---
 
 Pass requires: weighted ≥ 4.2 AND flags ≤ 1.
 
-You'll receive the passages and the generated prompts (with the generator's hidden reasoning: mood, pressure). Use the hidden reasoning to verify textual rootedness — but do NOT reward brilliance of the hidden reasoning. The verdict is about the prompt shown to the priest.
+--- OUTPUT FORMAT ---
 
-Return a JSON object (no preamble, no markdown fences):
+Return a JSON object (no preamble, no markdown fences). Include all slots present in the input.
 
 {
   "r1": [
@@ -133,7 +184,10 @@ Return a JSON object (no preamble, no markdown fences):
   "ps": [...],
   "r2": [...],
   "gospel": [...]
-}`;
+}`
+;
+
+
 
 // ─── Fallback shape library ───────────────────────────────────────────
 
@@ -195,7 +249,8 @@ async function callGenerator(
   client: Anthropic,
   readings: PromptReading[],
 ): Promise<PromptSet> {
-  const userMessage = `Here are the four readings for the upcoming Sunday. Produce three prompts per reading following the standard in the system instruction.\n\n${buildReadingsBlock(readings)}`;
+  const dayType = readings.length === 4 ? "Sunday (four readings: r1, ps, r2, gospel)" : "weekday (three readings: r1, ps, gospel — no r2)";
+  const userMessage = `Here are the readings for the upcoming ${dayType}. Produce three prompts per reading following the standard in the system instruction.\n\n${buildReadingsBlock(readings)}`;
 
   const resp = await client.messages.create({
     model: GENERATOR_MODEL,
@@ -314,8 +369,8 @@ export async function generateDayPrompts(
 
     // Both attempts had at least one fail. Use whichever had more passes;
     // on tie, keep the second. The verdict is preserved so we can audit.
-    const passes1 = [...verdict.r1, ...verdict.ps, ...verdict.r2, ...verdict.gospel].filter((s) => s.pass).length;
-    const passes2 = [...verdict2.r1, ...verdict2.ps, ...verdict2.r2, ...verdict2.gospel].filter((s) => s.pass).length;
+    const passes1 = [...verdict.r1, ...verdict.ps, ...(verdict.r2 ?? []), ...verdict.gospel].filter((s) => s.pass).length;
+    const passes2 = [...verdict2.r1, ...verdict2.ps, ...(verdict2.r2 ?? []), ...verdict2.gospel].filter((s) => s.pass).length;
     if (passes1 > passes2) {
       return { prompts: set, verdict, generatorModel: GENERATOR_MODEL, usedFallback: false };
     }
