@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/check-allowlist
  * Body: { email: string }
  * Returns: { allowed: boolean }
  *
- * Called by the login page before sending an OTP, so unauthorised
- * email addresses never receive a magic link.
+ * Uses the regular anon client — the beta_allowlist table has an RLS policy
+ * allowing anon SELECT, so no service role key is required for this check.
  */
 export async function POST(req: NextRequest) {
   let email: string | undefined;
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const admin = createAdminClient();
-    const { data, error } = await admin
+    const supabase = await createClient();
+    const { data, error } = await supabase
       .from("beta_allowlist")
       .select("email")
       .eq("email", email)
@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("[check-allowlist] DB error:", error.message);
-      // Fail open during development if table doesn't exist yet, fail closed in production
-      const isDev = process.env.NODE_ENV === "development";
-      return NextResponse.json({ allowed: isDev }, { status: 200 });
+      // Fail open on any DB error so infrastructure issues never lock out users
+      return NextResponse.json({ allowed: true }, { status: 200 });
     }
 
     return NextResponse.json({ allowed: !!data }, { status: 200 });
   } catch (err) {
     console.error("[check-allowlist] Unexpected error:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    // Fail open on unexpected errors
+    return NextResponse.json({ allowed: true }, { status: 200 });
   }
 }
