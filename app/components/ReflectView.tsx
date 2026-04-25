@@ -930,7 +930,7 @@ export default function ReflectView({
                                   color: "var(--ambo-text-muted)",
                                   marginBottom: 6,
                                 }}>
-                                  v. {block.verseStart}{block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}
+                                  {catenaParsedRef ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}` : `v. ${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}`}
                                 </div>
                                 {block.entries.map((ent, ei) =>
                                   renderEntry(
@@ -965,7 +965,7 @@ export default function ReflectView({
                                       marginBottom: 6,
                                       marginTop: ci > 0 ? 14 : 0,
                                     }}>
-                                      v. {c.overlapStart}{c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}
+                                      {catenaParsedRef ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${c.overlapStart}${c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}` : `v. ${c.overlapStart}${c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}`}
                                     </div>
                                   )}
                                   {renderEntry(
