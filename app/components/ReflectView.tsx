@@ -953,7 +953,7 @@ export default function ReflectView({
                                         gap: 10,
                                         paddingLeft: 12,
                                         borderLeft: "2px solid var(--ambo-accent-light)",
-                                        marginBottom: ei === block.entries.length - 1 ? 0 : 8,
+                                        marginBottom: ei === block.entries.length - 1 ? 0 : 16,
                                       }}>
                                         <div style={{ flex: 1 }}>
                                           <div style={{
@@ -1052,7 +1052,7 @@ export default function ReflectView({
                                       const inlineRef = !isGrouped ? groupRef : undefined;
                                       const isLast = isLastGroup && ci === group.items.length - 1;
                                       return (
-                                        <div key={ci} style={{ marginBottom: ci < group.items.length - 1 ? 8 : 0 }}>
+                                        <div key={ci} style={{ marginBottom: ci < group.items.length - 1 ? 16 : 0 }}>
                                           <div style={{
                                             display: "flex",
                                             alignItems: "baseline",
@@ -1260,7 +1260,7 @@ export default function ReflectView({
                                 gap: 10,
                                 paddingLeft: 12,
                                 borderLeft: "2px solid var(--ambo-accent-light)",
-                                marginBottom: 12,
+                                marginBottom: 16,
                               }}>
                                 <div style={{ flex: 1 }}>
                                   {group.map((line, li) => renderLine(line, li))}
