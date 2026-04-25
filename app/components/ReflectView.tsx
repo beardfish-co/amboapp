@@ -891,6 +891,16 @@ export default function ReflectView({
                         </div>
                       ))}
                     </div>
+                    {/* Attribution — Catena Aurea compiled by St. Thomas Aquinas */}
+                    <div style={{
+                      marginTop: 10,
+                      fontSize: 10,
+                      color: "var(--ambo-text-muted)",
+                      opacity: 0.5,
+                      textAlign: "right",
+                    }}>
+                      Catena Aurea — St. Thomas Aquinas
+                    </div>
                   </SlideReveal>
                 </>
               )}
