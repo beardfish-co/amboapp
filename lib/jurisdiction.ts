@@ -60,20 +60,20 @@ export const JURISDICTION_OPTIONS: JurisdictionOption[] = [
   {
     family: "gb_esv",
     label: "England, Wales & Scotland",
-    sublabel: "ESV Catholic Edition — coming soon",
-    available: false,
+    sublabel: "Jerusalem Bible — same readings, different approved translation",
+    available: true,
   },
   {
     family: "ca_nrsv",
     label: "Canada",
-    sublabel: "NRSV — coming soon",
-    available: false,
+    sublabel: "Jerusalem Bible — same readings, different approved translation",
+    available: true,
   },
   {
     family: "india_esv",
     label: "India",
-    sublabel: "ESV Catholic Edition — coming soon",
-    available: false,
+    sublabel: "Jerusalem Bible — same readings, different approved translation",
+    available: true,
   },
   {
     family: "unverified",
