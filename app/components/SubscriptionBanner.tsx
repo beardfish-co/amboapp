@@ -97,7 +97,7 @@ export default function SubscriptionBanner({ subscription, onUpgrade, onManage }
           <p style={{ margin: "0 0 14px", fontSize: 14, color: "var(--ambo-text-primary)", lineHeight: 1.6 }}>
             {isPastDue
               ? "There was a problem with your last payment. Please update your billing details to keep your access."
-              : "Your 6-week free trial has ended. Subscribe to Ambo Pro to continue writing and keep your full homily archive."}
+              : "Your 4-week free trial has ended. Subscribe to Ambo Pro to continue writing and keep your full homily archive."}
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             {isPastDue

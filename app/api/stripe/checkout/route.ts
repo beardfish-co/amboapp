@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         stripe_customer_id: customerId,
         status: "trialing",
-        trial_end: new Date(Date.now() + 42 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_end: new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       });
     }
