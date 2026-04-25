@@ -1,6 +1,6 @@
 // GET /api/magisterium/prefetch
 //
-// Called by Vercel cron every Saturday at 06:00 UTC to pre-warm the
+// Called by Vercel cron every Monday at 06:00 UTC to pre-warm the
 // magisterium_cache for the coming Sunday. This means the first priest
 // who opens the Gospel on Sunday gets the cached response instantly,
 // rather than waiting ~10s for the Magisterium API.
@@ -49,7 +49,7 @@ function cleanContent(raw: string): string {
 }
 
 // Returns the coming Sunday's date as YYYYMMDD.
-// When run on Saturday, getUTCDay() === 6, so daysAhead = 1.
+// When run on Monday, getUTCDay() === 1, so daysAhead = 6.
 function nextSundayCompact(): string {
   const now = new Date();
   const daysAhead = ((7 - now.getUTCDay()) % 7) || 7;

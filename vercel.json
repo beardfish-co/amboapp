@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/magisterium/prefetch",
-      "schedule": "0 6 * * 6"
+      "schedule": "0 6 * * 1"
     }
   ]
 }
