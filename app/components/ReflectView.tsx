@@ -820,7 +820,7 @@ export default function ReflectView({
                   <div style={{
                     height: 1,
                     background: "var(--ambo-border)",
-                    margin: prompts.length > 0 ? "4px 0 10px" : "20px 0 10px",
+                    margin: "20px 0 10px",
                   }} />
                   <button
                     onClick={() => setFathersExpanded((v) => !v)}
