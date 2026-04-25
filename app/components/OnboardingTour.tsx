@@ -23,16 +23,16 @@ const STEPS: Step[] = [
   { target: "nav-tabs",             title: "Reflect · Write · Preach",  copy: "For priests who want to preach from prayer.",                         tab: "reflect", prefer: "bottom" },
   { target: "reflect-tab",          title: "Reflect",                    copy: "Let the Word speak before you begin composing.",                      tab: "reflect", prefer: "bottom" },
   { target: "reading-panels",       title: "The Readings",               copy: "The readings for the day, drawn from the lectionary.",                tab: "reflect", prefer: "right"  },
-  { target: "reflect-prompts",      title: "Prompts for Prayer",         copy: "Gentle invitations to sit with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1850 },
-  { target: "reflect-discernment",  title: "Discernment",                copy: "What grace has your prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
-  { target: "reflect-notes",        title: "Prayer Notes",               copy: "Keep what comes to you as you pray.",                                 tab: "reflect", prefer: "left"   },
-  { target: "write-tab",            title: "Write",                      copy: "Your space to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
-  { target: "write-discernment",    title: "Your Discernment Thread",                copy: "The grace you named in prayer, present as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
-  { target: "write-notes",          title: "Your Notes",                 copy: "Your notes from prayer, here as you write.",                         tab: "write",   prefer: "bottom" },
-  { target: "readings-drawer",      title: "The Readings Drawer",        copy: "Pull the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
-  { target: "write-examine",        title: "Examine",                    copy: "A gentle look at what you've written before you preach.",             tab: "write",   prefer: "left"   },
-  { target: "preach-tab",           title: "Preach",                     copy: "Where the homily is preached.",                                       tab: "preach",  prefer: "bottom" },
-  { target: "my-homilies",          title: "My Homilies",                copy: "Your homilies, always here to return to.",                            tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-open-homilies", prepareDelay: 300, cleanupEvent: "ambo:tour-close-homilies" },
+  { target: "reflect-prompts",      title: "Prompts for Prayer",         copy: "Gentle questions to help you linger with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1850 },
+  { target: "reflect-discernment",  title: "Discernment",                copy: "What grace, burden, or invitation has prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
+  { target: "reflect-notes",        title: "Prayer Notes",               copy: "Keep what comes as you pray: a phrase, an image, a tension, a small light.",                                 tab: "reflect", prefer: "left"   },
+  { target: "write-tab",            title: "Write",                      copy: "Your place to write the homily in your own voice.",                   tab: "write",   prefer: "bottom" },
+  { target: "write-discernment",    title: "Your Discernment Thread",                copy: "The grace named in prayer remains before you as you write.",                tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-show-discernment", prepareDelay: 200, cleanupEvent: "ambo:tour-hide-discernment" },
+  { target: "write-notes",          title: "Your Notes",                 copy: "Your notes from prayer remain close at hand as you write.",                         tab: "write",   prefer: "bottom" },
+  { target: "readings-drawer",      title: "The Readings Drawer",        copy: "Bring the readings directly into your homily as you write.",           tab: "write",   prefer: "bottom", prepareEvent: "ambo:tour-open-readings", prepareDelay: 300, cleanupEvent: "ambo:tour-close-readings" },
+  { target: "write-examine",        title: "Examine",                    copy: "A gentle final look at what you have written before you preach.",             tab: "write",   prefer: "left"   },
+  { target: "preach-tab",           title: "Preach",                     copy: "Where the homily is preached, simply and prayerfully.",                                       tab: "preach",  prefer: "bottom" },
+  { target: "my-homilies",          title: "My Homilies",                copy: "Your homilies remain here, ready to return to in time.",                            tab: "write",   prefer: "bottom", popoverAlign: "start", prepareEvent: "ambo:tour-open-homilies", prepareDelay: 300, cleanupEvent: "ambo:tour-close-homilies" },
 ];
 
 const STORAGE_KEY = "ambo_tour_v1_complete";
@@ -385,3 +385,4 @@ const accentBtn: React.CSSProperties = {
   fontFamily: "inherit",
   cursor: "pointer",
 };
+
