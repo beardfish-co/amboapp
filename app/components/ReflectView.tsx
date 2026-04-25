@@ -981,15 +981,23 @@ export default function ReflectView({
                         }
                       };
 
-                      // Strip markdown markers for plain-text notepad entry
-                      const groupToPlainText = (lines: string[]) =>
-                        lines.map(l => {
-                          const t = l.trim();
-                          if (t.startsWith("## ")) return t.slice(3);
-                          if (t.startsWith("> ")) return t.slice(2);
-                          if (t.startsWith("- ")) return t.slice(2);
-                          return t;
-                        }).join("\n").replace(/\*\*/g, "");
+                      // Extract source title + quote text to match Reflect/Fathers note pattern.
+                      // Source: pulled from (Document §N) parenthetical in prose, or first prose line.
+                      // Text: the blockquote content; falls back to full prose if no blockquote.
+                      const extractCitation = (lines: string[]) => {
+                        const quotes = lines
+                          .filter(l => l.trim().startsWith("> "))
+                          .map(l => l.trim().slice(2));
+                        const prose = lines
+                          .filter(l => !l.trim().startsWith("> "))
+                          .map(l => l.trim().replace(/^-\s+/, "").replace(/\*\*/g, ""));
+                        const refMatch = prose.join(" ").match(/\(([^)]+(?:§|n\.)\s*[\d–,]+[^)]*)\)/);
+                        const sourceTitle = refMatch
+                          ? refMatch[1]
+                          : prose[0]?.replace(/\s+/g, " ").slice(0, 60) ?? "Magisterium";
+                        const quoteText = quotes.length > 0 ? quotes.join("\n") : prose.join("\n");
+                        return { sourceTitle, quoteText };
+                      };
 
                       return (
                         <div>
@@ -1008,7 +1016,10 @@ export default function ReflectView({
                               }}>
                                 {group.map((line, li) => renderLine(line, li))}
                                 <button
-                                  onClick={() => appendToNotes("Magisterium", groupToPlainText(group))}
+                                  onClick={() => {
+                                    const { sourceTitle, quoteText } = extractCitation(group);
+                                    appendToNotes(sourceTitle, quoteText);
+                                  }}
                                   style={{ ...sendToNotesStyle, marginTop: 6 }}
                                   title="Add to your notes"
                                 >
