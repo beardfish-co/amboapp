@@ -48,17 +48,22 @@ function cleanContent(raw: string): string {
     .trim();
 }
 
-// Returns the coming Sunday's date as YYYYMMDD.
-// When run on Monday, getUTCDay() === 1, so daysAhead = 6.
-function nextSundayCompact(): string {
+// Returns the next N Sundays as YYYYMMDD strings.
+// Priests can prepare for any future Sunday, so we warm the cache for
+// the next two Sundays every Monday — covering this week and next.
+function nextSundaysCompact(count: number): string[] {
   const now = new Date();
-  const daysAhead = ((7 - now.getUTCDay()) % 7) || 7;
-  const sunday = new Date(now);
-  sunday.setUTCDate(now.getUTCDate() + daysAhead);
-  const y = sunday.getUTCFullYear();
-  const m = String(sunday.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(sunday.getUTCDate()).padStart(2, "0");
-  return `${y}${m}${d}`;
+  const daysUntilSunday = ((7 - now.getUTCDay()) % 7) || 7;
+  const dates: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const sunday = new Date(now);
+    sunday.setUTCDate(now.getUTCDate() + daysUntilSunday + i * 7);
+    const y = sunday.getUTCFullYear();
+    const m = String(sunday.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(sunday.getUTCDate()).padStart(2, "0");
+    dates.push(`${y}${m}${d}`);
+  }
+  return dates;
 }
 
 export async function GET(req: NextRequest) {
@@ -69,115 +74,104 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const date = nextSundayCompact();
+  const dates = nextSundaysCompact(2); // this Sunday + next Sunday
   const supabase = createAdminClient();
+  const apiKey = process.env.MAGISTERIUM_API_KEY;
 
-  // Check if already cached for this Sunday
-  const { data: existing } = await supabase
-    .from("magisterium_cache")
-    .select("date")
-    .eq("date", date)
-    .maybeSingle();
-
-  if (existing) {
-    return NextResponse.json({ status: "already_cached", date });
-  }
-
-  // Fetch Gospel reference from readings API
-  const readingsUrl = new URL(`/api/readings?date=${date}`, req.url);
-  const readingsRes = await fetch(readingsUrl.toString());
-
-  if (!readingsRes.ok) {
-    return NextResponse.json(
-      { error: "Could not fetch readings", date },
-      { status: 500 }
-    );
+  if (!apiKey) {
+    return NextResponse.json({ error: "MAGISTERIUM_API_KEY not set" }, { status: 500 });
   }
 
   interface ReadingsPayload {
     dayName: string;
     readings: Array<{ id: string; reference: string }>;
   }
-  const readings: ReadingsPayload = await readingsRes.json();
-  const gospel = readings.readings.find((r) => r.id === "gospel");
-
-  if (!gospel?.reference) {
-    return NextResponse.json(
-      { error: "Gospel not found in readings", date },
-      { status: 500 }
-    );
-  }
-
-  // Query Magisterium AI
-  const apiKey = process.env.MAGISTERIUM_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "MAGISTERIUM_API_KEY not set" },
-      { status: 500 }
-    );
-  }
-
-  const magRes = await fetch(MAGISTERIUM_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "magisterium-1",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `The Gospel reading is ${gospel.reference} (${readings.dayName}). Provide 3 to 4 magisterial citations for a priest preparing a homily on this passage.`,
-        },
-      ],
-    }),
-  });
-
-  if (!magRes.ok) {
-    return NextResponse.json(
-      { error: "Magisterium API failed", status: magRes.status, date },
-      { status: 500 }
-    );
-  }
-
   interface MagisteriumResponse {
     choices: Array<{ message: { content: string } }>;
   }
-  const magData: MagisteriumResponse = await magRes.json();
-  const raw = magData.choices?.[0]?.message?.content ?? "";
 
-  if (!raw) {
-    return NextResponse.json(
-      { error: "Empty response from Magisterium AI", date },
-      { status: 500 }
-    );
+  const results: Array<{ date: string; status: string; gospel_ref?: string }> = [];
+
+  for (const date of dates) {
+    // Skip if already cached
+    const { data: existing } = await supabase
+      .from("magisterium_cache")
+      .select("date")
+      .eq("date", date)
+      .maybeSingle();
+
+    if (existing) {
+      results.push({ date, status: "already_cached" });
+      continue;
+    }
+
+    // Fetch Gospel reference
+    const readingsUrl = new URL(`/api/readings?date=${date}`, req.url);
+    const readingsRes = await fetch(readingsUrl.toString());
+
+    if (!readingsRes.ok) {
+      results.push({ date, status: "readings_unavailable" });
+      continue;
+    }
+
+    const readings: ReadingsPayload = await readingsRes.json();
+    const gospel = readings.readings.find((r) => r.id === "gospel");
+
+    if (!gospel?.reference) {
+      results.push({ date, status: "gospel_not_found" });
+      continue;
+    }
+
+    // Query Magisterium AI
+    const magRes = await fetch(MAGISTERIUM_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "magisterium-1",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `The Gospel reading is ${gospel.reference} (${readings.dayName}). Provide 3 to 4 magisterial citations for a priest preparing a homily on this passage.`,
+          },
+        ],
+      }),
+    });
+
+    if (!magRes.ok) {
+      results.push({ date, status: `magisterium_error_${magRes.status}` });
+      continue;
+    }
+
+    const magData: MagisteriumResponse = await magRes.json();
+    const raw = magData.choices?.[0]?.message?.content ?? "";
+
+    if (!raw) {
+      results.push({ date, status: "empty_response" });
+      continue;
+    }
+
+    const content = cleanContent(raw);
+
+    const { error: insertErr } = await supabase.from("magisterium_cache").insert({
+      date,
+      gospel_ref: gospel.reference,
+      day_name: readings.dayName,
+      content,
+    });
+
+    if (insertErr && insertErr.code !== "23505") {
+      console.error(`[magisterium/prefetch] insert error for ${date}:`, insertErr);
+      results.push({ date, status: "cache_insert_failed" });
+      continue;
+    }
+
+    console.log(`[magisterium/prefetch] Cached ${gospel.reference} for ${date}`);
+    results.push({ date, status: "prefetched", gospel_ref: gospel.reference });
   }
 
-  const content = cleanContent(raw);
-
-  // Store in cache (service role bypasses RLS)
-  const { error: insertErr } = await supabase.from("magisterium_cache").insert({
-    date,
-    gospel_ref: gospel.reference,
-    day_name: readings.dayName,
-    content,
-  });
-
-  if (insertErr && insertErr.code !== "23505") {
-    console.error("[magisterium/prefetch] insert error:", insertErr);
-    return NextResponse.json(
-      { error: "Cache insert failed", date },
-      { status: 500 }
-    );
-  }
-
-  console.log(`[magisterium/prefetch] Cached ${gospel.reference} for ${date}`);
-  return NextResponse.json({
-    status: "prefetched",
-    date,
-    gospel_ref: gospel.reference,
-    day_name: readings.dayName,
-  });
+  return NextResponse.json({ results });
 }
