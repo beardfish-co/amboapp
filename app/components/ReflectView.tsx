@@ -939,65 +939,91 @@ export default function ReflectView({
                   </button>
 
                   <SlideReveal open={traditionExpanded} marginTop={traditionExpanded ? 12 : 0}>
-                    <div style={{
-                      paddingLeft: 12,
-                      borderLeft: "2px solid var(--ambo-accent-light)",
-                    }}>
-                      {(() => {
-                        // Render **bold** inline within a text string
-                        const renderBold = (text: string) => {
-                          const parts = text.split(/(\*\*[^*]+\*\*)/g);
-                          return parts.map((p, pi) =>
-                            p.startsWith("**") && p.endsWith("**")
-                              ? <strong key={pi}>{p.slice(2, -2)}</strong>
-                              : <span key={pi}>{p}</span>
-                          );
-                        };
-                        // Split into lines for fine-grained rendering
-                        const lines = magisteriumContent.split("\n");
-                        const elements: React.ReactNode[] = [];
-                        let bi = 0;
-                        for (const line of lines) {
-                          const t = line.trim();
-                          if (!t) { bi++; continue; }
-                          // ## Heading
-                          if (t.startsWith("## ")) {
-                            elements.push(<div key={bi} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginTop: elements.length === 0 ? 0 : 14, marginBottom: 4 }}>{t.slice(3)}</div>);
-                          // Plain all-caps label (MAGISTERIAL, PATRISTIC, etc.)
-                          } else if (/^[A-Z][A-Z\s]{2,}$/.test(t)) {
-                            elements.push(<div key={bi} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginTop: elements.length === 0 ? 0 : 14, marginBottom: 4 }}>{t}</div>);
-                          // > Blockquote
-                          } else if (t.startsWith("> ")) {
-                            elements.push(<div key={bi} style={{ fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", paddingLeft: 10, borderLeft: "2px solid var(--ambo-border)", margin: "4px 0" }}>{t.slice(2)}</div>);
-                          // - Bullet point
-                          } else if (t.startsWith("- ")) {
-                            elements.push(<div key={bi} style={{ display: "flex", gap: 6, fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", padding: "3px 0" }}><span style={{ opacity: 0.4, flexShrink: 0 }}>–</span><span>{renderBold(t.slice(2))}</span></div>);
-                          // Regular paragraph
-                          } else {
-                            elements.push(<p key={bi} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", margin: "4px 0 0" }}>{renderBold(t)}</p>);
-                          }
-                          bi++;
+                    {(() => {
+                      // Parse content into blank-line-separated groups.
+                      // Each group is either a heading block or a citation block.
+                      // Citation blocks get their own → note button.
+                      const rawGroups: string[][] = [];
+                      let cur: string[] = [];
+                      for (const line of magisteriumContent!.split("\n")) {
+                        if (line.trim() === "") {
+                          if (cur.length) { rawGroups.push(cur); cur = []; }
+                        } else {
+                          cur.push(line);
                         }
-                        return elements;
-                      })()}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-                      <button
-                        onClick={() => appendToNotes("Magisterium", magisteriumContent!)}
-                        style={sendToNotesStyle}
-                        title="Add to your notes"
-                      >
-                        → note
-                      </button>
-                      {/* Attribution — required by Magisterium API Terms §4.5 */}
-                      <div style={{
-                        fontSize: 10,
-                        color: "var(--ambo-text-muted)",
-                        opacity: 0.5,
-                      }}>
-                        Powered by Magisterium AI
-                      </div>
-                    </div>
+                      }
+                      if (cur.length) rawGroups.push(cur);
+
+                      const isHeadingLine = (t: string) =>
+                        t.startsWith("## ") || /^[A-Z][A-Z\s]{2,}$/.test(t);
+
+                      const renderBold = (text: string) => {
+                        const parts = text.split(/(\*\*[^*]+\*\*)/g);
+                        return parts.map((p, pi) =>
+                          p.startsWith("**") && p.endsWith("**")
+                            ? <strong key={pi}>{p.slice(2, -2)}</strong>
+                            : <span key={pi}>{p}</span>
+                        );
+                      };
+
+                      const renderLine = (line: string, idx: number) => {
+                        const t = line.trim();
+                        if (t.startsWith("## ")) {
+                          return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t.slice(3)}</div>;
+                        } else if (/^[A-Z][A-Z\s]{2,}$/.test(t)) {
+                          return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t}</div>;
+                        } else if (t.startsWith("> ")) {
+                          return <div key={idx} style={{ fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", paddingLeft: 10, borderLeft: "2px solid var(--ambo-border)", margin: "4px 0" }}>{t.slice(2)}</div>;
+                        } else if (t.startsWith("- ")) {
+                          return <div key={idx} style={{ display: "flex", gap: 6, fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", padding: "3px 0" }}><span style={{ opacity: 0.4, flexShrink: 0 }}>–</span><span>{renderBold(t.slice(2))}</span></div>;
+                        } else {
+                          return <p key={idx} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", margin: "4px 0 0" }}>{renderBold(t)}</p>;
+                        }
+                      };
+
+                      // Strip markdown markers for plain-text notepad entry
+                      const groupToPlainText = (lines: string[]) =>
+                        lines.map(l => {
+                          const t = l.trim();
+                          if (t.startsWith("## ")) return t.slice(3);
+                          if (t.startsWith("> ")) return t.slice(2);
+                          if (t.startsWith("- ")) return t.slice(2);
+                          return t;
+                        }).join("\n").replace(/\*\*/g, "");
+
+                      return (
+                        <div>
+                          {rawGroups.map((group, gi) => {
+                            const firstLine = group[0].trim();
+                            const heading = isHeadingLine(firstLine);
+                            return heading ? (
+                              <div key={gi} style={{ marginTop: gi === 0 ? 0 : 14 }}>
+                                {group.map((line, li) => renderLine(line, li))}
+                              </div>
+                            ) : (
+                              <div key={gi} style={{
+                                paddingLeft: 12,
+                                borderLeft: "2px solid var(--ambo-accent-light)",
+                                marginBottom: 12,
+                              }}>
+                                {group.map((line, li) => renderLine(line, li))}
+                                <button
+                                  onClick={() => appendToNotes("Magisterium", groupToPlainText(group))}
+                                  style={{ ...sendToNotesStyle, marginTop: 6 }}
+                                  title="Add to your notes"
+                                >
+                                  → note
+                                </button>
+                              </div>
+                            );
+                          })}
+                          {/* Attribution — required by Magisterium API Terms §4.5 */}
+                          <div style={{ fontSize: 10, color: "var(--ambo-text-muted)", opacity: 0.5, textAlign: "right", marginTop: 4 }}>
+                            Powered by Magisterium AI
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </SlideReveal>
                 </>
               )}
