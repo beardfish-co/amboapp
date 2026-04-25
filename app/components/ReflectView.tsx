@@ -918,7 +918,9 @@ export default function ReflectView({
                             </div>
                           )}
 
-                          {showAllFathers ? (
+                          <SlideReveal open={showAllFathers} marginTop={showAllFathers ? 0 : 0}>
+                          {/* Full Catena view — same grouping logic as default view */}
+                          {true ? (
                             // ── Full Catena view — same grouping logic as default view ──
                             catenaBlocks.map((block, bi) => {
                               const isGrouped = block.entries.length > 1;
@@ -995,7 +997,12 @@ export default function ReflectView({
                                 </div>
                               );
                             })
-                          ) : (
+                          ) : null}
+                          </SlideReveal>
+
+                          <SlideReveal open={!showAllFathers} marginTop={!showAllFathers ? 0 : 0}>
+                          {/* Default curated view */}
+                          {true ? (
                             // ── Default curated view ─────────────────────
                             // Group citations by verse cluster.
                             // Multiple in same span → shared heading above.
@@ -1099,7 +1106,8 @@ export default function ReflectView({
                                 );
                               });
                             })()
-                          )}
+                          ) : null}
+                          </SlideReveal>
 
                           {/* Expansion toggle */}
                           <div style={{
