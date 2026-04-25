@@ -272,3 +272,182 @@ export function normalizeFatherName(name: string | null): string {
   if (!name) return "Unknown";
   return FATHER_NAME_MAP[name] ?? name;
 }
+
+// ─── Catena Aurea citation selection ─────────────────────────────────────────
+// Implements the priest-facing selection logic described in the Ambo brief.
+// Retrieve everything; display a small ranked subset; always allow expansion.
+
+export type EnrichedEntry = {
+  blockStart: number;
+  blockEnd: number;
+  fatherKey: string;       // normalized lowercase — used for deduplication
+  fatherName: string;      // clean display name
+  citation?: string;
+  text: string;
+  sourceOrder: number;     // global index across all blocks+entries
+  readingStart: number;
+  readingEnd: number;
+  // Derived overlap values
+  overlapStart: number;
+  overlapEnd: number;
+  overlapLen: number;
+  blockLen: number;
+  readingLen: number;
+  blockMidpoint: number;
+  readingMidpoint: number;
+  displayScore: number;
+};
+
+function getTargetCount(readingLen: number): number {
+  if (readingLen <= 4) return 2;
+  if (readingLen <= 10) return 3;
+  if (readingLen <= 18) return 4;
+  return 5;
+}
+
+function scoreEntry(e: Omit<EnrichedEntry, "displayScore">): number {
+  let score = 0;
+
+  // 1. Verse-fit — strongest factor
+  if (e.blockStart === e.readingStart && e.blockEnd === e.readingEnd) {
+    score += 40; // exact match
+  } else if (e.blockStart >= e.readingStart && e.blockEnd <= e.readingEnd) {
+    score += 30; // fully contained within reading
+  } else {
+    score += 18; // partial overlap
+  }
+  // Overlap-density prevents wide blocks that barely clip the reading from
+  // outranking tighter, more relevant blocks.
+  score += 20 * (e.overlapLen / e.blockLen);
+
+  // 2. Centrality — comments nearer the heart of the pericope rank higher
+  const centralityDistance = Math.abs(e.blockMidpoint - e.readingMidpoint);
+  const maxDistance = Math.max(1, e.readingLen / 2);
+  score += 10 * Math.max(0, 1 - centralityDistance / maxDistance);
+
+  // 3. Brevity preference — tie-softener only, not a dominant rule
+  const len = e.text.length;
+  if (len <= 450) score += 6;
+  else if (len <= 900) score += 3;
+
+  return score;
+}
+
+/**
+ * Given the full set of matching Catena blocks and the parsed scripture ref,
+ * return a small, ranked, non-repetitive list of citations for the default
+ * "From the Fathers" surface. The full blocks array is left untouched for
+ * the "Show all from Catena Aurea" expansion view.
+ */
+export function selectDefaultCitations(
+  blocks: CatenaBlock[],
+  ref: ParsedRef,
+): EnrichedEntry[] {
+  const readingStart = ref.verseStart;
+  const readingEnd   = ref.verseEnd;
+  const readingLen   = readingEnd - readingStart + 1;
+  const readingMidpoint = (readingStart + readingEnd) / 2;
+
+  // Flatten blocks → individual enriched entries, preserving global source order.
+  let sourceOrder = 0;
+  const candidates: EnrichedEntry[] = [];
+
+  for (const block of blocks) {
+    const overlapStart = Math.max(block.verseStart, readingStart);
+    const overlapEnd   = Math.min(block.verseEnd,   readingEnd);
+    const overlapLen   = overlapEnd - overlapStart + 1;
+
+    if (overlapLen < 1) {
+      sourceOrder += block.entries.length;
+      continue;
+    }
+
+    const blockLen      = block.verseEnd - block.verseStart + 1;
+    const blockMidpoint = (block.verseStart + block.verseEnd) / 2;
+
+    for (const entry of block.entries) {
+      const order = sourceOrder++;
+      if (!entry.text?.trim()) continue;
+
+      const fatherName = normalizeFatherName(entry.father);
+      const base = {
+        blockStart: block.verseStart,
+        blockEnd:   block.verseEnd,
+        fatherKey:  fatherName.toLowerCase(),
+        fatherName,
+        citation:   entry.citation,
+        text:       entry.text,
+        sourceOrder: order,
+        readingStart,
+        readingEnd,
+        overlapStart,
+        overlapEnd,
+        overlapLen,
+        blockLen,
+        readingLen,
+        blockMidpoint,
+        readingMidpoint,
+      };
+      candidates.push({ ...base, displayScore: scoreEntry(base) });
+    }
+  }
+
+  // Sort: highest score first; earlier source order breaks ties (defers to Aquinas).
+  const sorted = [...candidates].sort((a, b) =>
+    b.displayScore !== a.displayScore
+      ? b.displayScore - a.displayScore
+      : a.sourceOrder - b.sourceOrder,
+  );
+
+  const targetCount = getTargetCount(readingLen);
+  const selected: EnrichedEntry[] = [];
+  const usedFathers  = new Set<string>();
+  const usedClusters = new Set<string>();
+  const clusterKey   = (e: EnrichedEntry) => `${e.overlapStart}-${e.overlapEnd}`;
+
+  // Pass 1: strict — new Father AND new verse cluster
+  for (const c of sorted) {
+    if (selected.length >= targetCount) break;
+    if (usedFathers.has(c.fatherKey))  continue;
+    if (usedClusters.has(clusterKey(c))) continue;
+    selected.push(c);
+    usedFathers.add(c.fatherKey);
+    usedClusters.add(clusterKey(c));
+  }
+
+  // Pass 2a: first relaxation — repeated Father allowed if verse cluster is new
+  for (const c of sorted) {
+    if (selected.length >= targetCount) break;
+    if (selected.includes(c)) continue;
+    if (!usedClusters.has(clusterKey(c))) {
+      selected.push(c);
+      usedFathers.add(c.fatherKey);
+      usedClusters.add(clusterKey(c));
+    }
+  }
+
+  // Pass 2b: second relaxation — repeated cluster allowed if Father is new
+  for (const c of sorted) {
+    if (selected.length >= targetCount) break;
+    if (selected.includes(c)) continue;
+    if (!usedFathers.has(c.fatherKey)) {
+      selected.push(c);
+      usedFathers.add(c.fatherKey);
+      usedClusters.add(clusterKey(c));
+    }
+  }
+
+  // Pass 3: final relaxation — anything remaining
+  for (const c of sorted) {
+    if (selected.length >= targetCount) break;
+    if (selected.includes(c)) continue;
+    selected.push(c);
+  }
+
+  // Display order: by overlap start, then display score, then source order
+  return selected.sort((a, b) =>
+    a.overlapStart !== b.overlapStart ? a.overlapStart - b.overlapStart :
+    b.displayScore  !== a.displayScore ? b.displayScore  - a.displayScore :
+    a.sourceOrder   - b.sourceOrder,
+  );
+}

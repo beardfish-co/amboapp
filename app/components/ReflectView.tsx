@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { selectPrompts, detectSeason } from "@/lib/prompts";
-import type { CatenaBlock } from "@/lib/catena";
-import { normalizeFatherName } from "@/lib/catena";
+import type { CatenaBlock, ParsedRef, EnrichedEntry } from "@/lib/catena";
+import { normalizeFatherName, selectDefaultCitations } from "@/lib/catena";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
@@ -105,6 +105,8 @@ export default function ReflectView({
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
   const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
   const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
+  const [catenaParsedRef, setCatenaParsedRef] = useState<ParsedRef | null>(null);
+  const [showAllFathers, setShowAllFathers] = useState<boolean>(false);
   // Magisterium AI — magisterial tradition citations for the Gospel
   // Magisterium AI — magisterial tradition layer for the Gospel
   const [magisteriumContent, setMagisteriumContent] = useState<string | null>(null);
@@ -314,13 +316,18 @@ export default function ReflectView({
     let cancelled = false;
     setCatenaLoading(true);
     setCatenaBlocks(null);
+    setCatenaParsedRef(null);
+    setShowAllFathers(false);
     setFathersExpanded(false);
     (async () => {
       try {
         const res = await fetch(`/api/catena?ref=${encodeURIComponent(gospel.reference)}`);
         if (!res.ok) return;
-        const d: { blocks?: CatenaBlock[] } = await res.json();
-        if (!cancelled) setCatenaBlocks(d.blocks ?? []);
+        const d: { blocks?: CatenaBlock[]; parsed?: ParsedRef } = await res.json();
+        if (!cancelled) {
+          setCatenaBlocks(d.blocks ?? []);
+          setCatenaParsedRef(d.parsed ?? null);
+        }
       } catch {
         /* no catena available — gracefully absent */
       } finally {
@@ -823,89 +830,167 @@ export default function ReflectView({
                     aria-expanded={fathersExpanded}
                   >
                     <span style={{ fontStyle: "italic" }}>fathers</span>
-                    <span style={{ fontSize: 10, opacity: 0.55 }}>
-                      {catenaBlocks.reduce((n, b) => n + b.entries.length, 0)}
-                    </span>
                     <span style={{ fontSize: 10, opacity: 0.6 }}>{fathersExpanded ? "–" : "+"}</span>
                   </button>
 
                   <SlideReveal open={fathersExpanded} marginTop={fathersExpanded ? 12 : 0}>
-                    <div>
-                      {catenaBlocks.map((block, bi) => (
-                        <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
-                          <div style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            letterSpacing: "0.04em",
-                            textTransform: "uppercase",
-                            color: "var(--ambo-text-muted)",
-                            marginBottom: 6,
-                          }}>
-                            v. {block.verseStart}{block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}
-                          </div>
-                          {block.entries.map((ent, ei) => (
-                            <div key={ei} style={{
+                    {(() => {
+                      // Compute selected citations for default view
+                      const defaultCitations: EnrichedEntry[] =
+                        !showAllFathers && catenaParsedRef
+                          ? selectDefaultCitations(catenaBlocks, catenaParsedRef)
+                          : [];
+
+                      // Shared entry renderer used by both views
+                      const renderEntry = (
+                        fatherName: string,
+                        citation: string | undefined,
+                        text: string,
+                        noteKey: string,
+                        key: string,
+                        isLast: boolean,
+                      ) => (
+                        <div key={key} style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          paddingLeft: 12,
+                          borderLeft: "2px solid var(--ambo-accent-light)",
+                          marginBottom: isLast ? 0 : 8,
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{
                               display: "flex",
-                              alignItems: "baseline",
-                              justifyContent: "space-between",
-                              gap: 10,
-                              paddingLeft: 12,
-                              borderLeft: "2px solid var(--ambo-accent-light)",
-                              marginBottom: ei === block.entries.length - 1 ? 0 : 8,
+                              gap: 6,
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                              color: "var(--ambo-text-secondary)",
+                              marginBottom: 3,
                             }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{
-                                  display: "flex",
-                                  gap: 6,
-                                  fontSize: 13,
-                                  lineHeight: 1.6,
-                                  color: "var(--ambo-text-secondary)",
-                                  marginBottom: 3,
-                                }}>
-                                  <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
-                                  <span>
-                                    <strong>{normalizeFatherName(ent.father)}</strong>
-                                    {ent.citation && (
-                                      <span style={{ marginLeft: 6 }}>{ent.citation}</span>
-                                    )}
-                                  </span>
-                                </div>
-                                <div style={{
-                                  fontSize: 13,
-                                  color: "var(--ambo-text-secondary)",
-                                  lineHeight: 1.6,
-                                  fontStyle: "italic",
-                                }}>
-                                  {ent.text}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  const cite = ent.father
-                                    ? `${normalizeFatherName(ent.father)}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`
-                                    : `${r.reference}`;
-                                  appendToNotes(cite, ent.text);
-                                }}
-                                style={sendToNotesStyle}
-                                title="Add to your notes"
-                              >
-                                → note
-                              </button>
+                              <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
+                              <span>
+                                <strong>{fatherName}</strong>
+                                {citation && <span style={{ marginLeft: 6 }}>{citation}</span>}
+                              </span>
                             </div>
-                          ))}
+                            <div style={{
+                              fontSize: 13,
+                              color: "var(--ambo-text-secondary)",
+                              lineHeight: 1.6,
+                              fontStyle: "italic",
+                            }}>
+                              {text}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => appendToNotes(noteKey, text)}
+                            style={sendToNotesStyle}
+                            title="Add to your notes"
+                          >
+                            → note
+                          </button>
                         </div>
-                      ))}
-                    </div>
-                    {/* Attribution — Catena Aurea compiled by St. Thomas Aquinas */}
-                    <div style={{
-                      marginTop: 10,
-                      fontSize: 10,
-                      color: "var(--ambo-text-muted)",
-                      opacity: 0.5,
-                      textAlign: "right",
-                    }}>
-                      Catena Aurea — St. Thomas Aquinas
-                    </div>
+                      );
+
+                      return (
+                        <div>
+                          {showAllFathers ? (
+                            // ── Full Catena view ──────────────────────────
+                            catenaBlocks.map((block, bi) => (
+                              <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
+                                <div style={{
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  letterSpacing: "0.04em",
+                                  textTransform: "uppercase",
+                                  color: "var(--ambo-text-muted)",
+                                  marginBottom: 6,
+                                }}>
+                                  v. {block.verseStart}{block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}
+                                </div>
+                                {block.entries.map((ent, ei) =>
+                                  renderEntry(
+                                    normalizeFatherName(ent.father),
+                                    ent.citation,
+                                    ent.text,
+                                    `${normalizeFatherName(ent.father)}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`,
+                                    `${bi}-${ei}`,
+                                    ei === block.entries.length - 1,
+                                  )
+                                )}
+                              </div>
+                            ))
+                          ) : (
+                            // ── Default curated view ─────────────────────
+                            defaultCitations.map((c, ci) => {
+                              // Verse label when the overlap span changes
+                              const prevCluster = ci > 0
+                                ? `${defaultCitations[ci - 1].overlapStart}-${defaultCitations[ci - 1].overlapEnd}`
+                                : null;
+                              const thisCluster = `${c.overlapStart}-${c.overlapEnd}`;
+                              const showVerseLabel = thisCluster !== prevCluster;
+                              return (
+                                <div key={ci}>
+                                  {showVerseLabel && (
+                                    <div style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      letterSpacing: "0.04em",
+                                      textTransform: "uppercase",
+                                      color: "var(--ambo-text-muted)",
+                                      marginBottom: 6,
+                                      marginTop: ci > 0 ? 14 : 0,
+                                    }}>
+                                      v. {c.overlapStart}{c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}
+                                    </div>
+                                  )}
+                                  {renderEntry(
+                                    c.fatherName,
+                                    c.citation,
+                                    c.text,
+                                    `${c.fatherName}${c.citation ? `, ${c.citation}` : ""} — ${r.reference}`,
+                                    `default-${ci}`,
+                                    ci === defaultCitations.length - 1,
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+
+                          {/* Expansion toggle */}
+                          <button
+                            onClick={() => setShowAllFathers((v) => !v)}
+                            style={{
+                              marginTop: 12,
+                              fontSize: 11,
+                              color: "var(--ambo-text-muted)",
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              opacity: 0.6,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
+                          >
+                            {showAllFathers ? "↑ Show highlights" : "Show all from Catena Aurea"}
+                          </button>
+
+                          {/* Attribution — Catena Aurea compiled by St. Thomas Aquinas */}
+                          <div style={{
+                            marginTop: 6,
+                            fontSize: 10,
+                            color: "var(--ambo-text-muted)",
+                            opacity: 0.5,
+                            textAlign: "right",
+                          }}>
+                            Catena Aurea — St. Thomas Aquinas
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </SlideReveal>
                 </>
               )}
