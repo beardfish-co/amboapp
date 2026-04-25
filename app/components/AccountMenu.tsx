@@ -27,6 +27,8 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -77,6 +79,36 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
       setChanging(false);
       setNewEmail("");
     }
+  };
+
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError("");
+    try {
+      const res = await fetch("/api/export");
+      if (res.status === 404) {
+        setExportError("No homilies to export yet.");
+        setExporting(false);
+        return;
+      }
+      if (!res.ok) {
+        setExportError("Export failed. Please try again.");
+        setExporting(false);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().slice(0, 10);
+      a.download = `ambo-homilies-${date}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportError("Export failed. Check your connection and try again.");
+    }
+    setExporting(false);
   };
 
   const handleSignOut = async () => {
@@ -254,6 +286,30 @@ export default function AccountMenu({ lectionaryFamily, onSelectFamily }: Props)
                   Cancel
                 </button>
               </div>
+            )}
+          </div>
+
+
+          {/* Export homilies */}
+          <div style={{ padding: "8px 0", borderBottom: "1px solid var(--ambo-border)" }}>
+            {exportError ? (
+              <div style={{ padding: "8px 16px" }}>
+                <p style={{ fontSize: 12, color: "#c0392b", margin: "0 0 6px" }}>{exportError}</p>
+                <button
+                  onClick={() => setExportError("")}
+                  style={{ fontSize: 12, color: "var(--ambo-text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleExport}
+                disabled={exporting}
+                style={{ ...menuItemStyle, color: exporting ? "var(--ambo-text-muted)" : "var(--ambo-text-primary)" }}
+              >
+                {exporting ? "Preparing export…" : "Export all homilies"}
+              </button>
             )}
           </div>
 

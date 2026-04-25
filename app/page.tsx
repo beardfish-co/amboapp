@@ -11,6 +11,7 @@ import PreachView from "./components/PreachView";
 import HomilyList from "./components/HomilyList";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
+import DormancyBanner from "./components/DormancyBanner";
 import JurisdictionPicker from "./components/JurisdictionPicker";
 import {
   LectionaryFamily,
@@ -36,6 +37,12 @@ export default function AmboApp() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const [idHydrated, setIdHydrated] = useState(false);
+
+  // Dormancy state — computed at app load from last homily activity
+  type DormancyState = "active" | "warning" | "dormant";
+  const [dormancyState, setDormancyState] = useState<DormancyState>("active");
+  const [weeksSinceActive, setWeeksSinceActive] = useState(0);
+  const [dormancyDismissed, setDormancyDismissed] = useState(false);
 
   // Jurisdiction state
   // null = not yet loaded from auth; undefined = loaded, not set (show picker)
@@ -87,6 +94,33 @@ export default function AmboApp() {
               .maybeSingle();
             if (data?.id) resolved = data.id;
           }
+
+          // ── Dormancy check ───────────────────────────────────────────
+          // Find the most recent homily activity for this priest.
+          // If inactive 3–4 weeks → warning banner; 4+ weeks → read-only.
+          try {
+            const { data: lastActive } = await supabase
+              .from("homilies")
+              .select("updated_at")
+              .eq("user_id", user.id)
+              .order("updated_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const lastDate = lastActive?.updated_at
+              ? new Date(lastActive.updated_at)
+              : new Date(user.created_at);   // no homilies yet — use signup date
+
+            const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+            const weeks = (Date.now() - lastDate.getTime()) / msPerWeek;
+
+            if (!cancelled) {
+              setWeeksSinceActive(weeks);
+              if (weeks >= 4) setDormancyState("dormant");
+              else if (weeks >= 3) setDormancyState("warning");
+              else setDormancyState("active");
+            }
+          } catch { /* offline — ignore dormancy check */ }
         }
       } catch { /* offline — leave as defaults */ }
 
@@ -231,6 +265,15 @@ export default function AmboApp() {
         </div>
       </header>
 
+      {/* Dormancy banner */}
+      {!dormancyDismissed && dormancyState !== "active" && (
+        <DormancyBanner
+          state={dormancyState}
+          weeksSinceActive={weeksSinceActive}
+          onDismiss={dormancyState === "warning" ? () => setDormancyDismissed(true) : undefined}
+        />
+      )}
+
       {/* Main content */}
       <main style={{
         flex: 1,
@@ -262,6 +305,8 @@ export default function AmboApp() {
                 discernmentVersion={discernmentVersion}
                 onFlushRef={flushWriteRef}
                 onLiveContent={setLiveContent}
+                isDormant={dormancyState === "dormant"}
+                onReengage={() => { setDormancyState("active"); setDormancyDismissed(true); }}
               />
               </ErrorBoundary>
             </div>

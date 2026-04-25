@@ -34,6 +34,8 @@ interface WriteViewProps {
   discernmentVersion?: number;
   onFlushRef?: React.MutableRefObject<(() => Promise<void>) | null>;
   onLiveContent?: (data: { title: string; content: string }) => void;
+  isDormant?: boolean;
+  onReengage?: () => void;
 }
 
 function toIsoDate(d: Date): string {
@@ -139,6 +141,8 @@ export default function WriteView({
   discernmentVersion,
   onFlushRef,
   onLiveContent,
+  isDormant = false,
+  onReengage,
   readingsSource = "universalis",
 }: WriteViewProps) {
   // Seed title from localStorage immediately so the input is never blank
@@ -974,6 +978,66 @@ export default function WriteView({
 
       {/* Glass Panel: title + body live on one surface, a single sheet
           of paper inside the Ambo room. 72% glass, blur+saturate chrome. */}
+      <div style={{ position: "relative" }}>
+      {/* Dormancy overlay — read-only frost when account is dormant */}
+      {isDormant && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 10,
+          background: "var(--ambo-surface)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          borderRadius: "var(--ambo-radius)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 12,
+          padding: 40,
+          textAlign: "center",
+        }}>
+          <p style={{
+            margin: 0,
+            fontFamily: "var(--ambo-font-ui)",
+            fontSize: 15,
+            color: "var(--ambo-text-secondary)",
+            lineHeight: 1.6,
+            maxWidth: 360,
+          }}>
+            Your writing space is in reading mode.
+          </p>
+          <p style={{
+            margin: 0,
+            fontFamily: "var(--ambo-font-ui)",
+            fontSize: 13,
+            color: "var(--ambo-text-muted)",
+            fontStyle: "italic",
+            marginBottom: 16,
+          }}>
+            Open the Reflect tab to begin preparing for Sunday — writing will unlock automatically.
+          </p>
+          <button
+            onClick={onReengage}
+            style={{
+              padding: "10px 22px",
+              background: "var(--ambo-accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: "var(--ambo-radius-pill)",
+              fontSize: 13,
+              fontWeight: 600,
+              fontFamily: "var(--ambo-font-ui)",
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "var(--ambo-accent-hover)")}
+            onMouseLeave={e => (e.currentTarget.style.background = "var(--ambo-accent)")}
+          >
+            Start writing for this Sunday
+          </button>
+        </div>
+      )}
       <div
         className="ambo-write-panel"
         style={{
@@ -1271,6 +1335,8 @@ export default function WriteView({
       </div>
       </div>
       {/* /Glass Panel */}
+      </div>
+      {/* /Dormancy wrapper */}
 
       {/* Undo pill — shown after reading insert or drag-reorder */}
       {undoPillVisible && (
