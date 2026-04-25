@@ -928,9 +928,7 @@ export default function ReflectView({
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
                     }}>
-                      {magisteriumContent.split(/
-\s*
-/).filter(Boolean).map((block, bi) => {
+                      {magisteriumContent.split(/\n\s*\n/).filter(Boolean).map((block, bi) => {
                         const trimmed = block.trim();
                         // Section header ## ...
                         if (trimmed.startsWith("## ")) {
