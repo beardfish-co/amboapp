@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
         <Section title="Who we are">
           <p style={body}>
-            Ambo is operated by <strong>[LEGAL_ENTITY_NAME]</strong> ("we", "us", "our"). If you have any questions about this policy or how we handle your data, please contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>.
+            Ambo is operated by <strong>Beard Monkey (ABN 94 832 061 094)</strong> ("we", "us", "our"). If you have any questions about this policy or how we handle your data, please contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>.
           </p>
         </Section>
 

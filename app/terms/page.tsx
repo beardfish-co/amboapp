@@ -40,7 +40,7 @@ export default function TermsPage() {
 
         <Section title="What Ambo is">
           <p style={body}>
-            Ambo is a homily preparation tool for Catholic priests. It provides a space to reflect on the Sunday and weekday readings, write homily drafts, and keep notes across the liturgical year. It is operated by <strong>[LEGAL_ENTITY_NAME]</strong>.
+            Ambo is a homily preparation tool for Catholic priests. It provides a space to reflect on the Sunday and weekday readings, write homily drafts, and keep notes across the liturgical year. It is operated by <strong>Beard Monkey (ABN 94 832 061 094)</strong>.
           </p>
           <p style={body}>
             Ambo is currently in beta. Access is by invitation only. Features may change, and the service may be updated or interrupted without prior notice during this period.
