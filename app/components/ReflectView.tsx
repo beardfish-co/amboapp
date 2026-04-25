@@ -919,31 +919,82 @@ export default function ReflectView({
                           )}
 
                           {showAllFathers ? (
-                            // ── Full Catena view ──────────────────────────
-                            catenaBlocks.map((block, bi) => (
-                              <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
-                                <div style={{
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  letterSpacing: "0.04em",
-                                  textTransform: "uppercase",
-                                  color: "var(--ambo-text-muted)",
-                                  marginBottom: 6,
-                                }}>
-                                  {catenaParsedRef ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}` : `v. ${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}`}
+                            // ── Full Catena view — same grouping logic as default view ──
+                            catenaBlocks.map((block, bi) => {
+                              const isGrouped = block.entries.length > 1;
+                              const blockRef = catenaParsedRef
+                                ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}`
+                                : `v. ${block.verseStart}${block.verseEnd !== block.verseStart ? `–${block.verseEnd}` : ""}`;
+                              return (
+                                <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
+                                  {isGrouped && (
+                                    <div style={{
+                                      fontSize: 10,
+                                      fontWeight: 700,
+                                      letterSpacing: "0.08em",
+                                      textTransform: "uppercase",
+                                      color: "var(--ambo-text-muted)",
+                                      marginBottom: 8,
+                                    }}>
+                                      {blockRef}
+                                    </div>
+                                  )}
+                                  {block.entries.map((ent, ei) => {
+                                    const fatherName = normalizeFatherName(ent.father);
+                                    const noteKey = `${fatherName}${ent.citation ? `, ${ent.citation}` : ""} — ${blockRef}`;
+                                    const inlineRef = !isGrouped ? blockRef : undefined;
+                                    return (
+                                      <div key={ei} style={{
+                                        display: "flex",
+                                        alignItems: "baseline",
+                                        justifyContent: "space-between",
+                                        gap: 10,
+                                        paddingLeft: 12,
+                                        borderLeft: "2px solid var(--ambo-accent-light)",
+                                        marginBottom: ei === block.entries.length - 1 ? 0 : 8,
+                                      }}>
+                                        <div style={{ flex: 1 }}>
+                                          <div style={{
+                                            display: "flex",
+                                            gap: 6,
+                                            fontSize: 13,
+                                            lineHeight: 1.6,
+                                            color: "var(--ambo-text-secondary)",
+                                            marginBottom: 3,
+                                          }}>
+                                            <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
+                                            <span>
+                                              <strong>{fatherName}</strong>
+                                              {ent.citation && <span style={{ marginLeft: 6 }}>{ent.citation}</span>}
+                                              {inlineRef && (
+                                                <span style={{ marginLeft: 6, opacity: 0.5, fontStyle: "italic", fontSize: 11 }}>
+                                                  {inlineRef}
+                                                </span>
+                                              )}
+                                            </span>
+                                          </div>
+                                          <div style={{
+                                            fontSize: 13,
+                                            color: "var(--ambo-text-secondary)",
+                                            lineHeight: 1.6,
+                                            fontStyle: "italic",
+                                          }}>
+                                            {ent.text}
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => appendToNotes(noteKey, ent.text)}
+                                          style={sendToNotesStyle}
+                                          title="Add to your notes"
+                                        >
+                                          → note
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
-                                {block.entries.map((ent, ei) =>
-                                  renderEntry(
-                                    normalizeFatherName(ent.father),
-                                    ent.citation,
-                                    ent.text,
-                                    `${normalizeFatherName(ent.father)}${ent.citation ? `, ${ent.citation}` : ""} — ${r.reference}`,
-                                    `${bi}-${ei}`,
-                                    ei === block.entries.length - 1,
-                                  )
-                                )}
-                              </div>
-                            ))
+                              );
+                            })
                           ) : (
                             // ── Default curated view ─────────────────────
                             // Group citations by verse cluster.
