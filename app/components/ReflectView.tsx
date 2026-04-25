@@ -755,7 +755,7 @@ export default function ReflectView({
                   <div style={{
                     height: 1,
                     background: "var(--ambo-border)",
-                    margin: "20px 0 10px",
+                    margin: expanded ? "20px 0 10px" : "12px 0 10px",
                   }} />
                   <button
                     onClick={() => setExpandedSlot(expanded ? null : r.id)}
@@ -1169,7 +1169,7 @@ export default function ReflectView({
                   <div style={{
                     height: 1,
                     background: "var(--ambo-border)",
-                    margin: "4px 0 10px",
+                    margin: fathersExpanded ? "20px 0 10px" : "12px 0 10px",
                   }} />
                   <button
                     onClick={() => setTraditionExpanded((v) => !v)}
