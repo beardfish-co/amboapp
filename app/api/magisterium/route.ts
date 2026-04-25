@@ -1,6 +1,6 @@
 // GET /api/magisterium?date=YYYYMMDD
 //
-// Returns magisterial citations relevant to the Sunday Gospel, sourced from
+// Returns magisterial teaching relevant to the Sunday Gospel, sourced from
 // the Magisterium AI API. Responses are cached in Supabase — one generation
 // per liturgical day, shared across all priests.
 //
@@ -8,13 +8,10 @@
 //   1. Check magisterium_cache WHERE date = ?
 //   2. If present: return immediately (cached: true).
 //   3. Else: fetch Gospel reference from readings API, query Magisterium AI,
-//      parse citations from response, insert into cache, return.
+//      store raw response in cache, return.
 //
 // Response shape:
-//   {
-//     citations: Array<{ text: string; source: string }>;
-//     cached: boolean;
-//   }
+//   { content: string; cached: boolean }
 //
 // Error handling:
 //   400 — missing or invalid date param
@@ -23,102 +20,48 @@
 // Auth: requires an authenticated user (RLS enforced on magisterium_cache).
 //
 // Attribution: Magisterium API Terms §4.5 requires "Powered by Magisterium AI"
-// to appear in any UI that surfaces this data. See ReflectView.tsx.
+// in any UI that surfaces this data. See ReflectView.tsx.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-interface MagisteriumCitation {
-  text: string;
-  source: string;
-}
-
 interface CachedRow {
-  citations: MagisteriumCitation[];
+  content: string;
 }
 
 const MAGISTERIUM_API_URL =
   "https://www.magisterium.com/api/v1/chat/completions";
 
-// We ask for SOURCE: / QUOTE: blocks — simpler than JSON and more reliably
-// followed by a model trained for theological prose responses.
 const SYSTEM_PROMPT = `You are a theological reference assistant for Catholic priests preparing a homily.
-Given a Gospel passage, identify 3 to 4 relevant quotations from official magisterial sources — 
-such as the Catechism of the Catholic Church, papal encyclicals, Vatican II documents, 
-or apostolic exhortations — that illuminate the central themes of the passage for preaching.
+Given a Gospel passage, draw on the tradition of the Church to provide 3 to 4 relevant quotations or 
+teachings from Church documents — the Catechism of the Catholic Church, papal encyclicals, Vatican II 
+documents, or apostolic exhortations — that illuminate the central themes of the passage for preaching.
 
-Format your response using only this pattern, with no introduction, no conclusion, and no other text:
+For each citation, include the source document and paragraph number in parentheses directly after the quote — 
+for example: (CCC §1234) or (Gaudium et Spes §22). Do not use footnote markers like [^1].
 
-SOURCE: [Document name and paragraph or article number]
-QUOTE: [Exact quote from the document]
-
-SOURCE: [Document name and paragraph or article number]
-QUOTE: [Exact quote from the document]
-
-Repeat for each citation. Nothing else.`;
+Write in clear prose. Use **bold** for document titles. Use > blockquote for direct quotations. 
+Do not end with questions, offers to assist further, or invitations to reply.`;
 
 function buildUserPrompt(gospelRef: string, dayName: string): string {
-  return `The Gospel reading is ${gospelRef} (${dayName}). Provide 3 to 4 magisterial citations for a priest preparing a homily on this passage.`;
+  return `The Gospel reading is ${gospelRef} (${dayName}). Provide 3 to 4 magisterial or patristic citations for a priest preparing a homily on this passage.`;
 }
 
 function parseCompactDate(s: string): boolean {
   return /^\d{8}$/.test(s);
 }
 
-// Parse SOURCE: / QUOTE: blocks from the model response.
-// Falls back to treating the full response as a single citation if the
-// structured format wasn't followed.
-function parseCitations(content: string): MagisteriumCitation[] {
-  const citations: MagisteriumCitation[] = [];
-
-  // Split on blank lines to get candidate blocks
-  const blocks = content.split(/\n\s*\n/).filter((b) => b.trim());
-
-  for (const block of blocks) {
-    const sourceMatch = block.match(/SOURCE:\s*(.+)/i);
-    const quoteMatch = block.match(/QUOTE:\s*([\s\S]+)/i);
-    if (sourceMatch && quoteMatch) {
-      citations.push({
-        source: sourceMatch[1].trim(),
-        text: quoteMatch[1].trim(),
-      });
-    }
-  }
-
-  // If the structured format wasn't followed, try a line-by-line approach
-  if (citations.length === 0) {
-    const lines = content.split("\n");
-    let currentSource = "";
-    let currentQuote = "";
-    for (const line of lines) {
-      const s = line.match(/SOURCE:\s*(.+)/i);
-      const q = line.match(/QUOTE:\s*(.+)/i);
-      if (s) {
-        if (currentSource && currentQuote) {
-          citations.push({ source: currentSource, text: currentQuote });
-        }
-        currentSource = s[1].trim();
-        currentQuote = "";
-      } else if (q) {
-        currentQuote = q[1].trim();
-      } else if (currentQuote && line.trim()) {
-        currentQuote += " " + line.trim();
-      }
-    }
-    if (currentSource && currentQuote) {
-      citations.push({ source: currentSource, text: currentQuote });
-    }
-  }
-
-  // Last resort: return the whole response as a single citation block
-  if (citations.length === 0 && content.trim()) {
-    citations.push({
-      source: "Magisterium AI",
-      text: content.trim(),
-    });
-  }
-
-  return citations;
+// Strip artefacts that don't belong in the priest's reading pane:
+// — trailing interactive offers ("If you want, tell me...")
+// — footnote reference markers ([^1], [^3] etc.) whose definitions
+//   never appear in the response
+function cleanContent(raw: string): string {
+  return raw
+    .replace(/\[\^\w+\]/g, "")                        // footnote refs
+    .replace(/\n*If you want[^]*$/i, "")               // trailing offer
+    .replace(/\n*Would you like[^]*$/i, "")            // alternate phrasing
+    .replace(/\n*Let me know[^]*$/i, "")               // alternate phrasing
+    .trim();
 }
 
 export async function GET(req: NextRequest) {
@@ -137,12 +80,12 @@ export async function GET(req: NextRequest) {
   // 1. Cache check
   const { data: cached } = await supabase
     .from("magisterium_cache")
-    .select("citations")
+    .select("content")
     .eq("date", date)
     .maybeSingle<CachedRow>();
 
   if (cached) {
-    return NextResponse.json({ citations: cached.citations, cached: true });
+    return NextResponse.json({ content: cached.content, cached: true });
   }
 
   // 2. Fetch Gospel reference from the readings API
@@ -209,35 +152,31 @@ export async function GET(req: NextRequest) {
   }
 
   interface MagisteriumResponse {
-    choices: Array<{
-      message: { content: string };
-    }>;
+    choices: Array<{ message: { content: string } }>;
   }
   const magData: MagisteriumResponse = await magResponse.json();
-  const content = magData.choices?.[0]?.message?.content ?? "";
+  const raw = magData.choices?.[0]?.message?.content ?? "";
 
-  if (!content) {
+  if (!raw) {
     return NextResponse.json(
       { error: "Empty response from Magisterium AI" },
       { status: 500 }
     );
   }
 
-  // 4. Parse citations from the response
-  const citations = parseCitations(content);
+  const content = cleanContent(raw);
 
-  // 5. Cache the result (ignore race-condition duplicates)
+  // 4. Cache the result (ignore race-condition duplicates — 23505)
   const { error: insertErr } = await supabase.from("magisterium_cache").insert({
     date,
     gospel_ref: gospel.reference,
     day_name: readings.dayName,
-    citations,
+    content,
   });
 
   if (insertErr && insertErr.code !== "23505") {
-    // 23505 = unique_violation — expected under race, safe to ignore
     console.error("[magisterium] cache insert error:", insertErr);
   }
 
-  return NextResponse.json({ citations, cached: false });
+  return NextResponse.json({ content, cached: false });
 }

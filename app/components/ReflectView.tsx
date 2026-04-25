@@ -106,8 +106,8 @@ export default function ReflectView({
   const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
   const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
   // Magisterium AI — magisterial tradition citations for the Gospel
-  interface MagisteriumCitation { text: string; source: string; }
-  const [magisteriumCitations, setMagisteriumCitations] = useState<MagisteriumCitation[] | null>(null);
+  // Magisterium AI — magisterial tradition layer for the Gospel
+  const [magisteriumContent, setMagisteriumContent] = useState<string | null>(null);
   const [magisteriumLoading, setMagisteriumLoading] = useState<boolean>(false);
   const [traditionExpanded, setTraditionExpanded] = useState<boolean>(false);
   // Seed — the Directory's "one principal grace" externalised as 4 lines
@@ -335,26 +335,26 @@ export default function ReflectView({
   // Fetch Magisterium AI citations when the Gospel and sundayDate are known
   useEffect(() => {
     if (!readings || !sundayDate) {
-      setMagisteriumCitations(null);
+      setMagisteriumContent(null);
       return;
     }
     const gospel = readings.readings.find((r) => r.id === "gospel");
     if (!gospel?.reference) {
-      setMagisteriumCitations(null);
+      setMagisteriumContent(null);
       return;
     }
     // Convert sundayDate (YYYY-MM-DD) → YYYYMMDD for the API
     const compactDate = sundayDate.replace(/-/g, "");
     let cancelled = false;
     setMagisteriumLoading(true);
-    setMagisteriumCitations(null);
+    setMagisteriumContent(null);
     setTraditionExpanded(false);
     (async () => {
       try {
         const res = await fetch(`/api/magisterium?date=${compactDate}`);
         if (!res.ok) return;
-        const d: { citations?: MagisteriumCitation[] } = await res.json();
-        if (!cancelled) setMagisteriumCitations(d.citations ?? []);
+        const d: { content?: string } = await res.json();
+        if (!cancelled) setMagisteriumContent(d.content ?? null);
       } catch {
         /* Magisterium unavailable — gracefully absent */
       } finally {
@@ -907,7 +907,7 @@ export default function ReflectView({
               )}
 
               {/* Magisterium AI — magisterial tradition layer, Gospel only */}
-              {r.id === "gospel" && magisteriumCitations && magisteriumCitations.length > 0 && (
+              {r.id === "gospel" && magisteriumContent && (
                 <>
                   <div style={{
                     height: 1,
@@ -920,9 +920,6 @@ export default function ReflectView({
                     aria-expanded={traditionExpanded}
                   >
                     <span style={{ fontStyle: "italic" }}>tradition</span>
-                    <span style={{ fontSize: 10, opacity: 0.55 }}>
-                      {magisteriumCitations.length}
-                    </span>
                     <span style={{ fontSize: 10, opacity: 0.6 }}>{traditionExpanded ? "–" : "+"}</span>
                   </button>
 
@@ -931,50 +928,71 @@ export default function ReflectView({
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
                     }}>
-                      {magisteriumCitations.map((cit, ci) => (
-                        <div key={ci} style={{
-                          display: "flex",
-                          alignItems: "baseline",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          padding: "6px 0",
-                          borderBottom: ci < magisteriumCitations.length - 1
-                            ? "1px solid var(--ambo-border)"
-                            : "none",
-                        }}>
-                          <div style={{
-                            fontSize: 13,
-                            color: "var(--ambo-text-secondary)",
-                            lineHeight: 1.55,
-                            flex: 1,
-                          }}>
-                            <span style={{
-                              display: "block",
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: "var(--ambo-text-primary)",
-                              marginBottom: 3,
+                      {magisteriumContent.split(/
+\s*
+/).filter(Boolean).map((block, bi) => {
+                        const trimmed = block.trim();
+                        // Section header ## ...
+                        if (trimmed.startsWith("## ")) {
+                          return (
+                            <div key={bi} style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "var(--ambo-text-muted)",
+                              marginTop: bi === 0 ? 0 : 14,
+                              marginBottom: 4,
                             }}>
-                              {cit.source}
-                            </span>
-                            <span style={{ fontStyle: "italic" }}>{cit.text}</span>
-                          </div>
-                          <button
-                            onClick={() => appendToNotes(cit.source, cit.text)}
-                            style={sendToNotesStyle}
-                            title="Add to your notes"
-                          >
-                            → note
-                          </button>
-                        </div>
-                      ))}
+                              {trimmed.slice(3)}
+                            </div>
+                          );
+                        }
+                        // Blockquote > ...
+                        if (trimmed.startsWith("> ")) {
+                          const lines = trimmed.split("
+").map(l => l.replace(/^>\s?/, "")).join(" ");
+                          return (
+                            <div key={bi} style={{
+                              fontStyle: "italic",
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                              color: "var(--ambo-text-secondary)",
+                              paddingLeft: 10,
+                              borderLeft: "2px solid var(--ambo-border)",
+                              margin: "6px 0",
+                            }}>
+                              {lines}
+                            </div>
+                          );
+                        }
+                        // Regular paragraph — render **bold** inline
+                        const renderBold = (text: string) => {
+                          const parts = text.split(/(\*\*[^*]+\*\*)/g);
+                          return parts.map((p, pi) =>
+                            p.startsWith("**") && p.endsWith("**")
+                              ? <strong key={pi}>{p.slice(2, -2)}</strong>
+                              : <span key={pi}>{p}</span>
+                          );
+                        };
+                        return (
+                          <p key={bi} style={{
+                            fontSize: 13,
+                            lineHeight: 1.6,
+                            color: "var(--ambo-text-secondary)",
+                            margin: "6px 0 0",
+                          }}>
+                            {renderBold(trimmed)}
+                          </p>
+                        );
+                      })}
                     </div>
                     {/* Attribution — required by Magisterium API Terms §4.5 */}
                     <div style={{
-                      marginTop: 8,
+                      marginTop: 10,
                       fontSize: 10,
                       color: "var(--ambo-text-muted)",
-                      opacity: 0.55,
+                      opacity: 0.5,
                       textAlign: "right",
                     }}>
                       Powered by Magisterium AI
@@ -984,7 +1002,7 @@ export default function ReflectView({
               )}
 
               {/* Loading hint for tradition (only while fetch is in-flight) */}
-              {r.id === "gospel" && magisteriumLoading && !magisteriumCitations && (
+              {r.id === "gospel" && magisteriumLoading && !magisteriumContent && (
                 <div style={{
                   marginTop: 12,
                   fontSize: 11,
