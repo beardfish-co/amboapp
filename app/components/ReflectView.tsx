@@ -1141,18 +1141,26 @@ export default function ReflectView({
                           margin: "0 24px",
                         }} />
                         <div style={{ padding: "20px 24px 24px" }}>
-                          {splitReadingParagraphs(r.text).map((p, i) => (
-                            <p key={i} style={{
-                              fontFamily: "var(--ambo-font-reading)",
-                              fontSize: 16,
-                              lineHeight: 1.95,
-                              color: "var(--ambo-text-primary)",
-                              fontStyle: r.id === "psalm" ? "italic" : "normal",
-                              margin: "0 0 22px",
-                            }}>
-                              {p}
-                            </p>
-                          ))}
+                          {(() => {
+                            const paras = splitReadingParagraphs(r.text);
+                            return paras.map((p, i) => {
+                              const isVerse = p.length <= 80;
+                              const nextIsVerse = i < paras.length - 1 && paras[i + 1].length <= 80;
+                              const mb = isVerse && nextIsVerse ? 4 : 22;
+                              return (
+                                <p key={i} style={{
+                                  fontFamily: "var(--ambo-font-reading)",
+                                  fontSize: 16,
+                                  lineHeight: 1.95,
+                                  color: "var(--ambo-text-primary)",
+                                  fontStyle: r.id === "psalm" ? "italic" : "normal",
+                                  margin: `0 0 ${mb}px`,
+                                }}>
+                                  {p}
+                                </p>
+                              );
+                            });
+                          })()}
 
                           {/* Reflect prompts for weekday readings */}
                           {(() => {
