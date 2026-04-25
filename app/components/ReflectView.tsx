@@ -830,10 +830,7 @@ export default function ReflectView({
                   </button>
 
                   <SlideReveal open={fathersExpanded} marginTop={fathersExpanded ? 12 : 0}>
-                    <div style={{
-                      paddingLeft: 12,
-                      borderLeft: "2px solid var(--ambo-accent-light)",
-                    }}>
+                    <div>
                       {catenaBlocks.map((block, bi) => (
                         <div key={bi} style={{ marginBottom: bi === catenaBlocks.length - 1 ? 0 : 16 }}>
                           <div style={{
@@ -852,7 +849,9 @@ export default function ReflectView({
                               alignItems: "baseline",
                               justifyContent: "space-between",
                               gap: 10,
-                              padding: "6px 0",
+                              paddingLeft: 12,
+                              borderLeft: "2px solid var(--ambo-accent-light)",
+                              marginBottom: ei === block.entries.length - 1 ? 0 : 8,
                             }}>
                               <div style={{
                                 fontSize: 13,
