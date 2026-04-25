@@ -220,8 +220,8 @@ export default function OnboardingTour({ mode, setMode }: Props) {
         // Scroll the element into view within its container before measuring.
         // This handles cases where the target is below the fold inside a
         // scrollable panel (e.g. reflect-prompts on iPad landscape).
-        el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "nearest", inline: "nearest" });
-        // Brief settle so the browser has time to apply the scroll reflow
+        el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        // Settle time must cover the smooth scroll duration (~300ms) before measuring
         settleT = setTimeout(() => {
           const rect = el.getBoundingClientRect();
           // Only use the measured position if the element is actually visible
@@ -232,7 +232,7 @@ export default function OnboardingTour({ mode, setMode }: Props) {
             rect.right  <= window.innerWidth;
           setPos(inViewport ? calcPos(rect, STEPS[step].prefer, STEPS[step].popoverAlign) : null);
           setReady(true);
-        }, 60);
+        }, 380);
       } else {
         // Target not found — centre fallback
         setReady(true);
