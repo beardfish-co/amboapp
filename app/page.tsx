@@ -113,11 +113,14 @@ export default function AmboApp() {
 
             const msPerWeek = 7 * 24 * 60 * 60 * 1000;
             const weeks = (Date.now() - lastDate.getTime()) / msPerWeek;
+            // Dormancy thresholds: warn at 15 months (~65 weeks), dormant at 18 months (~78 weeks)
+            const WEEKS_WARNING = 15 * (365.25 / 12 / 7); // ~65.2 weeks
+            const WEEKS_DORMANT = 18 * (365.25 / 12 / 7); // ~78.3 weeks
 
             if (!cancelled) {
               setWeeksSinceActive(weeks);
-              if (weeks >= 4) setDormancyState("dormant");
-              else if (weeks >= 3) setDormancyState("warning");
+              if (weeks >= WEEKS_DORMANT) setDormancyState("dormant");
+              else if (weeks >= WEEKS_WARNING) setDormancyState("warning");
               else setDormancyState("active");
             }
           } catch { /* offline — ignore dormancy check */ }

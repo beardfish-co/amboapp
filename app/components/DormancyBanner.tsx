@@ -13,6 +13,7 @@ interface Props {
 
 export default function DormancyBanner({ state, weeksSinceActive, onDismiss }: Props) {
   const weeks = Math.floor(weeksSinceActive);
+  const months = Math.floor(weeksSinceActive / (365.25 / 12 / 7));
 
   const handleExport = async () => {
     try {
@@ -53,7 +54,7 @@ export default function DormancyBanner({ state, weeksSinceActive, onDismiss }: P
           gap: 16,
         }}>
           <p style={{ margin: 0, fontSize: 13, color: "var(--ambo-text-secondary)", lineHeight: 1.5 }}>
-            It&rsquo;s been {weeks} {weeks === 1 ? "week" : "weeks"} since your last homily.{" "}
+            It&rsquo;s been {months} {months === 1 ? "month" : "months"} since your last homily.{" "}
             <span style={{ color: "var(--ambo-accent)" }}>Sunday&rsquo;s readings are waiting.</span>
           </p>
           {onDismiss && (
@@ -101,7 +102,7 @@ export default function DormancyBanner({ state, weeksSinceActive, onDismiss }: P
           Reading mode
         </div>
         <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--ambo-text-primary)", lineHeight: 1.6 }}>
-          Your account is in reading mode after {weeks} weeks without a homily.
+          Your account is in reading mode after {months} {months === 1 ? "month" : "months"} without a homily.
           You can browse and export all your work. To write again, simply start
           preparing for this Sunday.
         </p>
