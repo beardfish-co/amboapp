@@ -948,8 +948,7 @@ export default function ReflectView({
                         }
                         // Blockquote > ...
                         if (trimmed.startsWith("> ")) {
-                          const lines = trimmed.split("
-").map(l => l.replace(/^>\s?/, "")).join(" ");
+                          const lines = trimmed.split("\n").map(l => l.replace(/^>\s?/, "")).join(" ");
                           return (
                             <div key={bi} style={{
                               fontStyle: "italic",
