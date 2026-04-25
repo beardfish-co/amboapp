@@ -919,7 +919,7 @@ export default function ReflectView({
                     style={affordanceStyle}
                     aria-expanded={traditionExpanded}
                   >
-                    <span style={{ fontStyle: "italic" }}>tradition</span>
+                    <span style={{ fontStyle: "italic" }}>magisterium</span>
                     <span style={{ fontSize: 10, opacity: 0.6 }}>{traditionExpanded ? "–" : "+"}</span>
                   </button>
 
@@ -980,14 +980,14 @@ export default function ReflectView({
                 </>
               )}
 
-              {/* Loading hint for tradition (only while fetch is in-flight) */}
+              {/* Loading hint for magisterium (only while fetch is in-flight) */}
               {r.id === "gospel" && magisteriumLoading && !magisteriumContent && (
                 <div style={{
                   marginTop: 12,
                   fontSize: 11,
                   color: "var(--ambo-text-muted)",
                 }}>
-                  <span style={{ opacity: 0.6 }}>loading tradition…</span>
+                  <span style={{ opacity: 0.6 }}>loading magisterium…</span>
                 </div>
               )}
                 </div>
