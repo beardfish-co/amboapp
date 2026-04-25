@@ -855,25 +855,20 @@ export default function ReflectView({
                             }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  letterSpacing: "0.06em",
-                                  textTransform: "uppercase",
-                                  color: "var(--ambo-text-muted)",
+                                  display: "flex",
+                                  gap: 6,
+                                  fontSize: 13,
+                                  lineHeight: 1.6,
+                                  color: "var(--ambo-text-secondary)",
                                   marginBottom: 3,
                                 }}>
-                                  {normalizeFatherName(ent.father)}
-                                  {ent.citation && (
-                                    <span style={{
-                                      fontWeight: 400,
-                                      textTransform: "none",
-                                      letterSpacing: 0,
-                                      fontStyle: "italic",
-                                      marginLeft: 6,
-                                    }}>
-                                      {ent.citation}
-                                    </span>
-                                  )}
+                                  <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
+                                  <span>
+                                    <strong>{normalizeFatherName(ent.father)}</strong>
+                                    {ent.citation && (
+                                      <span style={{ marginLeft: 6 }}>{ent.citation}</span>
+                                    )}
+                                  </span>
                                 </div>
                                 <div style={{
                                   fontSize: 13,
