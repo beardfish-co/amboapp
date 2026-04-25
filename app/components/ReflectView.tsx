@@ -768,18 +768,16 @@ export default function ReflectView({
 
                   <SlideReveal open={expanded} marginTop={expanded ? 12 : 0}>
                     <div
-                      {...(idx === 0 ? { "data-tour": "reflect-prompts" } : {})}
-                      style={{
-                      paddingLeft: 12,
-                      borderLeft: "2px solid var(--ambo-accent-light)",
-                    }}>
-                      {prompts.map((p) => (
+                      {...(idx === 0 ? { "data-tour": "reflect-prompts" } : {})}>
+                      {prompts.map((p, pi) => (
                         <div key={p.prompt} style={{
                           display: "flex",
                           alignItems: "flex-start",
                           justifyContent: "space-between",
                           gap: 10,
-                          padding: "6px 0",
+                          paddingLeft: 12,
+                          borderLeft: "2px solid var(--ambo-accent-light)",
+                          marginBottom: pi === prompts.length - 1 ? 0 : 16,
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
