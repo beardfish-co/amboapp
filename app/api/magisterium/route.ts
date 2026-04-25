@@ -18,7 +18,7 @@
 //
 // Error handling:
 //   400 — missing or invalid date param
-//   500 — upstream API failure or parse error
+//   500 — upstream API failure
 //
 // Auth: requires an authenticated user (RLS enforced on magisterium_cache).
 //
@@ -40,27 +40,85 @@ interface CachedRow {
 const MAGISTERIUM_API_URL =
   "https://www.magisterium.com/api/v1/chat/completions";
 
-const SYSTEM_PROMPT = `You are a theological reference assistant for Catholic preachers preparing a homily. 
+// We ask for SOURCE: / QUOTE: blocks — simpler than JSON and more reliably
+// followed by a model trained for theological prose responses.
+const SYSTEM_PROMPT = `You are a theological reference assistant for Catholic priests preparing a homily.
 Given a Gospel passage, identify 3 to 4 relevant quotations from official magisterial sources — 
 such as the Catechism of the Catholic Church, papal encyclicals, Vatican II documents, 
-or apostolic exhortations — that illuminate the central themes of the passage.
+or apostolic exhortations — that illuminate the central themes of the passage for preaching.
 
-Return only valid JSON in this exact format with no other text before or after:
-{
-  "citations": [
-    {
-      "text": "exact quote from the document",
-      "source": "Document name, §paragraph or article number"
-    }
-  ]
-}`;
+Format your response using only this pattern, with no introduction, no conclusion, and no other text:
+
+SOURCE: [Document name and paragraph or article number]
+QUOTE: [Exact quote from the document]
+
+SOURCE: [Document name and paragraph or article number]
+QUOTE: [Exact quote from the document]
+
+Repeat for each citation. Nothing else.`;
 
 function buildUserPrompt(gospelRef: string, dayName: string): string {
-  return `The Gospel reading is ${gospelRef} (${dayName}). Identify 3 to 4 relevant magisterial citations for a preacher preparing a homily on this passage.`;
+  return `The Gospel reading is ${gospelRef} (${dayName}). Provide 3 to 4 magisterial citations for a priest preparing a homily on this passage.`;
 }
 
 function parseCompactDate(s: string): boolean {
   return /^\d{8}$/.test(s);
+}
+
+// Parse SOURCE: / QUOTE: blocks from the model response.
+// Falls back to treating the full response as a single citation if the
+// structured format wasn't followed.
+function parseCitations(content: string): MagisteriumCitation[] {
+  const citations: MagisteriumCitation[] = [];
+
+  // Split on blank lines to get candidate blocks
+  const blocks = content.split(/\n\s*\n/).filter((b) => b.trim());
+
+  for (const block of blocks) {
+    const sourceMatch = block.match(/SOURCE:\s*(.+)/i);
+    const quoteMatch = block.match(/QUOTE:\s*([\s\S]+)/i);
+    if (sourceMatch && quoteMatch) {
+      citations.push({
+        source: sourceMatch[1].trim(),
+        text: quoteMatch[1].trim(),
+      });
+    }
+  }
+
+  // If the structured format wasn't followed, try a line-by-line approach
+  if (citations.length === 0) {
+    const lines = content.split("\n");
+    let currentSource = "";
+    let currentQuote = "";
+    for (const line of lines) {
+      const s = line.match(/SOURCE:\s*(.+)/i);
+      const q = line.match(/QUOTE:\s*(.+)/i);
+      if (s) {
+        if (currentSource && currentQuote) {
+          citations.push({ source: currentSource, text: currentQuote });
+        }
+        currentSource = s[1].trim();
+        currentQuote = "";
+      } else if (q) {
+        currentQuote = q[1].trim();
+      } else if (currentQuote && line.trim()) {
+        currentQuote += " " + line.trim();
+      }
+    }
+    if (currentSource && currentQuote) {
+      citations.push({ source: currentSource, text: currentQuote });
+    }
+  }
+
+  // Last resort: return the whole response as a single citation block
+  if (citations.length === 0 && content.trim()) {
+    citations.push({
+      source: "Magisterium AI",
+      text: content.trim(),
+    });
+  }
+
+  return citations;
 }
 
 export async function GET(req: NextRequest) {
@@ -87,7 +145,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ citations: cached.citations, cached: true });
   }
 
-  // 2. Need to generate — fetch Gospel reference from readings API first
+  // 2. Fetch Gospel reference from the readings API
   const readingsUrl = new URL("/api/readings", req.url);
   readingsUrl.searchParams.set("date", date);
   const readingsRes = await fetch(readingsUrl.toString());
@@ -158,27 +216,15 @@ export async function GET(req: NextRequest) {
   const magData: MagisteriumResponse = await magResponse.json();
   const content = magData.choices?.[0]?.message?.content ?? "";
 
-  // 4. Parse JSON from response
-  let citations: MagisteriumCitation[] = [];
-  try {
-    // Strip any markdown code fences the model might add
-    const cleaned = content.replace(/```json\n?|\n?```/g, "").trim();
-    const parsed = JSON.parse(cleaned) as { citations?: MagisteriumCitation[] };
-    citations = Array.isArray(parsed.citations) ? parsed.citations : [];
-  } catch (err) {
-    console.error("[magisterium] Failed to parse response JSON:", err, content);
+  if (!content) {
     return NextResponse.json(
-      { error: "Failed to parse Magisterium AI response" },
+      { error: "Empty response from Magisterium AI" },
       { status: 500 }
     );
   }
 
-  if (citations.length === 0) {
-    return NextResponse.json(
-      { error: "No citations returned from Magisterium AI" },
-      { status: 500 }
-    );
-  }
+  // 4. Parse citations from the response
+  const citations = parseCitations(content);
 
   // 5. Cache the result (ignore race-condition duplicates)
   const { error: insertErr } = await supabase.from("magisterium_cache").insert({
@@ -191,7 +237,6 @@ export async function GET(req: NextRequest) {
   if (insertErr && insertErr.code !== "23505") {
     // 23505 = unique_violation — expected under race, safe to ignore
     console.error("[magisterium] cache insert error:", insertErr);
-    // Still return the citations; cache miss on next request is acceptable
   }
 
   return NextResponse.json({ citations, cached: false });
