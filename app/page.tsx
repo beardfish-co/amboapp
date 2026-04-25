@@ -12,6 +12,7 @@ import HomilyList from "./components/HomilyList";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
+import SubscriptionBanner from "./components/SubscriptionBanner";
 import JurisdictionPicker from "./components/JurisdictionPicker";
 import {
   LectionaryFamily,
@@ -43,6 +44,15 @@ export default function AmboApp() {
   const [dormancyState, setDormancyState] = useState<DormancyState>("active");
   const [weeksSinceActive, setWeeksSinceActive] = useState(0);
   const [dormancyDismissed, setDormancyDismissed] = useState(false);
+
+  // Subscription state
+  interface SubscriptionData {
+    status: string;
+    trial_end: string | null;
+    current_period_end: string | null;
+    stripe_customer_id: string | null;
+  }
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
 
   // Jurisdiction state
   // null = not yet loaded from auth; undefined = loaded, not set (show picker)
@@ -127,6 +137,15 @@ export default function AmboApp() {
         }
       } catch { /* offline — leave as defaults */ }
 
+      // Fetch / initialise subscription row
+      try {
+        const subRes = await fetch("/api/stripe/subscription");
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          if (!cancelled) setSubscription(subData);
+        }
+      } catch { /* offline — ignore */ }
+
       if (cancelled) return;
 
       if (resolved) {
@@ -188,6 +207,36 @@ export default function AmboApp() {
   }, []);
 
   const attribution = SOURCE_ATTRIBUTION[readingsSource];
+
+  // Subscription helpers
+  const isSubscriptionActive = (() => {
+    if (!subscription) return true; // loading — assume active to avoid false paywall
+    if (subscription.status === "active") return true;
+    if (subscription.status === "trialing" && subscription.trial_end) {
+      return new Date(subscription.trial_end).getTime() > Date.now();
+    }
+    return false;
+  })();
+
+  const handleUpgrade = async (priceId: string) => {
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priceId }),
+      });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch { /* ignore */ }
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const { url } = await res.json();
+      if (url) window.location.href = url;
+    } catch { /* ignore */ }
+  };
 
   return (
     <div style={{
@@ -277,6 +326,15 @@ export default function AmboApp() {
         />
       )}
 
+      {/* Subscription banner — trial warning or paywall */}
+      {subscription && (
+        <SubscriptionBanner
+          subscription={subscription}
+          onUpgrade={handleUpgrade}
+          onManage={handleManageBilling}
+        />
+      )}
+
       {/* Main content */}
       <main style={{
         flex: 1,
@@ -308,8 +366,8 @@ export default function AmboApp() {
                 discernmentVersion={discernmentVersion}
                 onFlushRef={flushWriteRef}
                 onLiveContent={setLiveContent}
-                isDormant={dormancyState === "dormant"}
-                onReengage={() => { setDormancyState("active"); setDormancyDismissed(true); }}
+                isDormant={dormancyState === "dormant" || !isSubscriptionActive}
+                onReengage={isSubscriptionActive ? () => { setDormancyState("active"); setDormancyDismissed(true); } : undefined}
               />
               </ErrorBoundary>
             </div>
