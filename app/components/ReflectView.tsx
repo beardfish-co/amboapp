@@ -981,15 +981,22 @@ export default function ReflectView({
                         return elements;
                       })()}
                     </div>
-                    {/* Attribution — required by Magisterium API Terms §4.5 */}
-                    <div style={{
-                      marginTop: 10,
-                      fontSize: 10,
-                      color: "var(--ambo-text-muted)",
-                      opacity: 0.5,
-                      textAlign: "right",
-                    }}>
-                      Powered by Magisterium AI
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                      <button
+                        onClick={() => appendToNotes("Magisterium", magisteriumContent!)}
+                        style={sendToNotesStyle}
+                        title="Add to your notes"
+                      >
+                        → note
+                      </button>
+                      {/* Attribution — required by Magisterium API Terms §4.5 */}
+                      <div style={{
+                        fontSize: 10,
+                        color: "var(--ambo-text-muted)",
+                        opacity: 0.5,
+                      }}>
+                        Powered by Magisterium AI
+                      </div>
                     </div>
                   </SlideReveal>
                 </>
