@@ -1010,17 +1010,23 @@ export default function ReflectView({
                               </div>
                             ) : (
                               <div key={gi} style={{
+                                display: "flex",
+                                alignItems: "baseline",
+                                justifyContent: "space-between",
+                                gap: 10,
                                 paddingLeft: 12,
                                 borderLeft: "2px solid var(--ambo-accent-light)",
                                 marginBottom: 12,
                               }}>
-                                {group.map((line, li) => renderLine(line, li))}
+                                <div style={{ flex: 1 }}>
+                                  {group.map((line, li) => renderLine(line, li))}
+                                </div>
                                 <button
                                   onClick={() => {
                                     const { sourceTitle, quoteText } = extractCitation(group);
                                     appendToNotes(sourceTitle, quoteText);
                                   }}
-                                  style={{ ...sendToNotesStyle, marginTop: 6 }}
+                                  style={sendToNotesStyle}
                                   title="Add to your notes"
                                 >
                                   → note
