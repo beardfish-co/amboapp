@@ -732,9 +732,14 @@ export default function ReflectView({
                     fontStyle: r.id === "ps" ? "italic" : "normal",
                     whiteSpace: "pre-wrap",
                   }}>
-                    {paragraphs.map((para, i) => (
-                      <p key={i} style={{ margin: "0 0 28px" }}>{para}</p>
-                    ))}
+                    {paragraphs.map((para, i) => {
+                      // Short lines (≤80 chars) are poetic/verse — tighten the gap.
+                      // Long lines are prose — keep generous paragraph spacing.
+                      const isVerse = para.length <= 80;
+                      const nextIsVerse = i < paragraphs.length - 1 && paragraphs[i + 1].length <= 80;
+                      const mb = isVerse && nextIsVerse ? 4 : 28;
+                      return <p key={i} style={{ margin: `0 0 ${mb}px` }}>{para}</p>;
+                    })}
                   </div>
 
               {/* Discreet affordance row */}
