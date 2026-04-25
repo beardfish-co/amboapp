@@ -212,19 +212,36 @@ export default function OnboardingTour({ mode, setMode }: Props) {
     setPos(null);
     setReady(false);
 
+    let settleT: ReturnType<typeof setTimeout>;
+
     const position = () => {
       const el = document.querySelector(`[data-tour="${STEPS[step].target}"]`) as HTMLElement | null;
       if (el) {
-        const rect = el.getBoundingClientRect();
-        setPos(calcPos(rect, STEPS[step].prefer, STEPS[step].popoverAlign));
+        // Scroll the element into view within its container before measuring.
+        // This handles cases where the target is below the fold inside a
+        // scrollable panel (e.g. reflect-prompts on iPad landscape).
+        el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "nearest", inline: "nearest" });
+        // Brief settle so the browser has time to apply the scroll reflow
+        settleT = setTimeout(() => {
+          const rect = el.getBoundingClientRect();
+          // Only use the measured position if the element is actually visible
+          const inViewport =
+            rect.top    >= 0 &&
+            rect.bottom <= window.innerHeight &&
+            rect.left   >= 0 &&
+            rect.right  <= window.innerWidth;
+          setPos(inViewport ? calcPos(rect, STEPS[step].prefer, STEPS[step].popoverAlign) : null);
+          setReady(true);
+        }, 60);
+      } else {
+        // Target not found — centre fallback
+        setReady(true);
       }
-      // Mark ready whether or not target was found — centred fallback is fine
-      setReady(true);
     };
 
     const delay = STEPS[step].prepareDelay ?? 120;
     const t = setTimeout(position, delay);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); clearTimeout(settleT); };
   }, [step, visible, mobile, mode]);
 
   const fireCleanup = useCallback((s: number) => {
@@ -385,4 +402,5 @@ const accentBtn: React.CSSProperties = {
   fontFamily: "inherit",
   cursor: "pointer",
 };
+
 
