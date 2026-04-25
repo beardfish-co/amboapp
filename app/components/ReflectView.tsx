@@ -853,30 +853,36 @@ export default function ReflectView({
                               borderLeft: "2px solid var(--ambo-accent-light)",
                               marginBottom: ei === block.entries.length - 1 ? 0 : 8,
                             }}>
-                              <div style={{
-                                fontSize: 13,
-                                color: "var(--ambo-text-secondary)",
-                                lineHeight: 1.55,
-                                flex: 1,
-                              }}>
-                                <span style={{
-                                  fontWeight: 600,
-                                  color: "var(--ambo-text-primary)",
-                                  marginRight: 6,
+                              <div style={{ flex: 1 }}>
+                                <div style={{
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.06em",
+                                  textTransform: "uppercase",
+                                  color: "var(--ambo-text-muted)",
+                                  marginBottom: 3,
                                 }}>
                                   {normalizeFatherName(ent.father)}
-                                </span>
-                                {ent.citation && (
-                                  <span style={{
-                                    fontSize: 11,
-                                    color: "var(--ambo-text-muted)",
-                                    fontStyle: "italic",
-                                    marginRight: 6,
-                                  }}>
-                                    ({ent.citation})
-                                  </span>
-                                )}
-                                <span style={{ fontStyle: "italic" }}>{ent.text}</span>
+                                  {ent.citation && (
+                                    <span style={{
+                                      fontWeight: 400,
+                                      textTransform: "none",
+                                      letterSpacing: 0,
+                                      fontStyle: "italic",
+                                      marginLeft: 6,
+                                    }}>
+                                      {ent.citation}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{
+                                  fontSize: 13,
+                                  color: "var(--ambo-text-secondary)",
+                                  lineHeight: 1.6,
+                                  fontStyle: "italic",
+                                }}>
+                                  {ent.text}
+                                </div>
                               </div>
                               <button
                                 onClick={() => {
