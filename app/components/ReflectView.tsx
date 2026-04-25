@@ -105,6 +105,11 @@ export default function ReflectView({
   const [fathersExpanded, setFathersExpanded] = useState<boolean>(false);
   const [catenaBlocks, setCatenaBlocks] = useState<CatenaBlock[] | null>(null);
   const [catenaLoading, setCatenaLoading] = useState<boolean>(false);
+  // Magisterium AI — magisterial tradition citations for the Gospel
+  interface MagisteriumCitation { text: string; source: string; }
+  const [magisteriumCitations, setMagisteriumCitations] = useState<MagisteriumCitation[] | null>(null);
+  const [magisteriumLoading, setMagisteriumLoading] = useState<boolean>(false);
+  const [traditionExpanded, setTraditionExpanded] = useState<boolean>(false);
   // Seed — the Directory's "one principal grace" externalised as 4 lines
   const [seed, setSeed] = useState<string>("");
   const [seedWhyNow, setSeedWhyNow] = useState<string>("");
@@ -326,6 +331,40 @@ export default function ReflectView({
       cancelled = true;
     };
   }, [readings]);
+
+  // Fetch Magisterium AI citations when the Gospel and sundayDate are known
+  useEffect(() => {
+    if (!readings || !sundayDate) {
+      setMagisteriumCitations(null);
+      return;
+    }
+    const gospel = readings.readings.find((r) => r.id === "gospel");
+    if (!gospel?.reference) {
+      setMagisteriumCitations(null);
+      return;
+    }
+    // Convert sundayDate (YYYY-MM-DD) → YYYYMMDD for the API
+    const compactDate = sundayDate.replace(/-/g, "");
+    let cancelled = false;
+    setMagisteriumLoading(true);
+    setMagisteriumCitations(null);
+    setTraditionExpanded(false);
+    (async () => {
+      try {
+        const res = await fetch(`/api/magisterium?date=${compactDate}`);
+        if (!res.ok) return;
+        const d: { citations?: MagisteriumCitation[] } = await res.json();
+        if (!cancelled) setMagisteriumCitations(d.citations ?? []);
+      } catch {
+        /* Magisterium unavailable — gracefully absent */
+      } finally {
+        if (!cancelled) setMagisteriumLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [readings, sundayDate]);
 
   // Persist notes (debounced, 1.2s)
   const saveNotes = useCallback((value: string) => {
@@ -864,6 +903,94 @@ export default function ReflectView({
                   color: "var(--ambo-text-muted)",
                 }}>
                   <span style={{ opacity: 0.6 }}>loading patristic commentary…</span>
+                </div>
+              )}
+
+              {/* Magisterium AI — magisterial tradition layer, Gospel only */}
+              {r.id === "gospel" && magisteriumCitations && magisteriumCitations.length > 0 && (
+                <>
+                  <div style={{
+                    height: 1,
+                    background: "var(--ambo-border)",
+                    margin: "4px 0 10px",
+                  }} />
+                  <button
+                    onClick={() => setTraditionExpanded((v) => !v)}
+                    style={affordanceStyle}
+                    aria-expanded={traditionExpanded}
+                  >
+                    <span style={{ fontStyle: "italic" }}>tradition</span>
+                    <span style={{ fontSize: 10, opacity: 0.55 }}>
+                      {magisteriumCitations.length}
+                    </span>
+                    <span style={{ fontSize: 10, opacity: 0.6 }}>{traditionExpanded ? "–" : "+"}</span>
+                  </button>
+
+                  <SlideReveal open={traditionExpanded} marginTop={traditionExpanded ? 12 : 0}>
+                    <div style={{
+                      paddingLeft: 12,
+                      borderLeft: "2px solid var(--ambo-accent-light)",
+                    }}>
+                      {magisteriumCitations.map((cit, ci) => (
+                        <div key={ci} style={{
+                          display: "flex",
+                          alignItems: "baseline",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          padding: "6px 0",
+                          borderBottom: ci < magisteriumCitations.length - 1
+                            ? "1px solid var(--ambo-border)"
+                            : "none",
+                        }}>
+                          <div style={{
+                            fontSize: 13,
+                            color: "var(--ambo-text-secondary)",
+                            lineHeight: 1.55,
+                            flex: 1,
+                          }}>
+                            <span style={{
+                              display: "block",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "var(--ambo-text-primary)",
+                              marginBottom: 3,
+                            }}>
+                              {cit.source}
+                            </span>
+                            <span style={{ fontStyle: "italic" }}>{cit.text}</span>
+                          </div>
+                          <button
+                            onClick={() => appendToNotes(cit.source, cit.text)}
+                            style={sendToNotesStyle}
+                            title="Add to your notes"
+                          >
+                            → note
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Attribution — required by Magisterium API Terms §4.5 */}
+                    <div style={{
+                      marginTop: 8,
+                      fontSize: 10,
+                      color: "var(--ambo-text-muted)",
+                      opacity: 0.55,
+                      textAlign: "right",
+                    }}>
+                      Powered by Magisterium AI
+                    </div>
+                  </SlideReveal>
+                </>
+              )}
+
+              {/* Loading hint for tradition (only while fetch is in-flight) */}
+              {r.id === "gospel" && magisteriumLoading && !magisteriumCitations && (
+                <div style={{
+                  marginTop: 12,
+                  fontSize: 11,
+                  color: "var(--ambo-text-muted)",
+                }}>
+                  <span style={{ opacity: 0.6 }}>loading tradition…</span>
                 </div>
               )}
                 </div>
