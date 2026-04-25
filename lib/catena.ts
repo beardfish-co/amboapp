@@ -299,7 +299,6 @@ export type EnrichedEntry = {
 };
 
 function getTargetCount(readingLen: number): number {
-  if (readingLen <= 4) return 2;
   if (readingLen <= 10) return 3;
   if (readingLen <= 18) return 4;
   return 5;

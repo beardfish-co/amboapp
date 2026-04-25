@@ -895,6 +895,29 @@ export default function ReflectView({
 
                       return (
                         <div>
+                          {/* Section header — default view only */}
+                          {!showAllFathers && (
+                            <div style={{ marginBottom: 12 }}>
+                              <div style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: "0.06em",
+                                textTransform: "uppercase",
+                                color: "var(--ambo-text-primary)",
+                                marginBottom: 2,
+                              }}>
+                                From the Fathers
+                              </div>
+                              <div style={{
+                                fontSize: 11,
+                                color: "var(--ambo-text-muted)",
+                                fontStyle: "italic",
+                              }}>
+                                Selected highlights for this Gospel reading
+                              </div>
+                            </div>
+                          )}
+
                           {showAllFathers ? (
                             // ── Full Catena view ──────────────────────────
                             catenaBlocks.map((block, bi) => (
@@ -959,24 +982,32 @@ export default function ReflectView({
                           )}
 
                           {/* Expansion toggle */}
-                          <button
-                            onClick={() => setShowAllFathers((v) => !v)}
-                            style={{
-                              marginTop: 12,
-                              fontSize: 11,
-                              color: "var(--ambo-text-muted)",
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              cursor: "pointer",
-                              fontFamily: "inherit",
-                              opacity: 0.6,
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.6")}
-                          >
-                            {showAllFathers ? "↑ Show highlights" : "Show all from Catena Aurea"}
-                          </button>
+                          <div style={{
+                            marginTop: 14,
+                            paddingTop: 10,
+                            borderTop: "1px solid var(--ambo-border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}>
+                            <button
+                              onClick={() => setShowAllFathers((v) => !v)}
+                              style={{
+                                fontSize: 11,
+                                color: "var(--ambo-accent)",
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                fontWeight: 600,
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
+                              onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
+                            >
+                              {showAllFathers ? "↑ Show highlights only" : "Show all from Catena Aurea →"}
+                            </button>
+                          </div>
 
                           {/* Attribution — Catena Aurea compiled by St. Thomas Aquinas */}
                           <div style={{
