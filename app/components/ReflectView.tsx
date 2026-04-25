@@ -946,39 +946,108 @@ export default function ReflectView({
                             ))
                           ) : (
                             // ── Default curated view ─────────────────────
-                            defaultCitations.map((c, ci) => {
-                              // Verse label when the overlap span changes
-                              const prevCluster = ci > 0
-                                ? `${defaultCitations[ci - 1].overlapStart}-${defaultCitations[ci - 1].overlapEnd}`
-                                : null;
-                              const thisCluster = `${c.overlapStart}-${c.overlapEnd}`;
-                              const showVerseLabel = thisCluster !== prevCluster;
-                              return (
-                                <div key={ci}>
-                                  {showVerseLabel && (
-                                    <div style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      letterSpacing: "0.04em",
-                                      textTransform: "uppercase",
-                                      color: "var(--ambo-text-muted)",
-                                      marginBottom: 6,
-                                      marginTop: ci > 0 ? 14 : 0,
-                                    }}>
-                                      {catenaParsedRef ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${c.overlapStart}${c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}` : `v. ${c.overlapStart}${c.overlapEnd !== c.overlapStart ? `–${c.overlapEnd}` : ""}`}
-                                    </div>
-                                  )}
-                                  {renderEntry(
-                                    c.fatherName,
-                                    c.citation,
-                                    c.text,
-                                    `${c.fatherName}${c.citation ? `, ${c.citation}` : ""} — ${r.reference}`,
-                                    `default-${ci}`,
-                                    ci === defaultCitations.length - 1,
-                                  )}
-                                </div>
-                              );
-                            })
+                            // Group citations by verse cluster.
+                            // Multiple in same span → shared heading above.
+                            // Solo in its span → verse ref inline in metadata.
+                            (() => {
+                              const verseRef = (start: number, end: number) =>
+                                catenaParsedRef
+                                  ? `${catenaParsedRef.gospel} ${catenaParsedRef.chapter}:${start}${end !== start ? `–${end}` : ""}`
+                                  : `v. ${start}${end !== start ? `–${end}` : ""}`;
+
+                              // Build ordered groups
+                              const groups: Array<{ cluster: string; start: number; end: number; items: typeof defaultCitations }> = [];
+                              for (const c of defaultCitations) {
+                                const cluster = `${c.overlapStart}-${c.overlapEnd}`;
+                                const last = groups[groups.length - 1];
+                                if (last && last.cluster === cluster) {
+                                  last.items.push(c);
+                                } else {
+                                  groups.push({ cluster, start: c.overlapStart, end: c.overlapEnd, items: [c] });
+                                }
+                              }
+
+                              return groups.map((group, gi) => {
+                                const isGrouped = group.items.length > 1;
+                                const groupRef = verseRef(group.start, group.end);
+                                const isLastGroup = gi === groups.length - 1;
+                                return (
+                                  <div key={gi} style={{ marginTop: gi > 0 ? 14 : 0 }}>
+                                    {/* Shared verse heading — only when 2+ citations share the same span */}
+                                    {isGrouped && (
+                                      <div style={{
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        letterSpacing: "0.08em",
+                                        textTransform: "uppercase",
+                                        color: "var(--ambo-text-muted)",
+                                        marginBottom: 8,
+                                      }}>
+                                        {groupRef}
+                                      </div>
+                                    )}
+                                    {group.items.map((c, ci) => {
+                                      // Solo citation: verse ref goes inline in the note key and father line
+                                      const noteKey = isGrouped
+                                        ? `${c.fatherName}${c.citation ? `, ${c.citation}` : ""} — ${groupRef}`
+                                        : `${c.fatherName}${c.citation ? `, ${c.citation}` : ""} — ${groupRef}`;
+                                      const inlineRef = !isGrouped ? groupRef : undefined;
+                                      const isLast = isLastGroup && ci === group.items.length - 1;
+                                      return (
+                                        <div key={ci} style={{ marginBottom: ci < group.items.length - 1 ? 8 : 0 }}>
+                                          <div style={{
+                                            display: "flex",
+                                            alignItems: "baseline",
+                                            justifyContent: "space-between",
+                                            gap: 10,
+                                            paddingLeft: 12,
+                                            borderLeft: "2px solid var(--ambo-accent-light)",
+                                            marginBottom: isLast ? 0 : 0,
+                                          }}>
+                                            <div style={{ flex: 1 }}>
+                                              <div style={{
+                                                display: "flex",
+                                                gap: 6,
+                                                fontSize: 13,
+                                                lineHeight: 1.6,
+                                                color: "var(--ambo-text-secondary)",
+                                                marginBottom: 3,
+                                              }}>
+                                                <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
+                                                <span>
+                                                  <strong>{c.fatherName}</strong>
+                                                  {c.citation && <span style={{ marginLeft: 6 }}>{c.citation}</span>}
+                                                  {inlineRef && (
+                                                    <span style={{ marginLeft: 6, opacity: 0.5, fontStyle: "italic", fontSize: 11 }}>
+                                                      {inlineRef}
+                                                    </span>
+                                                  )}
+                                                </span>
+                                              </div>
+                                              <div style={{
+                                                fontSize: 13,
+                                                color: "var(--ambo-text-secondary)",
+                                                lineHeight: 1.6,
+                                                fontStyle: "italic",
+                                              }}>
+                                                {c.text}
+                                              </div>
+                                            </div>
+                                            <button
+                                              onClick={() => appendToNotes(noteKey, c.text)}
+                                              style={sendToNotesStyle}
+                                              title="Add to your notes"
+                                            >
+                                              → note
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              });
+                            })()
                           )}
 
                           {/* Expansion toggle */}
