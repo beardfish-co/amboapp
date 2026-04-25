@@ -897,21 +897,21 @@ export default function ReflectView({
                         <div>
                           {/* Section header — default view only */}
                           {!showAllFathers && (
-                            <div style={{ marginBottom: 12 }}>
+                            <div style={{ marginBottom: 10 }}>
                               <div style={{
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: 700,
-                                letterSpacing: "0.06em",
+                                letterSpacing: "0.08em",
                                 textTransform: "uppercase",
-                                color: "var(--ambo-text-primary)",
-                                marginBottom: 2,
+                                color: "var(--ambo-text-muted)",
+                                marginBottom: 3,
                               }}>
                                 From the Fathers
                               </div>
                               <div style={{
-                                fontSize: 11,
+                                fontSize: 10,
                                 color: "var(--ambo-text-muted)",
-                                fontStyle: "italic",
+                                opacity: 0.7,
                               }}>
                                 Selected highlights for this Gospel reading
                               </div>
