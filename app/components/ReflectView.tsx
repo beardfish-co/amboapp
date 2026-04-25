@@ -928,42 +928,8 @@ export default function ReflectView({
                       paddingLeft: 12,
                       borderLeft: "2px solid var(--ambo-accent-light)",
                     }}>
-                      {magisteriumContent.split(/\n\s*\n/).filter(Boolean).map((block, bi) => {
-                        const trimmed = block.trim();
-                        // Section header ## ...
-                        if (trimmed.startsWith("## ")) {
-                          return (
-                            <div key={bi} style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              letterSpacing: "0.08em",
-                              textTransform: "uppercase",
-                              color: "var(--ambo-text-muted)",
-                              marginTop: bi === 0 ? 0 : 14,
-                              marginBottom: 4,
-                            }}>
-                              {trimmed.slice(3)}
-                            </div>
-                          );
-                        }
-                        // Blockquote > ...
-                        if (trimmed.startsWith("> ")) {
-                          const lines = trimmed.split("\n").map(l => l.replace(/^>\s?/, "")).join(" ");
-                          return (
-                            <div key={bi} style={{
-                              fontStyle: "italic",
-                              fontSize: 13,
-                              lineHeight: 1.6,
-                              color: "var(--ambo-text-secondary)",
-                              paddingLeft: 10,
-                              borderLeft: "2px solid var(--ambo-border)",
-                              margin: "6px 0",
-                            }}>
-                              {lines}
-                            </div>
-                          );
-                        }
-                        // Regular paragraph — render **bold** inline
+                      {(() => {
+                        // Render **bold** inline within a text string
                         const renderBold = (text: string) => {
                           const parts = text.split(/(\*\*[^*]+\*\*)/g);
                           return parts.map((p, pi) =>
@@ -972,17 +938,33 @@ export default function ReflectView({
                               : <span key={pi}>{p}</span>
                           );
                         };
-                        return (
-                          <p key={bi} style={{
-                            fontSize: 13,
-                            lineHeight: 1.6,
-                            color: "var(--ambo-text-secondary)",
-                            margin: "6px 0 0",
-                          }}>
-                            {renderBold(trimmed)}
-                          </p>
-                        );
-                      })}
+                        // Split into lines for fine-grained rendering
+                        const lines = magisteriumContent.split("\n");
+                        const elements: React.ReactNode[] = [];
+                        let bi = 0;
+                        for (const line of lines) {
+                          const t = line.trim();
+                          if (!t) { bi++; continue; }
+                          // ## Heading
+                          if (t.startsWith("## ")) {
+                            elements.push(<div key={bi} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginTop: elements.length === 0 ? 0 : 14, marginBottom: 4 }}>{t.slice(3)}</div>);
+                          // Plain all-caps label (MAGISTERIAL, PATRISTIC, etc.)
+                          } else if (/^[A-Z][A-Z\s]{2,}$/.test(t)) {
+                            elements.push(<div key={bi} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginTop: elements.length === 0 ? 0 : 14, marginBottom: 4 }}>{t}</div>);
+                          // > Blockquote
+                          } else if (t.startsWith("> ")) {
+                            elements.push(<div key={bi} style={{ fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", paddingLeft: 10, borderLeft: "2px solid var(--ambo-border)", margin: "4px 0" }}>{t.slice(2)}</div>);
+                          // - Bullet point
+                          } else if (t.startsWith("- ")) {
+                            elements.push(<div key={bi} style={{ display: "flex", gap: 6, fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", padding: "3px 0" }}><span style={{ opacity: 0.4, flexShrink: 0 }}>–</span><span>{renderBold(t.slice(2))}</span></div>);
+                          // Regular paragraph
+                          } else {
+                            elements.push(<p key={bi} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", margin: "4px 0 0" }}>{renderBold(t)}</p>);
+                          }
+                          bi++;
+                        }
+                        return elements;
+                      })()}
                     </div>
                     {/* Attribution — required by Magisterium API Terms §4.5 */}
                     <div style={{

@@ -66,10 +66,12 @@ function parseCompactDate(s: string): boolean {
 //   never appear in the response
 function cleanContent(raw: string): string {
   return raw
-    .replace(/\[\^\w+\]/g, "")                        // footnote refs
-    .replace(/\n*If you want[^]*$/i, "")               // trailing offer
-    .replace(/\n*Would you like[^]*$/i, "")            // alternate phrasing
-    .replace(/\n*Let me know[^]*$/i, "")               // alternate phrasing
+    .replace(/\[\^\w+\]/g, "")                          // footnote refs [^1]
+    .replace(/^Below are[^\n]*\n+/i, "")               // opening "Below are N citations..."
+    .replace(/^Here are[^\n]*\n+/i, "")                // opening "Here are N citations..."
+    .replace(/\n*If you want[^]*$/i, "")                // trailing interactive offer
+    .replace(/\n*Would you like[^]*$/i, "")             // alternate phrasing
+    .replace(/\n*Let me know[^]*$/i, "")                // alternate phrasing
     .trim();
 }
 
