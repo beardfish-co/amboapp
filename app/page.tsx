@@ -268,24 +268,32 @@ export default function AmboApp() {
         />
       )}
 
-      {/* Header — eases away in preach immersive mode (mobile/tablet only) */}
+      {/* Header — eases away in preach immersive mode (mobile/tablet only).
+          Two-layer approach: outer handles layout height (may snap on PWA — that's ok);
+          inner handles GPU-composited transform+opacity which always animates on iOS. */}
       <header style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
-        background: "var(--ambo-surface-raised)",
-        backdropFilter: "blur(20px) saturate(1.4)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-        borderBottom: "1px solid var(--ambo-border)",
-        // Inline animation — immune to cascade/specificity issues on iOS
         overflow: "hidden",
-        height: headerHidden ? 0 : 60,
-        opacity: headerHidden ? 0 : 1,
         pointerEvents: headerHidden ? "none" : "auto",
-        transition: headerHidden
-          ? "height 0.75s ease 0.35s, opacity 0.65s ease 0.35s"
-          : "height 0.45s ease, opacity 0.35s ease",
+        // Layout collapse — fast so it doesn't lag behind the visual
+        height: headerHidden ? 0 : 60,
+        transition: headerHidden ? "height 0.3s ease" : "height 0.4s ease",
       }}>
+        {/* Visual layer — transform+opacity are GPU-composited, always animate on iOS PWA */}
+        <div style={{
+          height: 60,
+          background: "var(--ambo-surface-raised)",
+          backdropFilter: "blur(20px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+          borderBottom: "1px solid var(--ambo-border)",
+          transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
+          opacity: headerHidden ? 0 : 1,
+          transition: headerHidden
+            ? "transform 0.65s cubic-bezier(0.4, 0, 1, 1) 0.15s, opacity 0.5s ease 0.15s"
+            : "transform 0.4s ease, opacity 0.3s ease",
+        }}>
         <div className="ambo-header-inner" style={{
           maxWidth: 760,
           margin: "0 auto",
@@ -338,6 +346,7 @@ export default function AmboApp() {
             />
           </div>
         </div>
+        </div>{/* end visual layer */}
       </header>
 
       {/* Dormancy banner */}
