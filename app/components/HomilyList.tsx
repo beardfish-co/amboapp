@@ -431,9 +431,9 @@ export default function HomilyList({
               aria-labelledby="delete-modal-title"
               style={{
                 position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
+                inset: 0,
+                margin: "auto",
+                height: "fit-content",
                 zIndex: 121,
                 background: "var(--ambo-bg)",
                 border: "1px solid var(--ambo-border)",
