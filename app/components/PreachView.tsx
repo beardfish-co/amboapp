@@ -63,65 +63,8 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Step mode scroll-to-focal-point refs
-  const stepContainerRef = useRef<HTMLDivElement>(null);
-  const blockRefsArr = useRef<(HTMLDivElement | null)[]>([]);
-  const [containerH, setContainerH] = useState(400);
-  const isFirstStep = useRef(true);
-
-  // Active block sits 42% down the container — leaving 42% above for past text
-  const FOCAL = 0.42;
-
-  // Gentle ease-in-out sine scroll — calm, unhurried (900ms)
-  const smoothScrollTo = (el: HTMLElement, to: number, duration: number) => {
-    const from = el.scrollTop;
-    const delta = to - from;
-    if (Math.abs(delta) < 1) return;
-    const start = performance.now();
-    const ease = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2; // sine ease-in-out
-    const tick = (now: number) => {
-      const t = Math.min((now - start) / duration, 1);
-      el.scrollTop = from + delta * ease(t);
-      if (t < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  };
-
-  // Measure step container height
-  useEffect(() => {
-    if (isScrollMode) return;
-    const el = stepContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setContainerH(entry.contentRect.height));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [isScrollMode]);
-
-  // Scroll active block to focal point when index or container changes
-  useEffect(() => {
-    if (isScrollMode) return;
-    const block = blockRefsArr.current[currentBlock];
-    const container = stepContainerRef.current;
-    if (!block || !container) return;
-    const target = block.offsetTop - containerH * FOCAL + block.offsetHeight / 2;
-    if (isFirstStep.current) {
-      // First appearance: jump immediately, no animation
-      container.scrollTop = target;
-      isFirstStep.current = false;
-    } else {
-      smoothScrollTo(container, target, 900);
-    }
-  }, [currentBlock, containerH, isScrollMode]);
-
-  // Prevent manual wheel-scroll inside the step container
-  useEffect(() => {
-    if (isScrollMode) return;
-    const el = stepContainerRef.current;
-    if (!el) return;
-    const prevent = (e: WheelEvent) => e.preventDefault();
-    el.addEventListener("wheel", prevent, { passive: false });
-    return () => el.removeEventListener("wheel", prevent);
-  }, [isScrollMode]);
+  // Step mode: track direction for slide animation (forward = up, backward = down)
+  const stepDirection = useRef<"forward" | "backward">("forward");
   // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
     let cancelled = false;
@@ -316,70 +259,36 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
       </div>
 
 
-      {/* White panel — holds the design language. The seed, title, and
-          homily body all sit on the same ambo-surface card used across the
-          rest of the app. Chrome (font controls, back button, readings
-          drawer) stays outside the panel. */}
-      <div
-        className="glass-card"
-        style={{
-          padding: isScrollMode ? "56px 28px" : "56px 28px 36px",
-          marginBottom: isScrollMode ? 40 : 0,
-          ...(isScrollMode ? {} : { flex: 1, display: "flex", flexDirection: "column" as const, minHeight: 0 }),
-        }}
-      >
-      {/* Title */}
-      {title && (
-        <h1 style={{
-          fontSize: 28,
-          fontWeight: 600,
-          flexShrink: 0,
-          color: "var(--ambo-text-primary)",
-          letterSpacing: "-0.02em",
-          marginBottom: 48,
-        }}>
-          {title}
-        </h1>
-      )}
-
-      {/* Scroll mode */}
+      {/* ── SCROLL MODE ── glass card containing full homily */}
       {isScrollMode && (
-        <div>
-          {blocks.map((block, i) => {
-            if (block.kind === "quote") {
-              return <QuoteDisplay key={i} block={block} fontSize={fontSize} />;
-            }
-            if (block.kind === "breath") {
-              // A kept-blank paragraph becomes visible room to breathe.
+        <div className="glass-card" style={{ padding: "56px 28px", marginBottom: 40 }}>
+          {title && (
+            <h1 style={{
+              fontSize: 28, fontWeight: 600, color: "var(--ambo-text-primary)",
+              letterSpacing: "-0.02em", marginBottom: 48,
+            }}>
+              {title}
+            </h1>
+          )}
+          <div>
+            {blocks.map((block, i) => {
+              if (block.kind === "quote") return <QuoteDisplay key={i} block={block} fontSize={fontSize} />;
+              if (block.kind === "breath") return <div key={i} aria-hidden style={{ height: "1.8em", marginBottom: "1.6em" }} />;
               return (
-                <div
-                  key={i}
-                  aria-hidden
-                  style={{ height: "1.8em", marginBottom: "1.6em" }}
-                />
+                <p key={i} style={{
+                  fontFamily: "var(--ambo-font-reading)", fontSize: fontSize,
+                  lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
+                  marginBottom: "2em", letterSpacing: "0.01em", whiteSpace: "pre-wrap",
+                }}>
+                  {renderInline(block.text)}
+                </p>
               );
-            }
-            return (
-              <p
-                key={i}
-                style={{
-                  fontFamily: "var(--ambo-font-reading)",
-                  fontSize: fontSize,
-                  lineHeight: "var(--ambo-lh-reading)",
-                  color: "var(--ambo-text-primary)",
-                  marginBottom: "2em",
-                  letterSpacing: "0.01em",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {renderInline(block.text)}
-              </p>
-            );
-          })}
+            })}
+          </div>
         </div>
       )}
 
-      {/* Step mode — breath blocks are skipped, they don't merit their own step */}
+      {/* ── STEP MODE ── past text floats above the glass card; card shows active + upcoming */}
       {!isScrollMode && (() => {
         const stepBlocks = blocks.filter(
           (b): b is Extract<Block, { kind: "body" | "quote" }> => b.kind !== "breath",
@@ -387,102 +296,131 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
         if (stepBlocks.length === 0) return null;
         const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
 
-        // Opacity by distance from active block
-        const opacityForDistance = (d: number) =>
-          d === 0 ? 1 : d === 1 ? 0.38 : d === 2 ? 0.18 : 0.08;
-
         const renderStepBlock = (block: typeof stepBlocks[0]) =>
           block.kind === "quote" ? (
             <QuoteDisplay block={block} fontSize={fontSize} />
           ) : (
             <p style={{
-              fontFamily: "var(--ambo-font-reading)",
-              fontSize: fontSize,
-              lineHeight: "var(--ambo-lh-reading)",
-              color: "var(--ambo-text-primary)",
-              letterSpacing: "0.01em",
-              whiteSpace: "pre-wrap",
-              margin: 0,
+              fontFamily: "var(--ambo-font-reading)", fontSize: fontSize,
+              lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
+              letterSpacing: "0.01em", whiteSpace: "pre-wrap", margin: 0,
             }}>
               {renderInline(block.text)}
             </p>
           );
 
+        // Last two past blocks shown above the card, most-recent closest to card
+        const pastBlocks = stepBlocks.slice(Math.max(0, safeIdx - 2), safeIdx);
+        // Next two shown inside the card, fading
+        const upcomingBlocks = stepBlocks.slice(safeIdx + 1, safeIdx + 3);
+        const animName = stepDirection.current === "forward" ? "stepSlideUp" : "stepSlideDown";
+
         return (
-          <div
-            style={{
-              flex: 1,
+          <>
+            {/* Past zone — above the glass card, bottom-aligned */}
+            <div style={{
+              flex: "0 0 auto",
               display: "flex",
               flexDirection: "column",
-              minHeight: 0,
-            }}
-          >
-            {/* Scrolling stage — overflow hidden, no scrollbar */}
-            <div
-              ref={stepContainerRef}
-              className="preach-step-container"
-              style={{
-                flex: 1,
-                overflowY: "scroll",
-                scrollbarWidth: "none",
-                msOverflowStyle: "none" as any,
-              }}
-            >
-              {/* Top/bottom padding lets first and last blocks reach centre */}
-              <div style={{ paddingTop: containerH * FOCAL, paddingBottom: containerH * (1 - FOCAL) }}>
-                {stepBlocks.map((block, i) => {
-                  const distance = Math.abs(i - safeIdx);
-                  return (
-                    <div
-                      key={i}
-                      ref={el => { blockRefsArr.current[i] = el; }}
-                      style={{
-                        opacity: opacityForDistance(distance),
-                        transition: "opacity 0.45s ease",
-                        marginBottom: 40,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {renderStepBlock(block)}
-                    </div>
-                  );
-                })}
-              </div>
+              justifyContent: "flex-end",
+              gap: 24,
+              padding: "0 4px",
+              marginBottom: 20,
+              minHeight: 80,
+              overflow: "hidden",
+            }}>
+              {pastBlocks.map((block, i) => {
+                const opacity = i === pastBlocks.length - 1 ? 0.38 : 0.16;
+                return (
+                  <div key={`past-${safeIdx - pastBlocks.length + i}`}
+                    style={{ opacity, transition: "opacity 0.6s ease", pointerEvents: "none" }}>
+                    {renderStepBlock(block)}
+                  </div>
+                );
+              })}
             </div>
 
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              paddingTop: 24,
-              paddingBottom: 16,
+            {/* Glass card — active + upcoming + navigation */}
+            <div className="glass-card" style={{
+              flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
+              padding: "32px 28px 24px",
             }}>
-              <button
-                onClick={() => setCurrentBlock((c) => Math.max(0, c - 1))}
-                disabled={safeIdx === 0}
-                style={stepBtnStyle(safeIdx === 0)}
-              >
-                ← Previous
-              </button>
-              <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
-                {safeIdx + 1} of {stepBlocks.length}
-              </span>
-              <button
-                onClick={() => setCurrentBlock((c) => Math.min(stepBlocks.length - 1, c + 1))}
-                disabled={safeIdx === stepBlocks.length - 1}
-                style={stepBtnStyle(safeIdx === stepBlocks.length - 1)}
-              >
-                Next →
-              </button>
+              {/* Title — compact in step mode */}
+              {title && (
+                <p style={{
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+                  textTransform: "uppercase", color: "var(--ambo-text-muted)",
+                  marginBottom: 20, margin: "0 0 20px",
+                }}>
+                  {title}
+                </p>
+              )}
+
+              {/* Active block — re-keyed so animation replays on every step */}
+              <div key={`active-${safeIdx}`} style={{
+                flex: 1, overflow: "hidden",
+                animation: `${animName} 0.85s cubic-bezier(0.16, 1, 0.3, 1)`,
+              }}>
+                {renderStepBlock(stepBlocks[safeIdx])}
+
+                {/* Upcoming blocks — dimmed below active */}
+                {upcomingBlocks.map((block, i) => (
+                  <div key={i} style={{
+                    opacity: i === 0 ? 0.35 : 0.15,
+                    marginTop: 28,
+                    transition: "opacity 0.5s ease",
+                    pointerEvents: "none",
+                  }}>
+                    {renderStepBlock(block)}
+                  </div>
+                ))}
+              </div>
+
+              {/* Navigation */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                paddingTop: 24, flexShrink: 0,
+              }}>
+                <button
+                  onClick={() => {
+                    stepDirection.current = "backward";
+                    setCurrentBlock((c) => Math.max(0, c - 1));
+                  }}
+                  disabled={safeIdx === 0}
+                  style={stepBtnStyle(safeIdx === 0)}
+                >
+                  ← Previous
+                </button>
+                <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
+                  {safeIdx + 1} of {stepBlocks.length}
+                </span>
+                <button
+                  onClick={() => {
+                    stepDirection.current = "forward";
+                    setCurrentBlock((c) => Math.min(stepBlocks.length - 1, c + 1));
+                  }}
+                  disabled={safeIdx === stepBlocks.length - 1}
+                  style={stepBtnStyle(safeIdx === stepBlocks.length - 1)}
+                >
+                  Next →
+                </button>
+              </div>
             </div>
-          </div>
+          </>
         );
       })()}
       </div>
 
       <style>{`
-        /* Hide webkit scrollbar on step container */
-        .preach-step-container::-webkit-scrollbar { display: none; }
+        /* Step mode slide animations — gentle ease into reading position */
+        @keyframes stepSlideUp {
+          from { opacity: 0.5; transform: translateY(22px); }
+          to   { opacity: 1;   transform: translateY(0); }
+        }
+        @keyframes stepSlideDown {
+          from { opacity: 0.5; transform: translateY(-22px); }
+          to   { opacity: 1;   transform: translateY(0); }
+        }
 
         @media print {
           /* Always print in light mode — no dark backgrounds wasting ink */
