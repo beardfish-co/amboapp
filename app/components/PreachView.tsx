@@ -99,7 +99,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
       container.scrollTop = target;
       isFirstStep.current = false;
     } else {
-      smoothScrollTo(container, target, 900);
+      smoothScrollTo(container, target, 650);
     }
   }, [currentBlock, isScrollMode]);
 
@@ -386,7 +386,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
               <div style={{ padding: `${halfH}px 28px` }}>
                 {stepBlocks.map((block, i) => {
                   const dist = Math.abs(i - safeIdx);
-                  const opacity = dist === 0 ? 1 : dist === 1 ? 0.38 : dist === 2 ? 0.15 : 0.06;
+                  const opacity = dist === 0 ? 1 : dist === 1 ? 0.5 : dist === 2 ? 0.22 : 0.06;
                   return (
                     <div
                       key={i}
