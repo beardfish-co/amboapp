@@ -1223,8 +1223,11 @@ export default function WriteView({
       {/* Formatting ribbon — a pill holding bold / italic / quote. Matches the
           pill language the rest of the app uses (Sunday pill, drawer toggles).
           Sits inside the panel above the paragraphs; pins just below the page
-          header once scrolled past. Keyboard shortcuts ⌘B / ⌘I still work. */}
+          header once scrolled past. Keyboard shortcuts ⌘B / ⌘I still work.
+          Hidden on small screens (< 640px) — phone use is dictation/reading,
+          not formatting. */}
       <div
+        className="write-formatting-ribbon"
         style={{
           position: "sticky",
           top: 72,

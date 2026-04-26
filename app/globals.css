@@ -696,6 +696,14 @@ body {
   animation: exitButtonPulse 0.65s ease-in-out 1.1s 2;
 }
 
+/* Phone (< 640px) — hide formatting ribbon. Priests use phones for dictation,
+   not formatting. Keyboard shortcuts still work if a physical keyboard is attached. */
+@media (max-width: 639px) {
+  .write-formatting-ribbon {
+    display: none !important;
+  }
+}
+
 /* Desktop (≥ 1280px) — exit button hidden; header never collapses (JS handles this) */
 @media (min-width: 1280px) {
   .preach-exit-pulse {
