@@ -91,7 +91,7 @@ export default function TermsPage() {
 
         <Section title="Your rights under GDPR">
           <p style={body}>
-            If you are in the European Economic Area or the United Kingdom, you have rights regarding your personal data, including the right to access, correct, and delete it. Please see our <a href="/privacy" style={link}>Privacy Policy</a> for the full details, or contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>.
+            If you are in the European Economic Area or the United Kingdom, you have rights regarding your personal data, including the right to access, correct, and delete it. Please see our <a href="/privacy" style={link}>Privacy Policy</a> for the full details, or contact us at <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a>.
           </p>
         </Section>
 
@@ -103,7 +103,7 @@ export default function TermsPage() {
 
         <Section title="Contact">
           <p style={body}>
-            Questions about these terms: <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>
+            Questions about these terms: <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a>
           </p>
         </Section>
 

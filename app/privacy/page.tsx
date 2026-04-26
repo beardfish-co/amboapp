@@ -119,7 +119,7 @@ export default function PrivacyPage() {
 
         <Section title="Contact">
           <p style={body}>
-            For any privacy-related questions or requests: <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>
+            For any privacy-related questions or requests: <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a>
           </p>
         </Section>
 
