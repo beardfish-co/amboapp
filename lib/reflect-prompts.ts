@@ -299,7 +299,7 @@ async function callEvaluator(
 
   const resp = await client.messages.create({
     model: EVALUATOR_MODEL,
-    max_tokens: 1536,
+    max_tokens: 4096,
     system: EVALUATOR_SYSTEM,
     messages: [{ role: "user", content: userMessage }],
   });
