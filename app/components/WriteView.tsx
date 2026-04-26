@@ -719,7 +719,7 @@ export default function WriteView({
     : "Pick a Sunday";
 
   return (
-    <div className="view-fade" style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 120px" }}>
+    <div className="view-fade" style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 56px" }}>
 
       {/* Chrome row: [My homilies] ── spacer ── [Notes · Examine] */}
       <div className="ambo-write-chrome" style={{
