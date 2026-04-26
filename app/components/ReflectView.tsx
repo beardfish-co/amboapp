@@ -1918,7 +1918,6 @@ const sendToNotesStyle: React.CSSProperties = {
   cursor: "pointer",
   fontFamily: "inherit",
   flexShrink: 0,
-  opacity: 0.75,
   transition: "opacity 0.15s",
 };
 
