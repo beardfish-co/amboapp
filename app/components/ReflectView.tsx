@@ -1200,12 +1200,14 @@ export default function ReflectView({
                         t.startsWith("## ") || t.startsWith("### ") || /^[A-Z][A-Z\s]{2,}$/.test(t);
 
                       const renderBold = (text: string) => {
-                        const parts = text.split(/(\*\*[^*]+\*\*)/g);
-                        return parts.map((p, pi) =>
-                          p.startsWith("**") && p.endsWith("**")
-                            ? <strong key={pi}>{p.slice(2, -2)}</strong>
-                            : <span key={pi}>{p}</span>
-                        );
+                        const parts = text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g);
+                        return parts.map((p, pi) => {
+                          if (p.startsWith("**") && p.endsWith("**"))
+                            return <strong key={pi}>{p.slice(2, -2)}</strong>;
+                          if (p.startsWith("_") && p.endsWith("_"))
+                            return <em key={pi}>{p.slice(1, -1)}</em>;
+                          return <span key={pi}>{p}</span>;
+                        });
                       };
 
                       const renderLine = (line: string, idx: number) => {
