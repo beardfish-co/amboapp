@@ -1240,7 +1240,8 @@ export default function WriteView({
             display: "inline-flex",
             alignItems: "center",
             gap: 2,
-            padding: "3px 5px",
+            height: 34,
+            padding: "0 5px",
             borderRadius: 999,
             border: "1px solid var(--ambo-border)",
             background: "var(--ambo-surface)",
@@ -1298,6 +1299,7 @@ export default function WriteView({
             height: 34,
             padding: "0 12px",
             lineHeight: "1",
+            boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
             ...(readingsOpen ? {} : {
               background: "var(--ambo-surface)",
               backdropFilter: "blur(20px) saturate(1.4)",
