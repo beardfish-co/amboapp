@@ -1840,7 +1840,6 @@ export default function ReflectView({
           </div>
         )}
         </aside>
-      </div>
 
       {/* Mobile toggle for notes */}
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
