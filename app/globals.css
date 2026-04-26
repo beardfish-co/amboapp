@@ -607,6 +607,20 @@ body {
   background: rgba(15, 24, 36, 0.88) !important;
 }
 
+/* ── Placeholder text — override browser's automatic opacity reduction ── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) textarea::placeholder,
+  :root:not([data-theme="light"]) input::placeholder {
+    color: var(--ambo-text-muted);
+    opacity: 1;
+  }
+}
+[data-theme="dark"] textarea::placeholder,
+[data-theme="dark"] input::placeholder {
+  color: var(--ambo-text-muted);
+  opacity: 1;
+}
+
 /* =============================================================
    Mobile header — tighten pill and hide wordmark on small screens
    ============================================================= */
