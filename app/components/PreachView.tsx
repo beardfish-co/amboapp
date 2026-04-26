@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
+import { PillButton } from "@/lib/ui/pill-button";
 
 const STORAGE_KEY = "ambo-draft";
 
@@ -176,40 +177,34 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
         gap: 16,
       }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
+          <PillButton
+            variant={isScrollMode ? "active" : "ghost"}
             onClick={() => setIsScrollMode(true)}
-            style={{
-              border: "1px solid " + (isScrollMode ? "var(--ambo-accent)" : "var(--ambo-border)"),
-              background: isScrollMode ? "var(--ambo-accent-light)" : "transparent",
-              color: isScrollMode ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
-              fontSize: 12,
-              fontWeight: 500,
-              padding: "6px 14px",
-              borderRadius: 100,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <line x1="2" y1="3.5" x2="14" y2="3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="2" y1="7.5" x2="14" y2="7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="2" y1="11.5" x2="9" y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <polyline points="11,9.5 13.5,12 11,14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px" }}
           >
             Scroll
-          </button>
-          <button
+          </PillButton>
+          <PillButton
+            variant={!isScrollMode ? "active" : "ghost"}
             onClick={() => { setIsScrollMode(false); setCurrentBlock(0); }}
-            style={{
-              border: "1px solid " + (!isScrollMode ? "var(--ambo-accent)" : "var(--ambo-border)"),
-              background: !isScrollMode ? "var(--ambo-accent-light)" : "transparent",
-              color: !isScrollMode ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
-              fontSize: 12,
-              fontWeight: 500,
-              padding: "6px 14px",
-              borderRadius: 100,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="12.5" y1="4" x2="12.5" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px" }}
           >
             Step
-          </button>
+          </PillButton>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -227,36 +222,24 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
           >
             A
           </button>
-          <button
+          <PillButton
+            variant="ghost"
             onClick={() => window.print()}
-            style={{
-              border: "1px solid var(--ambo-border)",
-              background: "transparent",
-              color: "var(--ambo-text-muted)",
-              fontSize: 12,
-              fontWeight: 500,
-              padding: "6px 12px",
-              borderRadius: 100,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-              marginLeft: 4,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-            }}
             title="Print or save as PDF"
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <rect x="3" y="1" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
+                <rect x="1" y="5" width="14" height="7" rx="1.5" fill="currentColor" />
+                <rect x="3" y="9" width="10" height="6" rx="1" fill="var(--ambo-bg)" />
+                <rect x="5" y="11" width="6" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+                <rect x="5" y="13" width="4" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+                <circle cx="12.5" cy="7.5" r="0.8" fill="var(--ambo-bg)" />
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px", marginLeft: 4 }}
           >
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-              <rect x="3" y="1" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
-              <rect x="1" y="5" width="14" height="7" rx="1.5" fill="currentColor" />
-              <rect x="3" y="9" width="10" height="6" rx="1" fill="var(--ambo-bg)" />
-              <rect x="5" y="11" width="6" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
-              <rect x="5" y="13" width="4" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
-              <circle cx="12.5" cy="7.5" r="0.8" fill="var(--ambo-bg)" />
-            </svg>
             Print
-          </button>
+          </PillButton>
         </div>
       </div>
 
