@@ -790,11 +790,10 @@ export default function ReflectView({
                             </div>
                             {p.basis && (
                               <div style={{
-                                fontSize: 11,
+                                fontSize: "var(--rf-basis-size)",
                                 color: "var(--ambo-text-muted)",
                                 lineHeight: 1.4,
                                 marginTop: 2,
-                                opacity: 0.75,
                               }}>
                                 {p.basis}
                               </div>
@@ -1851,6 +1850,7 @@ export default function ReflectView({
           --rf-subhead-size: 13px;
           --rf-eyebrow-size: 11px;
           --rf-ref-size: 12px;
+          --rf-basis-size: 11px;
         }
         @media (min-width: 1201px) {
           .reflect-layout {
@@ -1860,6 +1860,7 @@ export default function ReflectView({
             --rf-subhead-size: 14px;
             --rf-eyebrow-size: 13px;
             --rf-ref-size: 14px;
+            --rf-basis-size: 12px;
           }
         }
 
