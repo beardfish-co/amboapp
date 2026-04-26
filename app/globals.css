@@ -685,20 +685,23 @@ body {
    Preach immersive mode — header eases away on mobile/tablet
    ============================================================= */
 
-/* Base — header transition for EXIT from immersive (fast restore) */
+/* Base — header transition for EXIT from immersive (fast restore)
+   Use height (not max-height) so the flex layout box actually collapses
+   and <main> rises to fill the space. */
 .ambo-header {
-  max-height: 80px;
+  height: 60px;
   overflow: hidden;
   opacity: 1;
-  transition: max-height 0.45s ease, opacity 0.35s ease;
+  /* property | duration | easing | delay */
+  transition: height 0.45s ease 0s, opacity 0.35s ease 0s;
 }
 
 /* Entering immersive — slower fade with brief delay so priest sees the page first */
 .preach-immersive .ambo-header {
-  max-height: 0;
+  height: 0;
   opacity: 0;
   pointer-events: none;
-  transition: max-height 0.75s 0.35s ease, opacity 0.65s 0.35s ease;
+  transition: height 0.75s ease 0.35s, opacity 0.65s ease 0.35s;
 }
 
 /* Exit button pulse — draws attention after header fades */
@@ -714,7 +717,7 @@ body {
 /* Desktop (≥ 1024px) — keep header always visible; immersive is tablet/mobile only */
 @media (min-width: 1024px) {
   .preach-immersive .ambo-header {
-    max-height: 80px !important;
+    height: 60px !important;
     opacity: 1 !important;
     pointer-events: auto !important;
     transition: none !important;
