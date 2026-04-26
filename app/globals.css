@@ -616,7 +616,7 @@ body {
     opacity: 1;
   }
   :root:not([data-theme="light"]) .mode-pill {
-    border-color: rgba(210, 225, 242, 0.8);
+    border-color: rgba(210, 225, 242, 0.5);
   }
 }
 [data-theme="dark"] textarea::placeholder,
