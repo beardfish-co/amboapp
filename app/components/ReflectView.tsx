@@ -1846,7 +1846,7 @@ export default function ReflectView({
         .reflect-layout {
           --rf-cite-size: 13px;
           --rf-prompt-size: 14px;
-          --rf-afford-size: 12px;
+          --rf-afford-size: 13px;
           --rf-subhead-size: 13px;
           --rf-eyebrow-size: 11px;
           --rf-ref-size: 12px;
