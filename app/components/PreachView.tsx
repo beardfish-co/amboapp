@@ -14,6 +14,7 @@ interface PreachViewProps {
   preachVersion?: number;
   liveContent?: { title: string; content: string } | null;
   onExitImmersive?: () => void;
+  onScrollLock?: (locked: boolean) => void;
 }
 
 type Block =
@@ -45,7 +46,7 @@ function parseBlocks(text: string): Block[] {
     });
 }
 
-export default function PreachView({ currentId, preachVersion, liveContent, onExitImmersive }: PreachViewProps) {
+export default function PreachView({ currentId, preachVersion, liveContent, onExitImmersive, onScrollLock }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
@@ -113,6 +114,13 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     el.addEventListener("wheel", prevent, { passive: false });
     return () => el.removeEventListener("wheel", prevent);
   }, [isScrollMode]);
+
+  // Tell the parent to lock outer scroll while in step mode so an accidental
+  // touch on the page doesn't scroll the priest away from their place.
+  useEffect(() => {
+    onScrollLock?.(!isScrollMode);
+    return () => onScrollLock?.(false);
+  }, [isScrollMode, onScrollLock]);
 
   // Track scroll container height so top/bottom padding lets first/last block centre
   useEffect(() => {

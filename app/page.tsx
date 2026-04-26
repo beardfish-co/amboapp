@@ -35,6 +35,8 @@ export default function AmboApp() {
 
   // Preach immersive mode — header hidden while preaching (mobile/tablet only)
   const [preachImmersive, setPreachImmersive] = useState(false);
+  // Step mode scroll lock — outer <main> scroll disabled while priest is stepping
+  const [preachScrollLocked, setPreachScrollLocked] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
     // 1280px+ = true desktop (MacBook etc). iPad landscape = 1024px → not desktop.
@@ -372,7 +374,7 @@ export default function AmboApp() {
       <main style={{
         flex: 1,
         minHeight: 0,
-        overflowY: "auto",
+        overflowY: preachScrollLocked ? "hidden" : "auto",
         scrollbarGutter: "stable" as any,
         padding: mode === "preach" ? "36px 0 0" : "36px 0",
       }}>
@@ -407,7 +409,7 @@ export default function AmboApp() {
             </div>
             <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
               <ErrorBoundary label="Preach">
-              <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} onExitImmersive={() => setPreachImmersive(false)} />
+              <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} onExitImmersive={() => setPreachImmersive(false)} onScrollLock={setPreachScrollLocked} />
               </ErrorBoundary>
             </div>
           </>
