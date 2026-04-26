@@ -1851,6 +1851,11 @@ export default function ReflectView({
             margin-bottom: 16px !important;
           }
         }
+        @media (min-width: 901px) and (max-width: 1200px) {
+          .reflect-reading-card {
+            margin-bottom: 20px !important;
+          }
+        }
       `}</style>
     </div>
   );
