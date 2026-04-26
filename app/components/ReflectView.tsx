@@ -1798,8 +1798,6 @@ export default function ReflectView({
           value={notes}
           onChange={(e) => {
             handleNotesChange(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = e.target.scrollHeight + "px";
           }}
           placeholder={
             currentId
@@ -1809,15 +1807,16 @@ export default function ReflectView({
           disabled={!currentId}
           rows={1}
           style={{
+            flex: 1,
             border: "none",
             outline: "none",
             resize: "none",
-            overflow: "hidden",
-            padding: "14px 14px 20px",
+            overflow: "auto",
+            padding: "14px 16px 20px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
-            fontSize: "var(--rf-prompt-size)",
+            fontSize: 15,
             lineHeight: 1.6,
           }}
         />
