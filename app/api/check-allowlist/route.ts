@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * POST /api/check-allowlist
  * Body: { email: string }
  * Returns: { allowed: boolean }
  *
- * Uses the regular anon client — the beta_allowlist table has an RLS policy
- * allowing anon SELECT, so no service role key is required for this check.
+ * Uses the service-role (admin) client — beta_allowlist has no RLS policies,
+ * so only the service role can read it. This intentionally prevents the
+ * allowlist from being enumerable by any regular client.
  */
 export async function POST(req: NextRequest) {
   let email: string | undefined;
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("beta_allowlist")
       .select("email")
