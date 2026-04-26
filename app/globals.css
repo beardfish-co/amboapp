@@ -723,7 +723,7 @@ body {
     transition: none !important;
   }
   .preach-exit-pulse {
-    animation: none !important;
+    display: none !important;
   }
 }
 
