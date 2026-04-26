@@ -293,7 +293,6 @@ export default function AmboApp() {
         {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}
         <div style={{
           height: 60,
-          overflow: "hidden",
           transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
           opacity: headerHidden ? 0 : 1,
           transition: headerHidden
