@@ -411,7 +411,7 @@ export default function AmboApp() {
               />
               </ErrorBoundary>
             </div>
-            <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", flex: 1, minHeight: 0 }}>
+            <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
               <ErrorBoundary label="Preach">
               <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} onExitImmersive={() => setPreachImmersive(false)} onScrollLock={setPreachScrollLocked} />
               </ErrorBoundary>
