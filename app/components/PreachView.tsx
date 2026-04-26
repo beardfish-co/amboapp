@@ -203,7 +203,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
           </PillButton>
           <PillButton
             variant={!isScrollMode ? "active" : "ghost"}
-            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; }}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
