@@ -527,8 +527,8 @@ body {
     --ambo-rule-subtle:      rgba(107, 147, 200, 0.08);
 
     --ambo-text-primary:     #DDE6F0;
-    --ambo-text-secondary:   #9BB5CE;
-    --ambo-text-muted:       #6A8CAC;
+    --ambo-text-secondary:   #B8CFDF;
+    --ambo-text-muted:       #8AABCA;
     --ambo-text-inverse-soft:#0F1824;
 
     --ambo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
@@ -553,8 +553,8 @@ body {
   --ambo-rule-subtle:      rgba(107, 147, 200, 0.08);
 
   --ambo-text-primary:     #DDE6F0;
-  --ambo-text-secondary:   #9BB5CE;
-  --ambo-text-muted:       #6A8CAC;
+  --ambo-text-secondary:   #B8CFDF;
+  --ambo-text-muted:       #8AABCA;
   --ambo-text-inverse-soft:#0F1824;
 
   --ambo-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
