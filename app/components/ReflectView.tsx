@@ -1568,11 +1568,11 @@ export default function ReflectView({
             borderBottom: "1px solid var(--ambo-rule-subtle)",
           }}>
             <span style={{
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: "0.12em",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "var(--ambo-text-secondary)",
+              color: "var(--ambo-text-muted)",
             }}>
               Discernment
             </span>
@@ -1777,11 +1777,11 @@ export default function ReflectView({
           borderBottom: "1px solid var(--ambo-border)",
         }}>
           <span style={{
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: "0.12em",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "var(--ambo-text-secondary)",
+            color: "var(--ambo-text-muted)",
           }}>
             Notes
           </span>
