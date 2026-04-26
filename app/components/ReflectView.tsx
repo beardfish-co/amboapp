@@ -1822,9 +1822,9 @@ export default function ReflectView({
             padding: "14px 16px 20px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
-            fontFamily: "inherit",
+            fontFamily: "var(--ambo-font-reading)",
             fontSize: 15,
-            lineHeight: 1.6,
+            lineHeight: 1.7,
           }}
         />
         {lastAdded && (
@@ -1894,6 +1894,13 @@ export default function ReflectView({
           .reflect-notes {
             min-height: 120px !important;
           }
+        }
+        /* Hide scrollbar on notes textarea — the panel itself scrolls */
+        .reflect-notes textarea {
+          scrollbar-width: none;
+        }
+        .reflect-notes textarea::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>
