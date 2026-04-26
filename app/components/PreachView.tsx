@@ -316,6 +316,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
             variant="ghost"
             onClick={() => window.print()}
             title="Print or save as PDF"
+            className="preach-print-btn"
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <rect x="3" y="1" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />

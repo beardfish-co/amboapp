@@ -711,3 +711,11 @@ body {
   }
 }
 
+/* Phone (< 640px) — print button hidden; printing from a phone makes no sense
+   and the button overflows the control bar causing unwanted horizontal scroll */
+@media (max-width: 639px) {
+  .preach-print-btn {
+    display: none !important;
+  }
+}
+
