@@ -377,6 +377,10 @@ export default function AmboApp() {
         overflowY: preachScrollLocked ? "hidden" : "auto",
         scrollbarGutter: "stable" as any,
         padding: mode === "preach" ? "36px 0 0" : "36px 0",
+        // Preach needs a flex column so the view-wrapper can use flex:1 to fill
+        // the exact remaining height — without this, height:100% on children
+        // may not resolve to a definite value and the step container won't clip.
+        ...(mode === "preach" ? { display: "flex", flexDirection: "column" as const } : {}),
       }}>
         {idHydrated && (
           <>
@@ -407,7 +411,7 @@ export default function AmboApp() {
               />
               </ErrorBoundary>
             </div>
-            <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
+            <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", flex: 1, minHeight: 0 }}>
               <ErrorBoundary label="Preach">
               <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} onExitImmersive={() => setPreachImmersive(false)} onScrollLock={setPreachScrollLocked} />
               </ErrorBoundary>

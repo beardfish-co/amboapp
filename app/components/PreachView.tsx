@@ -258,7 +258,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
   const displayFontSize = Math.min(fontSize, maxFontSize);
 
   return (
-    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 20px 80px" : "0 20px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${displayFontSize}px` }}>
+    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 20px 80px" : "0 20px 0", ...(isScrollMode ? {} : { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${displayFontSize}px` }}>
 
       {/* Controls */}
       <div className="preach-controls" style={{
