@@ -300,7 +300,7 @@ export default function AmboApp() {
             : "transform 0.45s ease, opacity 0.35s ease",
         }}>
         <div className="ambo-header-inner" style={{
-          maxWidth: 760,
+          maxWidth: 1180,
           margin: "0 auto",
           padding: "0 24px",
           height: 60,
