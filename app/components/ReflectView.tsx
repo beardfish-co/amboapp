@@ -1140,7 +1140,7 @@ export default function ReflectView({
                             marginTop: 6,
                             fontSize: 10,
                             color: "var(--ambo-text-muted)",
-                            opacity: 0.5,
+                            opacity: 0.7,
                             textAlign: "right",
                           }}>
                             Catena Aurea — St. Thomas Aquinas
@@ -1202,8 +1202,16 @@ export default function ReflectView({
                       const renderBold = (text: string) => {
                         const parts = text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g);
                         return parts.map((p, pi) => {
-                          if (p.startsWith("**") && p.endsWith("**"))
-                            return <strong key={pi}>{p.slice(2, -2)}</strong>;
+                          if (p.startsWith("**") && p.endsWith("**")) {
+                            // Recursively handle _italic_ markers nested inside **bold** spans
+                            const inner = p.slice(2, -2);
+                            const innerParts = inner.split(/(_[^_]+_)/g).map((ip, ipi) =>
+                              ip.startsWith("_") && ip.endsWith("_")
+                                ? <em key={ipi}>{ip.slice(1, -1)}</em>
+                                : ip
+                            );
+                            return <strong key={pi}>{innerParts}</strong>;
+                          }
                           if (p.startsWith("_") && p.endsWith("_"))
                             return <em key={pi}>{p.slice(1, -1)}</em>;
                           return <span key={pi}>{p}</span>;
@@ -1281,7 +1289,7 @@ export default function ReflectView({
                             );
                           })}
                           {/* Attribution — required by Magisterium API Terms §4.5 */}
-                          <div style={{ fontSize: 10, color: "var(--ambo-text-muted)", opacity: 0.5, textAlign: "right", marginTop: 4 }}>
+                          <div style={{ fontSize: 10, color: "var(--ambo-text-muted)", opacity: 0.7, textAlign: "right", marginTop: 4 }}>
                             Powered by Magisterium AI
                           </div>
                         </div>
