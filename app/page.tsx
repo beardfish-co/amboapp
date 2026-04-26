@@ -33,8 +33,17 @@ export default function AmboApp() {
   const flushWriteRef = useRef<(() => Promise<void>) | null>(null);
   const router = useRouter();
 
-  // Preach immersive mode — header hidden while preaching
+  // Preach immersive mode — header hidden while preaching (mobile/tablet only)
   const [preachImmersive, setPreachImmersive] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  // Only actually hide on non-desktop
+  const headerHidden = preachImmersive && !isDesktop;
 
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -242,7 +251,7 @@ export default function AmboApp() {
   };
 
   return (
-    <div className={preachImmersive ? "preach-immersive" : ""} style={{
+    <div style={{
       height: "100svh",
       background: "var(--ambo-bg)",
       display: "flex",
@@ -259,8 +268,8 @@ export default function AmboApp() {
         />
       )}
 
-      {/* Header — fades away in preach immersive mode (mobile/tablet only) */}
-      <header className="ambo-header" style={{
+      {/* Header — eases away in preach immersive mode (mobile/tablet only) */}
+      <header style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -268,6 +277,14 @@ export default function AmboApp() {
         backdropFilter: "blur(20px) saturate(1.4)",
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",
+        // Inline animation — immune to cascade/specificity issues on iOS
+        overflow: "hidden",
+        height: headerHidden ? 0 : 60,
+        opacity: headerHidden ? 0 : 1,
+        pointerEvents: headerHidden ? "none" : "auto",
+        transition: headerHidden
+          ? "height 0.75s ease 0.35s, opacity 0.65s ease 0.35s"
+          : "height 0.45s ease, opacity 0.35s ease",
       }}>
         <div className="ambo-header-inner" style={{
           maxWidth: 760,
