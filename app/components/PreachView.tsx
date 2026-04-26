@@ -326,7 +326,28 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
         );
         if (stepBlocks.length === 0) return null;
         const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
-        const active = stepBlocks[safeIdx];
+
+        // Render a block's content (shared between current and preview)
+        const renderBlock = (block: typeof stepBlocks[0]) =>
+          block.kind === "quote" ? (
+            <QuoteDisplay block={block} fontSize={fontSize} />
+          ) : (
+            <p style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontSize: fontSize,
+              lineHeight: "var(--ambo-lh-reading)",
+              color: "var(--ambo-text-primary)",
+              letterSpacing: "0.01em",
+              whiteSpace: "pre-wrap",
+              margin: 0,
+            }}>
+              {renderInline(block.text)}
+            </p>
+          );
+
+        // Up to two upcoming blocks shown dimmed below the active one
+        const previews = stepBlocks.slice(safeIdx + 1, safeIdx + 3);
+
         return (
           <div
             style={{
@@ -339,26 +360,22 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
             <div style={{
               flex: 1,
               display: "flex",
-              alignItems: "center",
+              flexDirection: "column",
+              justifyContent: "center",
+              gap: 28,
               animation: "fadeIn 0.3s ease",
             }}>
+              {/* Active block — full opacity */}
               <div style={{ width: "100%" }}>
-                {active.kind === "quote" ? (
-                  <QuoteDisplay block={active} fontSize={fontSize} />
-                ) : (
-                  <p style={{
-                    fontFamily: "var(--ambo-font-reading)",
-                    fontSize: fontSize,
-                    lineHeight: "var(--ambo-lh-reading)",
-                    color: "var(--ambo-text-primary)",
-                    letterSpacing: "0.01em",
-                    whiteSpace: "pre-wrap",
-                    margin: 0,
-                  }}>
-                    {renderInline(active.text)}
-                  </p>
-                )}
+                {renderBlock(stepBlocks[safeIdx])}
               </div>
+
+              {/* Upcoming blocks — dimmed preview */}
+              {previews.map((block, i) => (
+                <div key={i} style={{ width: "100%", opacity: i === 0 ? 0.35 : 0.18, pointerEvents: "none" }}>
+                  {renderBlock(block)}
+                </div>
+              ))}
             </div>
 
             <div style={{
