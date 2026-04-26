@@ -40,7 +40,7 @@ export default function PrivacyPage() {
 
         <Section title="Who we are">
           <p style={body}>
-            Ambo is operated by <strong>Beard Monkey (ABN 94 832 061 094)</strong> ("we", "us", "our"). If you have any questions about this policy or how we handle your data, please contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>.
+            Ambo is operated by <strong>Beard Monkey (ABN 94 832 061 094)</strong> ("we", "us", "our"). If you have any questions about this policy or how we handle your data, please contact us at <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a>.
           </p>
         </Section>
 
@@ -95,13 +95,13 @@ export default function PrivacyPage() {
             <li style={item}><strong>Objection</strong> — you can object to certain types of processing.</li>
           </ul>
           <p style={body}>
-            To exercise any of these rights, contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a>. We will respond within 30 days. You also have the right to lodge a complaint with your national data protection authority.
+            To exercise any of these rights, contact us at <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a>. We will respond within 30 days. You also have the right to lodge a complaint with your national data protection authority.
           </p>
         </Section>
 
         <Section title="Account deletion">
           <p style={body}>
-            You can delete your account and all associated data from within the app at any time via Account Settings. Deletion is permanent and irreversible. If you encounter any difficulty, contact us at <a href="mailto:[PRIVACY_EMAIL]" style={link}>[PRIVACY_EMAIL]</a> and we will complete the deletion manually within 7 days.
+            You can delete your account and all associated data from within the app at any time via Account Settings. Deletion is permanent and irreversible. If you encounter any difficulty, contact us at <a href="mailto:privacy@amboapp.org" style={link}>privacy@amboapp.org</a> and we will complete the deletion manually within 7 days.
           </p>
         </Section>
 
