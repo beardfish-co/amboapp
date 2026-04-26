@@ -725,7 +725,7 @@ export default function WriteView({
       <div className="ambo-write-chrome" style={{
         display: "flex",
         alignItems: "center",
-        marginBottom: 24,
+        marginBottom: 14,
       }}>
         {/* Left: My homilies alone */}
         <PillButton variant="ghost" icon={<StackIconShared />} onClick={onOpenList} title="My homilies" data-tour="my-homilies">
