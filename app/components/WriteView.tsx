@@ -1235,8 +1235,6 @@ export default function WriteView({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          // Solid glass backing — text beneath can't bleed through when pinned
-          background: "var(--ambo-surface-solid)",
           padding: "8px 0",
           margin: "0 0 12px",
         }}
@@ -1250,9 +1248,7 @@ export default function WriteView({
             padding: "0 5px",
             borderRadius: 999,
             border: "1px solid var(--ambo-border)",
-            background: "var(--ambo-surface)",
-            backdropFilter: "blur(20px) saturate(1.4)",
-            WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+            background: "var(--ambo-surface-solid)",
             boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
           }}
         >
@@ -1307,9 +1303,7 @@ export default function WriteView({
             lineHeight: "1",
             boxShadow: "var(--ambo-shadow-sm, 0 1px 2px rgba(0,0,0,0.04))",
             ...(readingsOpen ? {} : {
-              background: "var(--ambo-surface)",
-              backdropFilter: "blur(20px) saturate(1.4)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+              background: "var(--ambo-surface-solid)",
             }),
           }}
         >
