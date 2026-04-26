@@ -321,19 +321,6 @@ export default function ReadingsDrawer({
                   </div>
                 )}
 
-                {/* Insert whole reading */}
-                {paragraphs.length > 1 && (
-                  <button
-                    onClick={() => onInsert({
-                      text: paragraphs.join("\n\n"),
-                      citation: r.reference,
-                    })}
-                    style={insertAllStyle}
-                    title="Insert the full reading as a quote"
-                  >
-                    + Insert whole reading
-                  </button>
-                )}
 
                 {/* Paragraph list */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
