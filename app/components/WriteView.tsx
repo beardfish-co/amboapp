@@ -1232,10 +1232,15 @@ export default function WriteView({
           position: "sticky",
           top: 72,
           zIndex: 20,
-          marginBottom: 20,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          // Solid glass backing — text beneath can't bleed through when pinned
+          background: "var(--ambo-surface-raised)",
+          backdropFilter: "blur(20px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+          padding: "8px 0",
+          margin: "0 0 12px",
         }}
       >
         <div
