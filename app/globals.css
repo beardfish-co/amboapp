@@ -608,17 +608,24 @@ body {
 }
 
 /* ── Placeholder text — override browser's automatic opacity reduction ── */
+/* ── Placeholder text — override browser's automatic opacity reduction ── */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) textarea::placeholder,
   :root:not([data-theme="light"]) input::placeholder {
     color: var(--ambo-text-muted);
     opacity: 1;
   }
+  :root:not([data-theme="light"]) .mode-pill {
+    border-color: rgba(107, 147, 200, 0.38);
+  }
 }
 [data-theme="dark"] textarea::placeholder,
 [data-theme="dark"] input::placeholder {
   color: var(--ambo-text-muted);
   opacity: 1;
+}
+[data-theme="dark"] .mode-pill {
+  border-color: rgba(107, 147, 200, 0.38);
 }
 
 /* =============================================================
