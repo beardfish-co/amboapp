@@ -1555,6 +1555,10 @@ export default function ReflectView({
           display: "flex",
           flexDirection: "column",
           gap: 12,
+          position: "sticky",
+          top: 0,
+          maxHeight: "calc(100svh - 96px)",
+          overflowY: "auto",
         }}
       >
         {/* DISCERNMENT panel */}
