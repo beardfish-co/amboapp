@@ -681,3 +681,46 @@ body {
   animation: tourFadeIn 560ms cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
 
+/* =============================================================
+   Preach immersive mode — header eases away on mobile/tablet
+   ============================================================= */
+
+/* Base — header transition for EXIT from immersive (fast restore) */
+.ambo-header {
+  max-height: 80px;
+  overflow: hidden;
+  opacity: 1;
+  transition: max-height 0.45s ease, opacity 0.35s ease;
+}
+
+/* Entering immersive — slower fade with brief delay so priest sees the page first */
+.preach-immersive .ambo-header {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-height 0.75s 0.35s ease, opacity 0.65s 0.35s ease;
+}
+
+/* Exit button pulse — draws attention after header fades */
+@keyframes exitButtonPulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(74, 111, 165, 0); }
+  50%       { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(74, 111, 165, 0.22); }
+}
+
+.preach-exit-pulse {
+  animation: exitButtonPulse 0.65s ease-in-out 1.1s 2;
+}
+
+/* Desktop (≥ 1024px) — keep header always visible; immersive is tablet/mobile only */
+@media (min-width: 1024px) {
+  .preach-immersive .ambo-header {
+    max-height: 80px !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transition: none !important;
+  }
+  .preach-exit-pulse {
+    animation: none !important;
+  }
+}
+

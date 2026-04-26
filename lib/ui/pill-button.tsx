@@ -61,6 +61,7 @@ export function PillButton({
   title,
   disabled,
   style,
+  className,
   "data-tour": dataTour,
 }: Props) {
   return (
@@ -69,7 +70,7 @@ export function PillButton({
       title={title}
       disabled={disabled}
       data-tour={dataTour}
-      className="mode-pill-btn"
+      className={`mode-pill-btn${className ? " " + className : ""}`}
       style={{
         ...base,
         ...variants[variant],

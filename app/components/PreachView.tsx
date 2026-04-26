@@ -244,6 +244,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
             <PillButton
               variant="ghost"
               onClick={onExitImmersive}
+              className="preach-exit-pulse"
               icon={
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                   <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>

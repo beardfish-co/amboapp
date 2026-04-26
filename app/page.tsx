@@ -242,7 +242,7 @@ export default function AmboApp() {
   };
 
   return (
-    <div style={{
+    <div className={preachImmersive ? "preach-immersive" : ""} style={{
       height: "100svh",
       background: "var(--ambo-bg)",
       display: "flex",
@@ -259,8 +259,8 @@ export default function AmboApp() {
         />
       )}
 
-      {/* Header — hidden while in preach immersive mode */}
-      {!preachImmersive && <header style={{
+      {/* Header — fades away in preach immersive mode (mobile/tablet only) */}
+      <header className="ambo-header" style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -321,7 +321,7 @@ export default function AmboApp() {
             />
           </div>
         </div>
-      </header>}
+      </header>
 
       {/* Dormancy banner */}
       {!dormancyDismissed && dormancyState !== "active" && (
