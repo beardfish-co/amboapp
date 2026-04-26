@@ -292,7 +292,7 @@ export default function AmboApp() {
           transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
           opacity: headerHidden ? 0 : 1,
           transition: headerHidden
-            ? "transform 1.0s cubic-bezier(0.4, 0, 1, 1) 0.3s, opacity 0.85s ease 0.3s"
+            ? "transform 1.3s cubic-bezier(0.4, 0, 1, 1) 0.4s, opacity 1.1s ease 0.4s"
             : "transform 0.45s ease, opacity 0.35s ease",
         }}>
         <div className="ambo-header-inner" style={{
