@@ -105,14 +105,21 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     }
   }, [currentBlock, isScrollMode]);
 
-  // Prevent manual wheel-scroll hijacking the stage
+  // Prevent manual wheel-scroll and touch-drag hijacking the stage in step mode.
+  // overflow:hidden on <main> stops mouse-wheel and programmatic scroll, but iOS
+  // WebKit processes touchmove independently — we must cancel it at the document
+  // level to make the screen fully rigid while the priest is stepping.
   useEffect(() => {
     if (isScrollMode) return;
     const el = stepContainerRef.current;
-    if (!el) return;
-    const prevent = (e: WheelEvent) => e.preventDefault();
-    el.addEventListener("wheel", prevent, { passive: false });
-    return () => el.removeEventListener("wheel", prevent);
+    const preventWheel = (e: WheelEvent) => e.preventDefault();
+    const preventTouch = (e: TouchEvent) => e.preventDefault();
+    if (el) el.addEventListener("wheel", preventWheel, { passive: false });
+    document.addEventListener("touchmove", preventTouch, { passive: false });
+    return () => {
+      if (el) el.removeEventListener("wheel", preventWheel);
+      document.removeEventListener("touchmove", preventTouch);
+    };
   }, [isScrollMode]);
 
   // Tell the parent to lock outer scroll while in step mode so an accidental
