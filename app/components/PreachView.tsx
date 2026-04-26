@@ -188,7 +188,13 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
                 <polyline points="11,9.5 13.5,12 11,14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             }
-            style={{ height: 34, padding: "0 14px" }}
+            style={{
+              height: 34, padding: "0 14px",
+              ...(isScrollMode ? {
+                border: "1px solid rgba(74, 111, 165, 0.45)",
+                background: "var(--ambo-accent-faint)",
+              } : {}),
+            }}
           >
             Scroll
           </PillButton>
@@ -201,7 +207,13 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
                 <line x1="12.5" y1="4" x2="12.5" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
             }
-            style={{ height: 34, padding: "0 14px" }}
+            style={{
+              height: 34, padding: "0 14px",
+              ...(!isScrollMode ? {
+                border: "1px solid rgba(74, 111, 165, 0.45)",
+                background: "var(--ambo-accent-faint)",
+              } : {}),
+            }}
           >
             Step
           </PillButton>
