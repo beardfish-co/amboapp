@@ -340,6 +340,7 @@ export default function AmboApp() {
         flex: 1,
         minHeight: 0,
         overflowY: "auto",
+        scrollbarGutter: "stable" as any,
         padding: mode === "preach" ? "36px 0 0" : "36px 0",
       }}>
         {idHydrated && (
