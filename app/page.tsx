@@ -33,6 +33,9 @@ export default function AmboApp() {
   const flushWriteRef = useRef<(() => Promise<void>) | null>(null);
   const router = useRouter();
 
+  // Preach immersive mode — header hidden while preaching
+  const [preachImmersive, setPreachImmersive] = useState(false);
+
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -256,8 +259,8 @@ export default function AmboApp() {
         />
       )}
 
-      {/* Header */}
-      <header style={{
+      {/* Header — hidden while in preach immersive mode */}
+      {!preachImmersive && <header style={{
         position: "sticky",
         top: 0,
         zIndex: 50,
@@ -297,6 +300,9 @@ export default function AmboApp() {
                   if (m === "preach") {
                     await flushWriteRef.current?.();
                     setPreachVersion(v => v + 1);
+                    setPreachImmersive(true);
+                  } else {
+                    setPreachImmersive(false);
                   }
                   if (m === "write") setDiscernmentVersion(v => v + 1);
                   setMode(m);
@@ -315,7 +321,7 @@ export default function AmboApp() {
             />
           </div>
         </div>
-      </header>
+      </header>}
 
       {/* Dormancy banner */}
       {!dormancyDismissed && dormancyState !== "active" && (
@@ -374,7 +380,7 @@ export default function AmboApp() {
             </div>
             <div className="view-wrapper view-wrapper--preach" style={{ display: mode === "preach" ? undefined : "none", height: "100%", minHeight: 0 }}>
               <ErrorBoundary label="Preach">
-              <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} />
+              <PreachView currentId={currentId} preachVersion={preachVersion} liveContent={liveContent} onExitImmersive={() => setPreachImmersive(false)} />
               </ErrorBoundary>
             </div>
           </>

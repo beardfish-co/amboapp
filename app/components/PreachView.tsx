@@ -13,6 +13,7 @@ interface PreachViewProps {
   currentId: string | null;
   preachVersion?: number;
   liveContent?: { title: string; content: string } | null;
+  onExitImmersive?: () => void;
 }
 
 type Block =
@@ -44,7 +45,7 @@ function parseBlocks(text: string): Block[] {
     });
 }
 
-export default function PreachView({ currentId, preachVersion, liveContent }: PreachViewProps) {
+export default function PreachView({ currentId, preachVersion, liveContent, onExitImmersive }: PreachViewProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
 
@@ -239,6 +240,20 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
         gap: 16,
       }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {onExitImmersive && (
+            <PillButton
+              variant="ghost"
+              onClick={onExitImmersive}
+              icon={
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                  <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              }
+              style={{ height: 34, padding: "0 14px" }}
+            >
+              Exit
+            </PillButton>
+          )}
           <PillButton
             variant={isScrollMode ? "active" : "ghost"}
             onClick={() => setIsScrollMode(true)}
