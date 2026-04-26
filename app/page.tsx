@@ -284,7 +284,7 @@ export default function AmboApp() {
         overflow: "hidden",
         pointerEvents: headerHidden ? "none" : "auto",
         height: headerHidden ? 0 : 60,
-        transition: headerHidden ? "height 0.3s ease" : "height 0.4s ease",
+        transition: headerHidden ? "height 0.5s ease 0.2s" : "height 0.4s ease",
       }}>
         {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}
         <div style={{
@@ -292,8 +292,8 @@ export default function AmboApp() {
           transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
           opacity: headerHidden ? 0 : 1,
           transition: headerHidden
-            ? "transform 0.65s cubic-bezier(0.4, 0, 1, 1) 0.15s, opacity 0.5s ease 0.15s"
-            : "transform 0.4s ease, opacity 0.3s ease",
+            ? "transform 1.0s cubic-bezier(0.4, 0, 1, 1) 0.3s, opacity 0.85s ease 0.3s"
+            : "transform 0.45s ease, opacity 0.35s ease",
         }}>
         <div className="ambo-header-inner" style={{
           maxWidth: 760,
