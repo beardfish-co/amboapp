@@ -106,8 +106,12 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     if (!block || !container) return;
     const cRect = container.getBoundingClientRect();
     const bRect = block.getBoundingClientRect();
-    const delta = (bRect.top + bRect.height / 2) - (cRect.top + cRect.height / 2);
-    const target = container.scrollTop + delta;
+    // If the block is taller than the container, centering would hide the top.
+    // Instead snap to the top of the block (with a small breathing margin) so
+    // the priest always reads from the beginning of the paragraph.
+    const target = block.clientHeight > container.clientHeight
+      ? container.scrollTop + (bRect.top - cRect.top) - 16
+      : container.scrollTop + (bRect.top + bRect.height / 2) - (cRect.top + cRect.height / 2);
     if (isFirstStep.current) {
       container.scrollTop = target;
       isFirstStep.current = false;
