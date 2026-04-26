@@ -409,7 +409,6 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
           </>
         );
       })()}
-      </div>
 
       <style>{`
         /* Step mode slide animations — gentle ease into reading position */
