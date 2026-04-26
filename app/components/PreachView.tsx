@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { renderInline } from "@/lib/inline-markdown";
 import { PillButton } from "@/lib/ui/pill-button";
@@ -62,6 +62,41 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
+
+  // Step mode scroll-to-centre refs
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+  const blockRefsArr = useRef<(HTMLDivElement | null)[]>([]);
+  const [containerH, setContainerH] = useState(400);
+
+  // Measure step container height
+  useEffect(() => {
+    if (isScrollMode) return;
+    const el = stepContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerH(entry.contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isScrollMode]);
+
+  // Smooth-scroll active block to vertical centre when index or container changes
+  useEffect(() => {
+    if (isScrollMode) return;
+    const block = blockRefsArr.current[currentBlock];
+    const container = stepContainerRef.current;
+    if (!block || !container) return;
+    const target = block.offsetTop - containerH / 2 + block.offsetHeight / 2;
+    container.scrollTo({ top: target, behavior: "smooth" });
+  }, [currentBlock, containerH, isScrollMode]);
+
+  // Prevent manual wheel-scroll inside the step container
+  useEffect(() => {
+    if (isScrollMode) return;
+    const el = stepContainerRef.current;
+    if (!el) return;
+    const prevent = (e: WheelEvent) => e.preventDefault();
+    el.addEventListener("wheel", prevent, { passive: false });
+    return () => el.removeEventListener("wheel", prevent);
+  }, [isScrollMode]);
   // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
     let cancelled = false;
@@ -327,8 +362,11 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
         if (stepBlocks.length === 0) return null;
         const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
 
-        // Render a block's content (shared between current and preview)
-        const renderBlock = (block: typeof stepBlocks[0]) =>
+        // Opacity by distance from active block
+        const opacityForDistance = (d: number) =>
+          d === 0 ? 1 : d === 1 ? 0.38 : d === 2 ? 0.18 : 0.08;
+
+        const renderStepBlock = (block: typeof stepBlocks[0]) =>
           block.kind === "quote" ? (
             <QuoteDisplay block={block} fontSize={fontSize} />
           ) : (
@@ -345,9 +383,6 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
             </p>
           );
 
-        // Up to two upcoming blocks shown dimmed below the active one
-        const previews = stepBlocks.slice(safeIdx + 1, safeIdx + 3);
-
         return (
           <div
             style={{
@@ -357,25 +392,37 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
               minHeight: 0,
             }}
           >
-            <div style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              gap: 28,
-              animation: "fadeIn 0.3s ease",
-            }}>
-              {/* Active block — full opacity */}
-              <div style={{ width: "100%" }}>
-                {renderBlock(stepBlocks[safeIdx])}
+            {/* Scrolling stage — overflow hidden, no scrollbar */}
+            <div
+              ref={stepContainerRef}
+              className="preach-step-container"
+              style={{
+                flex: 1,
+                overflowY: "scroll",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none" as any,
+              }}
+            >
+              {/* Top/bottom padding lets first and last blocks reach centre */}
+              <div style={{ paddingTop: containerH / 2, paddingBottom: containerH / 2 }}>
+                {stepBlocks.map((block, i) => {
+                  const distance = Math.abs(i - safeIdx);
+                  return (
+                    <div
+                      key={i}
+                      ref={el => { blockRefsArr.current[i] = el; }}
+                      style={{
+                        opacity: opacityForDistance(distance),
+                        transition: "opacity 0.45s ease",
+                        marginBottom: 40,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {renderStepBlock(block)}
+                    </div>
+                  );
+                })}
               </div>
-
-              {/* Upcoming blocks — dimmed preview */}
-              {previews.map((block, i) => (
-                <div key={i} style={{ width: "100%", opacity: i === 0 ? 0.35 : 0.18, pointerEvents: "none" }}>
-                  {renderBlock(block)}
-                </div>
-              ))}
             </div>
 
             <div style={{
@@ -409,6 +456,9 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
       </div>
 
       <style>{`
+        /* Hide webkit scrollbar on step container */
+        .preach-step-container::-webkit-scrollbar { display: none; }
+
         @media print {
           /* Always print in light mode — no dark backgrounds wasting ink */
           :root {
