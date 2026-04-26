@@ -65,6 +65,17 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
+  // Phone screens cap font size lower — large text in step mode can exceed the
+  // available container height, and touch scroll is locked so text becomes unreachable.
+  const [isPhone, setIsPhone] = useState(false);
+  useEffect(() => {
+    const check = () => setIsPhone(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  const maxFontSize = isPhone ? 28 : 36;
+
   // Step mode — scroll container refs
   const stepContainerRef = useRef<HTMLDivElement>(null);
   const blockRefsArr = useRef<(HTMLDivElement | null)[]>([]);
@@ -243,8 +254,11 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     );
   }
 
+  // Clamp to device max so text never exceeds what fits in the step container
+  const displayFontSize = Math.min(fontSize, maxFontSize);
+
   return (
-    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 20px 80px" : "0 20px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${fontSize}px` }}>
+    <div className="view-fade preach-print-root" style={{ maxWidth: 840, margin: "0 auto", padding: isScrollMode ? "0 20px 80px" : "0 20px 0", ...(isScrollMode ? {} : { height: "100%", minHeight: 0, display: "flex", flexDirection: "column" as const }), ["--print-font-size" as string]: `${displayFontSize}px` }}>
 
       {/* Controls */}
       <div className="preach-controls" style={{
@@ -321,7 +335,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
             A
           </button>
           <button
-            onClick={() => setFontSize((f) => Math.min(36, f + 2))}
+            onClick={() => setFontSize((f) => Math.min(maxFontSize, f + 2))}
             style={{ ...fontBtnStyle, fontSize: 18 }}
             title="Larger"
           >
@@ -363,11 +377,11 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
           )}
           <div>
             {blocks.map((block, i) => {
-              if (block.kind === "quote") return <QuoteDisplay key={i} block={block} fontSize={fontSize} />;
+              if (block.kind === "quote") return <QuoteDisplay key={i} block={block} fontSize={displayFontSize} />;
               if (block.kind === "breath") return <div key={i} aria-hidden style={{ height: "1.8em", marginBottom: "1.6em" }} />;
               return (
                 <p key={i} style={{
-                  fontFamily: "var(--ambo-font-reading)", fontSize: fontSize,
+                  fontFamily: "var(--ambo-font-reading)", fontSize: displayFontSize,
                   lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
                   marginBottom: "2em", letterSpacing: "0.01em", whiteSpace: "pre-wrap",
                 }}>
@@ -431,10 +445,10 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
                       }}
                     >
                       {block.kind === "quote" ? (
-                        <QuoteDisplay block={block} fontSize={fontSize} />
+                        <QuoteDisplay block={block} fontSize={displayFontSize} />
                       ) : (
                         <p style={{
-                          fontFamily: "var(--ambo-font-reading)", fontSize: fontSize,
+                          fontFamily: "var(--ambo-font-reading)", fontSize: displayFontSize,
                           lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
                           letterSpacing: "0.01em", whiteSpace: "pre-wrap", margin: 0,
                         }}>
