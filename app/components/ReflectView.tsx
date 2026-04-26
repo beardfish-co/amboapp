@@ -683,7 +683,7 @@ export default function ReflectView({
                   {/* Line 1: eyebrow + inline ref chip */}
                   <div>
                     <span style={{
-                      fontSize: 11,
+                      fontSize: "var(--rf-eyebrow-size)",
                       fontWeight: 700,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
@@ -692,7 +692,7 @@ export default function ReflectView({
                       {r.title}
                     </span>
                     <span style={{
-                      fontSize: 12,
+                      fontSize: "var(--rf-ref-size)",
                       fontStyle: "italic",
                       color: "var(--ambo-text-muted)",
                       marginLeft: 10,
@@ -1389,7 +1389,7 @@ export default function ReflectView({
                         <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
                           <div>
                             <span style={{
-                              fontSize: 10,
+                              fontSize: "var(--rf-eyebrow-size)",
                               fontWeight: 700,
                               letterSpacing: "0.08em",
                               textTransform: "uppercase",
@@ -1398,7 +1398,7 @@ export default function ReflectView({
                               {r.title}
                             </span>
                             <span style={{
-                              fontSize: 11,
+                              fontSize: "var(--rf-ref-size)",
                               fontStyle: "italic",
                               color: "var(--ambo-text-muted)",
                               marginLeft: 10,
@@ -1841,6 +1841,8 @@ export default function ReflectView({
           --rf-prompt-size: 14px;
           --rf-afford-size: 12px;
           --rf-subhead-size: 13px;
+          --rf-eyebrow-size: 11px;
+          --rf-ref-size: 12px;
         }
         @media (min-width: 1201px) {
           .reflect-layout {
@@ -1848,6 +1850,8 @@ export default function ReflectView({
             --rf-prompt-size: 16px;
             --rf-afford-size: 13px;
             --rf-subhead-size: 14px;
+            --rf-eyebrow-size: 13px;
+            --rf-ref-size: 14px;
           }
         }
 
