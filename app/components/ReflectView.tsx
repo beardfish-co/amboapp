@@ -1847,6 +1847,9 @@ export default function ReflectView({
           .reflect-notes {
             min-height: 280px;
           }
+          .reflect-reading-card {
+            margin-bottom: 16px !important;
+          }
         }
       `}</style>
     </div>
