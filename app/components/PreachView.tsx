@@ -473,6 +473,17 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
             }}>
               <button
                 onClick={() => {
+                  const block = blockRefsArr.current[safeIdx];
+                  const container = stepContainerRef.current;
+                  if (block && container) {
+                    const bRect = block.getBoundingClientRect();
+                    const cRect = container.getBoundingClientRect();
+                    // If we've scrolled down within an oversized block, page back up first
+                    if (bRect.top < cRect.top - 10) {
+                      smoothScrollTo(container, container.scrollTop + (bRect.top - cRect.top) - 16, 650);
+                      return;
+                    }
+                  }
                   stepDirection.current = "backward";
                   setCurrentBlock((c) => Math.max(0, c - 1));
                 }}
@@ -486,6 +497,17 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
               </span>
               <button
                 onClick={() => {
+                  const block = blockRefsArr.current[safeIdx];
+                  const container = stepContainerRef.current;
+                  if (block && container) {
+                    const bRect = block.getBoundingClientRect();
+                    const cRect = container.getBoundingClientRect();
+                    // If the block's bottom is still below the visible area, page down within it
+                    if (bRect.bottom > cRect.bottom + 10) {
+                      smoothScrollTo(container, container.scrollTop + container.clientHeight - 48, 650);
+                      return;
+                    }
+                  }
                   stepDirection.current = "forward";
                   setCurrentBlock((c) => Math.min(stepBlocks.length - 1, c + 1));
                 }}
