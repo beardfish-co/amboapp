@@ -17,6 +17,7 @@ type Props = {
   title?: string;
   disabled?: boolean;
   style?: CSSProperties;
+  className?: string;
   "data-tour"?: string;
 };
 
