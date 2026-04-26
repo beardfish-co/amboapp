@@ -19,7 +19,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 
-const GENERATOR_MODEL = "claude-sonnet-4-6";
+const GENERATOR_MODEL = "claude-haiku-4-5-20251001";
 const EVALUATOR_MODEL = "claude-haiku-4-5-20251001";
 
 export interface PromptReading {
