@@ -1806,7 +1806,7 @@ export default function ReflectView({
             outline: "none",
             resize: "none",
             overflow: "hidden",
-            padding: "14px 14px 56px",
+            padding: "14px 14px 20px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
@@ -1854,6 +1854,9 @@ export default function ReflectView({
         @media (min-width: 901px) and (max-width: 1200px) {
           .reflect-reading-card {
             margin-bottom: 20px !important;
+          }
+          .reflect-notes {
+            min-height: 120px !important;
           }
         }
       `}</style>
