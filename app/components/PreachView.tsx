@@ -63,10 +63,29 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
   const [isScrollMode, setIsScrollMode] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  // Step mode scroll-to-centre refs
+  // Step mode scroll-to-focal-point refs
   const stepContainerRef = useRef<HTMLDivElement>(null);
   const blockRefsArr = useRef<(HTMLDivElement | null)[]>([]);
   const [containerH, setContainerH] = useState(400);
+  const isFirstStep = useRef(true);
+
+  // Active block sits 42% down the container — leaving 42% above for past text
+  const FOCAL = 0.42;
+
+  // Gentle ease-in-out sine scroll — calm, unhurried (900ms)
+  const smoothScrollTo = (el: HTMLElement, to: number, duration: number) => {
+    const from = el.scrollTop;
+    const delta = to - from;
+    if (Math.abs(delta) < 1) return;
+    const start = performance.now();
+    const ease = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2; // sine ease-in-out
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / duration, 1);
+      el.scrollTop = from + delta * ease(t);
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
 
   // Measure step container height
   useEffect(() => {
@@ -78,14 +97,20 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
     return () => ro.disconnect();
   }, [isScrollMode]);
 
-  // Smooth-scroll active block to vertical centre when index or container changes
+  // Scroll active block to focal point when index or container changes
   useEffect(() => {
     if (isScrollMode) return;
     const block = blockRefsArr.current[currentBlock];
     const container = stepContainerRef.current;
     if (!block || !container) return;
-    const target = block.offsetTop - containerH / 2 + block.offsetHeight / 2;
-    container.scrollTo({ top: target, behavior: "smooth" });
+    const target = block.offsetTop - containerH * FOCAL + block.offsetHeight / 2;
+    if (isFirstStep.current) {
+      // First appearance: jump immediately, no animation
+      container.scrollTop = target;
+      isFirstStep.current = false;
+    } else {
+      smoothScrollTo(container, target, 900);
+    }
   }, [currentBlock, containerH, isScrollMode]);
 
   // Prevent manual wheel-scroll inside the step container
@@ -235,7 +260,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
           </PillButton>
           <PillButton
             variant={!isScrollMode ? "active" : "ghost"}
-            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); }}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -404,7 +429,7 @@ export default function PreachView({ currentId, preachVersion, liveContent }: Pr
               }}
             >
               {/* Top/bottom padding lets first and last blocks reach centre */}
-              <div style={{ paddingTop: containerH / 2, paddingBottom: containerH / 2 }}>
+              <div style={{ paddingTop: containerH * FOCAL, paddingBottom: containerH * (1 - FOCAL) }}>
                 {stepBlocks.map((block, i) => {
                   const distance = Math.abs(i - safeIdx);
                   return (
