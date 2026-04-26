@@ -283,7 +283,9 @@ export default function AmboApp() {
         backdropFilter: "blur(20px) saturate(1.4)",
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",
-        overflow: "hidden",
+        // overflow must be visible so the AccountMenu dropdown can escape the header boundary.
+        // The inner wrapper clips the sliding content when the header collapses.
+        overflow: headerHidden ? "hidden" : "visible",
         pointerEvents: headerHidden ? "none" : "auto",
         height: headerHidden ? 0 : 60,
         transition: headerHidden ? "height 0.5s ease 0.2s" : "height 0.4s ease",
@@ -291,6 +293,7 @@ export default function AmboApp() {
         {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}
         <div style={{
           height: 60,
+          overflow: "hidden",
           transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
           opacity: headerHidden ? 0 : 1,
           transition: headerHidden
