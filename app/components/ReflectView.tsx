@@ -1547,16 +1547,19 @@ export default function ReflectView({
         )}
       </div>
 
-      {/* Right column: Discernment panel + Notes pad */}
+      {/* Right column: Discernment panel + Notes pad.
+          The outer div is the grid item — stretches to full row height so the
+          inner sticky div has room to travel. Sticky directly on a CSS grid
+          item is unreliable in Safari; the wrapper pattern is cross-browser. */}
+      <div className="reflect-side" style={{ alignSelf: "stretch" }}>
       <div
-        className="reflect-side"
+        className="reflect-side-inner"
         style={{
-          alignSelf: "start",
+          position: "sticky",
+          top: 72,
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          position: "sticky",
-          top: 0,
           maxHeight: "calc(100svh - 96px)",
           overflowY: "auto",
         }}
@@ -1842,7 +1845,9 @@ export default function ReflectView({
       {/* Mobile toggle for notes */}
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
 
-      </div>{/* end two-column grid */}
+      </div>{/* end reflect-side-inner */}
+      </div>{/* end reflect-side outer */}
+      </div>{/* end reflect-layout grid */}
 
       <style jsx>{`
         /* ── Responsive type-scale tokens ── */
@@ -1871,7 +1876,7 @@ export default function ReflectView({
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
           }
-          .reflect-side {
+          .reflect-side-inner {
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
