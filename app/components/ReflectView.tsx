@@ -1806,7 +1806,7 @@ export default function ReflectView({
             outline: "none",
             resize: "none",
             overflow: "hidden",
-            padding: 14,
+            padding: "14px 14px 28px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
