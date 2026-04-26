@@ -296,7 +296,6 @@ export default function HomilyList({
             const title = (h.title && h.title.trim()) || "Untitled";
             const preview = previewOf(h.content);
             const words = wordCount(h.content);
-            const confirming = confirmDeleteId === h.id;
             const sundayName = h.sunday_date ? sundayNameCache.get(h.sunday_date) : undefined;
             const sundaySubtitle = h.sunday_date
               ? `${sundayName ?? "Sunday"} · ${shortSundayLabel(h.sunday_date)}`
@@ -315,7 +314,7 @@ export default function HomilyList({
                   cursor: "pointer",
                   transition: "background 0.1s",
                 }}
-                onClick={() => { if (!confirming) onSelect(h.id); }}
+                onClick={() => onSelect(h.id)}
                 onMouseEnter={(e) => {
                   if (!isActive) e.currentTarget.style.background = "var(--ambo-surface)";
                 }}
@@ -378,77 +377,146 @@ export default function HomilyList({
                   <div style={{ fontSize: 11, color: "var(--ambo-text-muted)" }}>
                     {words} {words === 1 ? "word" : "words"}
                   </div>
-                  {!confirming && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDeleteId(h.id);
-                      }}
-                      aria-label="Delete homily"
-                      title="Delete"
-                      style={{
-                        border: "none",
-                        background: "none",
-                        color: "var(--ambo-text-muted)",
-                        cursor: "pointer",
-                        padding: "2px 6px",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      Delete
-                    </button>
-                  )}
-                  {confirming && (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setConfirmDeleteId(null);
-                        }}
-                        style={{
-                          border: "1px solid var(--ambo-border)",
-                          background: "transparent",
-                          color: "var(--ambo-text-secondary)",
-                          cursor: "pointer",
-                          padding: "3px 10px",
-                          borderRadius: 100,
-                          fontSize: 11,
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(h.id);
-                        }}
-                        disabled={deletingId === h.id}
-                        style={{
-                          border: "none",
-                          background: "#c0392b",
-                          color: "white",
-                          cursor: deletingId === h.id ? "default" : "pointer",
-                          padding: "3px 10px",
-                          borderRadius: 100,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          fontFamily: "inherit",
-                          opacity: deletingId === h.id ? 0.6 : 1,
-                        }}
-                      >
-                        {deletingId === h.id ? "…" : "Delete"}
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteId(h.id);
+                    }}
+                    aria-label="Delete homily"
+                    title="Delete"
+                    style={{
+                      border: "none",
+                      background: "none",
+                      color: "var(--ambo-text-muted)",
+                      cursor: "pointer",
+                      padding: "2px 6px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             );
           })}
         </div>
       </aside>
+
+      {/* ── Delete confirmation modal ── */}
+      {confirmDeleteId && (() => {
+        const target = homilies?.find((h) => h.id === confirmDeleteId);
+        const title = (target?.title && target.title.trim()) || "Untitled";
+        const isDeleting = deletingId === confirmDeleteId;
+        return (
+          <>
+            {/* Modal backdrop — sits above the drawer */}
+            <div
+              onClick={() => { if (!isDeleting) setConfirmDeleteId(null); }}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(15, 20, 30, 0.45)",
+                backdropFilter: "blur(3px)",
+                WebkitBackdropFilter: "blur(3px)",
+                zIndex: 120,
+                animation: "fadeIn 180ms ease",
+              }}
+            />
+            {/* Modal card */}
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-modal-title"
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 121,
+                background: "var(--ambo-bg)",
+                border: "1px solid var(--ambo-border)",
+                borderRadius: 18,
+                boxShadow: "var(--ambo-shadow-md)",
+                padding: "28px 28px 24px",
+                width: "min(360px, 90vw)",
+                animation: "fadeIn 180ms ease",
+              }}
+            >
+              <p style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "#c0392b",
+                margin: "0 0 10px",
+              }}>
+                Delete homily
+              </p>
+              <p
+                id="delete-modal-title"
+                style={{
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "var(--ambo-text-primary)",
+                  margin: "0 0 8px",
+                  lineHeight: 1.35,
+                }}
+              >
+                "{title}"
+              </p>
+              <p style={{
+                fontSize: 13,
+                color: "var(--ambo-text-secondary)",
+                lineHeight: 1.55,
+                margin: "0 0 24px",
+              }}>
+                This will permanently delete the homily and all its notes. This cannot be undone.
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  disabled={isDeleting}
+                  style={{
+                    border: "1px solid var(--ambo-border)",
+                    background: "transparent",
+                    color: "var(--ambo-text-secondary)",
+                    cursor: isDeleting ? "default" : "pointer",
+                    padding: "9px 20px",
+                    borderRadius: 100,
+                    fontSize: 13,
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                    opacity: isDeleting ? 0.5 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDelete(confirmDeleteId)}
+                  disabled={isDeleting}
+                  style={{
+                    border: "none",
+                    background: "#c0392b",
+                    color: "white",
+                    cursor: isDeleting ? "default" : "pointer",
+                    padding: "9px 20px",
+                    borderRadius: 100,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    fontFamily: "inherit",
+                    opacity: isDeleting ? 0.6 : 1,
+                    minWidth: 80,
+                  }}
+                >
+                  {isDeleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </>
   );
 }
