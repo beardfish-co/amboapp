@@ -704,7 +704,7 @@ export default function ReflectView({
                   {r.heading && (
                     <div style={{
                       fontFamily: "var(--ambo-font-reading)",
-                      fontSize: 13,
+                      fontSize: "var(--rf-subhead-size)",
                       fontStyle: "italic",
                       color: "var(--ambo-text-secondary)",
                       lineHeight: 1.5,
@@ -781,7 +781,7 @@ export default function ReflectView({
                         }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
-                              fontSize: 14,
+                              fontSize: "var(--rf-prompt-size)",
                               fontStyle: "italic",
                               color: "var(--ambo-text-secondary)",
                               lineHeight: 1.55,
@@ -861,7 +861,7 @@ export default function ReflectView({
                             <div style={{
                               display: "flex",
                               gap: 6,
-                              fontSize: 13,
+                              fontSize: "var(--rf-cite-size)",
                               lineHeight: 1.6,
                               color: "var(--ambo-text-secondary)",
                               marginBottom: 3,
@@ -873,7 +873,7 @@ export default function ReflectView({
                               </span>
                             </div>
                             <div style={{
-                              fontSize: 13,
+                              fontSize: "var(--rf-cite-size)",
                               color: "var(--ambo-text-secondary)",
                               lineHeight: 1.6,
                               fontStyle: "italic",
@@ -957,7 +957,7 @@ export default function ReflectView({
                                           <div style={{
                                             display: "flex",
                                             gap: 6,
-                                            fontSize: 13,
+                                            fontSize: "var(--rf-cite-size)",
                                             lineHeight: 1.6,
                                             color: "var(--ambo-text-secondary)",
                                             marginBottom: 3,
@@ -974,7 +974,7 @@ export default function ReflectView({
                                             </span>
                                           </div>
                                           <div style={{
-                                            fontSize: 13,
+                                            fontSize: "var(--rf-cite-size)",
                                             color: "var(--ambo-text-secondary)",
                                             lineHeight: 1.6,
                                             fontStyle: "italic",
@@ -1064,7 +1064,7 @@ export default function ReflectView({
                                               <div style={{
                                                 display: "flex",
                                                 gap: 6,
-                                                fontSize: 13,
+                                                fontSize: "var(--rf-cite-size)",
                                                 lineHeight: 1.6,
                                                 color: "var(--ambo-text-secondary)",
                                                 marginBottom: 3,
@@ -1081,7 +1081,7 @@ export default function ReflectView({
                                                 </span>
                                               </div>
                                               <div style={{
-                                                fontSize: 13,
+                                                fontSize: "var(--rf-cite-size)",
                                                 color: "var(--ambo-text-secondary)",
                                                 lineHeight: 1.6,
                                                 fontStyle: "italic",
@@ -1219,11 +1219,11 @@ export default function ReflectView({
                         } else if (/^[A-Z][A-Z\s]{2,}$/.test(t)) {
                           return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t}</div>;
                         } else if (t.startsWith("> ")) {
-                          return <div key={idx} style={{ fontStyle: "italic", fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", paddingLeft: 10, borderLeft: "2px solid var(--ambo-border)", margin: "4px 0" }}>{t.slice(2)}</div>;
+                          return <div key={idx} style={{ fontStyle: "italic", fontSize: "var(--rf-cite-size)", lineHeight: 1.6, color: "var(--ambo-text-secondary)", paddingLeft: 10, borderLeft: "2px solid var(--ambo-border)", margin: "4px 0" }}>{t.slice(2)}</div>;
                         } else if (t.startsWith("- ")) {
-                          return <div key={idx} style={{ display: "flex", gap: 6, fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", padding: "3px 0" }}><span style={{ opacity: 0.4, flexShrink: 0 }}>–</span><span>{renderBold(t.slice(2))}</span></div>;
+                          return <div key={idx} style={{ display: "flex", gap: 6, fontSize: "var(--rf-cite-size)", lineHeight: 1.6, color: "var(--ambo-text-secondary)", padding: "3px 0" }}><span style={{ opacity: 0.4, flexShrink: 0 }}>–</span><span>{renderBold(t.slice(2))}</span></div>;
                         } else {
-                          return <p key={idx} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ambo-text-secondary)", margin: "4px 0 0" }}>{renderBold(t)}</p>;
+                          return <p key={idx} style={{ fontSize: "var(--rf-cite-size)", lineHeight: 1.6, color: "var(--ambo-text-secondary)", margin: "4px 0 0" }}>{renderBold(t)}</p>;
                         }
                       };
 
@@ -1409,7 +1409,7 @@ export default function ReflectView({
                           {r.heading && (
                             <div style={{
                               fontFamily: "var(--ambo-font-reading)",
-                              fontSize: 13,
+                              fontSize: "var(--rf-subhead-size)",
                               fontStyle: "italic",
                               lineHeight: 1.5,
                               color: "var(--ambo-text-secondary)",
@@ -1496,7 +1496,7 @@ export default function ReflectView({
                                       }}>
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                           <div style={{
-                                            fontSize: 14,
+                                            fontSize: "var(--rf-prompt-size)",
                                             fontStyle: "italic",
                                             color: "var(--ambo-text-secondary)",
                                             lineHeight: 1.55,
@@ -1694,7 +1694,7 @@ export default function ReflectView({
                           background: "transparent",
                           color: "var(--ambo-text-secondary)",
                           fontFamily: "var(--ambo-font-reading)",
-                          fontSize: 13,
+                          fontSize: "var(--rf-cite-size)",
                           fontStyle: "italic",
                           lineHeight: 1.55,
                           padding: 0,
@@ -1810,7 +1810,7 @@ export default function ReflectView({
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
-            fontSize: 14,
+            fontSize: "var(--rf-prompt-size)",
             lineHeight: 1.6,
           }}
         />
@@ -1835,6 +1835,22 @@ export default function ReflectView({
       </div>{/* end two-column grid */}
 
       <style jsx>{`
+        /* ── Responsive type-scale tokens ── */
+        .reflect-layout {
+          --rf-cite-size: 13px;
+          --rf-prompt-size: 14px;
+          --rf-afford-size: 12px;
+          --rf-subhead-size: 13px;
+        }
+        @media (min-width: 1201px) {
+          .reflect-layout {
+            --rf-cite-size: 15px;
+            --rf-prompt-size: 16px;
+            --rf-afford-size: 13px;
+            --rf-subhead-size: 14px;
+          }
+        }
+
         @media (max-width: 900px) {
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
@@ -1868,7 +1884,7 @@ const affordanceStyle: React.CSSProperties = {
   border: "none",
   background: "transparent",
   color: "var(--ambo-text-muted)",
-  fontSize: 12,
+  fontSize: "var(--rf-afford-size, 12px)",
   padding: "2px 0",
   cursor: "pointer",
   fontFamily: "inherit",
