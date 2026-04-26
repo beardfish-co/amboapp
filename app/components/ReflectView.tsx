@@ -687,7 +687,7 @@ export default function ReflectView({
                       fontWeight: 700,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
-                      color: isGospel ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                      color: "var(--ambo-text-muted)",
                     }}>
                       {r.title}
                     </span>
@@ -1393,7 +1393,7 @@ export default function ReflectView({
                               fontWeight: 700,
                               letterSpacing: "0.08em",
                               textTransform: "uppercase",
-                              color: isGospel ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                              color: "var(--ambo-text-muted)",
                             }}>
                               {r.title}
                             </span>
@@ -1568,7 +1568,7 @@ export default function ReflectView({
             borderBottom: "1px solid var(--ambo-rule-subtle)",
           }}>
             <span style={{
-              fontSize: 11,
+              fontSize: "var(--rf-eyebrow-size)",
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
@@ -1777,7 +1777,7 @@ export default function ReflectView({
           borderBottom: "1px solid var(--ambo-border)",
         }}>
           <span style={{
-            fontSize: 11,
+            fontSize: "var(--rf-eyebrow-size)",
             fontWeight: 700,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
