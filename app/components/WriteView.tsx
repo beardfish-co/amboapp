@@ -1236,9 +1236,7 @@ export default function WriteView({
           justifyContent: "space-between",
           alignItems: "center",
           // Solid glass backing — text beneath can't bleed through when pinned
-          background: "var(--ambo-surface-raised)",
-          backdropFilter: "blur(20px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+          background: "var(--ambo-surface-solid)",
           padding: "8px 0",
           margin: "0 0 12px",
         }}
