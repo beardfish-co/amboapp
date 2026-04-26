@@ -30,6 +30,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   generateDayPrompts,
   type PromptReading,
@@ -121,8 +122,10 @@ export async function GET(req: NextRequest) {
   // 3. Generate + evaluate.
   const result = await generateDayPrompts(filtered);
 
-  // 4. Persist (ignore duplicate-key races silently).
-  const { error: insertErr } = await supabase.from("day_prompts").insert({
+  // 4. Persist using admin client — insert is a shared operation and the
+  //    regular user-scoped client may lack auth context in the serverless env.
+  const admin = createAdminClient();
+  const { error: insertErr } = await admin.from("day_prompts").insert({
     sunday_date: isoDate, // column name is historical; stores any liturgical date
     prompts: result.prompts,
     generator_model: result.generatorModel,
