@@ -37,7 +37,8 @@ export default function AmboApp() {
   const [preachImmersive, setPreachImmersive] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const check = () => setIsDesktop(window.innerWidth >= 1024);
+    // 1280px+ = true desktop (MacBook etc). iPad landscape = 1024px → not desktop.
+    const check = () => setIsDesktop(window.innerWidth >= 1280);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -275,19 +276,19 @@ export default function AmboApp() {
         position: "sticky",
         top: 0,
         zIndex: 50,
+        // Styling stays on the outer element — backdrop-filter must live here
+        background: "var(--ambo-surface-raised)",
+        backdropFilter: "blur(20px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(20px) saturate(1.4)",
+        borderBottom: "1px solid var(--ambo-border)",
         overflow: "hidden",
         pointerEvents: headerHidden ? "none" : "auto",
-        // Layout collapse — fast so it doesn't lag behind the visual
         height: headerHidden ? 0 : 60,
         transition: headerHidden ? "height 0.3s ease" : "height 0.4s ease",
       }}>
-        {/* Visual layer — transform+opacity are GPU-composited, always animate on iOS PWA */}
+        {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}
         <div style={{
           height: 60,
-          background: "var(--ambo-surface-raised)",
-          backdropFilter: "blur(20px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.4)",
-          borderBottom: "1px solid var(--ambo-border)",
           transform: headerHidden ? "translateY(-100%)" : "translateY(0)",
           opacity: headerHidden ? 0 : 1,
           transition: headerHidden
