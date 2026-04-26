@@ -69,6 +69,10 @@ function cleanContent(raw: string): string {
     .replace(/\[\^\w+\]/g, "")                          // footnote refs [^1]
     .replace(/^Below are[^\n]*\n+/i, "")               // opening "Below are N citations..."
     .replace(/^Here are[^\n]*\n+/i, "")                // opening "Here are N citations..."
+    .replace(/^###[^\n]*\n+/, "")                       // opening ### title line (e.g. "### Magisterial / Patristic...")
+    .replace(/\(Magisterial\):/gi, "\nMAGISTERIAL\n") // normalise inline (Magisterial): labels
+    .replace(/\(Patristic\):/gi, "\nPATRISTIC\n")     // normalise inline (Patristic): labels
+    .replace(/\n{3,}/g, "\n\n")                         // collapse excessive blank lines
     .replace(/\n*If you want[^]*$/i, "")                // trailing interactive offer
     .replace(/\n*Would you like[^]*$/i, "")             // alternate phrasing
     .replace(/\n*Let me know[^]*$/i, "")                // alternate phrasing

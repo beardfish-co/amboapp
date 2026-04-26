@@ -1197,7 +1197,7 @@ export default function ReflectView({
                       if (cur.length) rawGroups.push(cur);
 
                       const isHeadingLine = (t: string) =>
-                        t.startsWith("## ") || /^[A-Z][A-Z\s]{2,}$/.test(t);
+                        t.startsWith("## ") || t.startsWith("### ") || /^[A-Z][A-Z\s]{2,}$/.test(t);
 
                       const renderBold = (text: string) => {
                         const parts = text.split(/(\*\*[^*]+\*\*)/g);
@@ -1210,7 +1210,9 @@ export default function ReflectView({
 
                       const renderLine = (line: string, idx: number) => {
                         const t = line.trim();
-                        if (t.startsWith("## ")) {
+                        if (t.startsWith("### ")) {
+                          return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t.slice(4)}</div>;
+                        } else if (t.startsWith("## ")) {
                           return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t.slice(3)}</div>;
                         } else if (/^[A-Z][A-Z\s]{2,}$/.test(t)) {
                           return <div key={idx} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ambo-text-muted)", marginBottom: 4 }}>{t}</div>;
