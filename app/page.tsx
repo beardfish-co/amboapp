@@ -312,11 +312,12 @@ export default function AmboApp() {
             <AmboLogo />
             <span className="ambo-wordmark" style={{
               fontSize: 19,
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
+              fontWeight: 400,
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              letterSpacing: "0.01em",
               color: "var(--ambo-text-primary)",
             }}>
-              Ambo
+              ambo
             </span>
           </div>
 
