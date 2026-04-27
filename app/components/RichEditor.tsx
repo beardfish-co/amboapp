@@ -2,18 +2,19 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Block drag-reorder uses a "mirror" technique to get animated gap feedback:
+// Block drag-reorder uses pointer events (works on both mouse and touch/iPad):
 //
-//   1. On drag start — snapshot all top-level blocks, hide the Tiptap editor,
-//      render plain cloned divs (the mirror) in its place.
-//   2. During drag — animate margin on mirror blocks to open / close the gap
-//      at the current insertion point. Tiptap can't revert margins on divs it
-//      doesn't own, so the animation is stable.
-//   3. On drop — remove mirror, restore editor, dispatch a ProseMirror
-//      transaction to reorder the actual document.
+//   Mouse entry: hover → grip handle → pointerdown on handle.
+//   Touch entry: pointerdown anywhere in the left 40px margin zone.
 //
-// Mouse entry: hover → grip handle → pointerdown on handle.
-// Touch entry: pointerdown anywhere in the left 40px margin zone.
+// During drag:
+//   - A ghost card follows the cursor showing the grabbed block's text.
+//   - A source-overlay div dims the grabbed block in place.
+//   - A drop-indicator line (React state) appears between blocks at the
+//     current insertion point. No mirror, no editor hiding — just a
+//     React-rendered absolute div that's trivially reliable.
+//
+// On release: ProseMirror transaction reorders the actual document.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -43,6 +44,8 @@ function GripIcon() {
 }
 
 type HandlePos = { top: number; blockIndex: number };
+type QuoteDeletePos = { top: number; blockIndex: number };
+type SourceOverlay = { top: number; height: number };
 
 function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElement | null {
   let cur: Node | null = node;
@@ -67,9 +70,6 @@ function blockText(editor: Editor, blockIndex: number): string {
   if (blockIndex < 0 || blockIndex >= doc.childCount) return "";
   return doc.child(blockIndex).textContent;
 }
-
-// Gap size (px) that opens between blocks during drag.
-const GAP_PX = 56;
 
 export default function RichEditor({
   initialHtml,
@@ -101,9 +101,12 @@ export default function RichEditor({
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
-  type QuoteDeletePos = { top: number; blockIndex: number };
   const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
   const isDraggingRef = useRef(false);
+
+  // Drag visual state — React-driven so they're always in sync with layout.
+  const [dropLineTop, setDropLineTop] = useState<number | null>(null);
+  const [sourceOverlay, setSourceOverlay] = useState<SourceOverlay | null>(null);
 
   // ── Mouse hover → handle reveal ─────────────────────────────────────────
   useEffect(() => {
@@ -139,7 +142,7 @@ export default function RichEditor({
     return () => document.removeEventListener("mousemove", onMove);
   }, [editor]);
 
-  // ── Mirror drag ──────────────────────────────────────────────────────────
+  // ── Core drag logic ──────────────────────────────────────────────────────
   const startDrag = (
     sourceIndex: number,
     startClientY: number,
@@ -153,78 +156,30 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
+    // Snapshot block rects before any DOM changes (viewport coordinates,
+    // matching ev.clientY throughout the drag).
     const blockEls = Array.from(editorEl.children) as HTMLElement[];
-
-    // Snapshot block viewport rects BEFORE hiding the editor — these are
-    // in clientY-space and used for gap detection throughout the drag.
     const blockRects = blockEls.map(el => el.getBoundingClientRect());
 
-    // Build mirror: cloned divs we can freely animate.
-    // Use offsetTop/offsetLeft (relative to scroller content box) so the
-    // mirror lands in exactly the right place regardless of scroll offset —
-    // unlike getBoundingClientRect() math which breaks when scrolled.
-    const editorRect = editorEl.getBoundingClientRect();
-    const mirror = document.createElement("div");
-    mirror.className = "ambo-drag-mirror";
-    mirror.style.position = "absolute";
-    mirror.style.top = `${editorEl.offsetTop}px`;
-    mirror.style.left = `${editorEl.offsetLeft}px`;
-    mirror.style.width = `${editorRect.width}px`;
-    mirror.style.pointerEvents = "none";
-
-    // Inner wrapper gets the same class as the real editor so that all
-    // CSS rules (paragraph spacing, font size, blockquote styling, etc.)
-    // apply identically to the mirror.
-    const mirrorInner = document.createElement("div");
-    mirrorInner.className = "ambo-rich-editor";
-    mirrorInner.style.outline = "none";
-    mirrorInner.style.pointerEvents = "none";
-
-    // Interleave spacer divs between block clones. Spacers start at 0
-    // height and animate to GAP_PX when the cursor is at that gap.
-    // Using height on plain divs avoids any CSS margin/padding conflict.
-    const spacerEls: HTMLElement[] = [];
-
-    blockEls.forEach((el, i) => {
-      // One spacer before each block (spacer[0] = before block 0, etc.)
-      const spacer = document.createElement("div");
-      spacer.style.cssText =
-        `height: 0; overflow: hidden; transition: height 150ms ease; pointer-events: none;`;
-      spacerEls.push(spacer);
-      mirrorInner.appendChild(spacer);
-
-      const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.transition = `opacity 120ms ease`;
-      clone.style.opacity = i === sourceIndex ? "0.28" : "1";
-      mirrorInner.appendChild(clone);
+    // Dim the source block via a React-state overlay div (no Tiptap DOM touch).
+    setSourceOverlay({
+      top: blockRects[sourceIndex].top - scrollerRect.top,
+      height: blockRects[sourceIndex].height,
     });
 
-    // One trailing spacer after the last block (gap index = blockEls.length)
-    const trailSpacer = document.createElement("div");
-    trailSpacer.style.cssText =
-      `height: 0; overflow: hidden; transition: height 150ms ease; pointer-events: none;`;
-    spacerEls.push(trailSpacer);
-    mirrorInner.appendChild(trailSpacer);
-
-    mirror.appendChild(mirrorInner);
-
-    // Hide Tiptap editor (preserves layout), show mirror.
-    editorEl.style.visibility = "hidden";
-    scroller.appendChild(mirror);
-
-    // Ghost follows pointer.
+    // Ghost card follows the pointer (imperative div for zero-lag response).
     const ghost = document.createElement("div");
     ghost.className = "ambo-drag-ghost";
     ghost.textContent = blockText(editor, sourceIndex) || "…";
     ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
     scroller.appendChild(ghost);
 
-    let currentGapIndex = -1;
+    // Use a plain object (not a React ref) so onMove and onEnd share
+    // the same mutable slot without any closure staleness.
+    const gapState = { current: -1 };
 
-    // Which gap index is the pointer closest to?  Gap 0 = before first
-    // block, gap N = after block N-1.  Uses the pre-drag snapshotted
-    // viewport rects so the answer is always correct regardless of where
-    // the mirror happens to be positioned in the DOM.
+    // Which gap does this clientY land in?
+    // Gap 0 = before block 0, gap N = after block N-1.
     const getGapIndex = (clientY: number): number => {
       for (let i = 0; i < blockRects.length; i++) {
         if (clientY < blockRects[i].top + blockRects[i].height / 2) return i;
@@ -232,32 +187,30 @@ export default function RichEditor({
       return blockRects.length;
     };
 
-    const openGap = (gapIndex: number) => {
-      if (gapIndex === currentGapIndex) return;
-      currentGapIndex = gapIndex;
-      // Reset all spacers first.
-      spacerEls.forEach(s => { s.style.height = "0"; });
-      if (gapIndex < 0 || gapIndex >= spacerEls.length) return;
-      spacerEls[gapIndex].style.height = `${GAP_PX}px`;
+    // Converts a gap index to a scroller-relative Y position for the
+    // drop indicator line.
+    const gapToLineTop = (gapIndex: number): number => {
+      if (gapIndex === 0) return blockRects[0].top - scrollerRect.top - 1;
+      if (gapIndex >= blockRects.length)
+        return blockRects[blockRects.length - 1].bottom - scrollerRect.top - 1;
+      // Midpoint of the space between the two neighbouring blocks.
+      const above = blockRects[gapIndex - 1].bottom;
+      const below = blockRects[gapIndex].top;
+      return (above + below) / 2 - scrollerRect.top;
     };
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
       ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
 
-      // Only open a gap if cursor is inside the editor's bounding area.
-      const er = editorEl.getBoundingClientRect();
-      if (ev.clientY < er.top || ev.clientY > er.bottom + GAP_PX) {
-        openGap(-1);
-        return;
-      }
-
       const gap = getGapIndex(ev.clientY);
-      // Don't open a gap where the source block already sits.
+      gapState.current = gap;
+
+      // Suppress indicator when dropping in the current position is a no-op.
       if (gap === sourceIndex || gap === sourceIndex + 1) {
-        openGap(-1);
+        setDropLineTop(null);
       } else {
-        openGap(gap);
+        setDropLineTop(gapToLineTop(gap));
       }
     };
 
@@ -266,24 +219,22 @@ export default function RichEditor({
       document.removeEventListener("pointerup", onEnd);
       document.removeEventListener("pointercancel", onEnd);
 
-      const finalGap = currentGapIndex;
+      const finalGap = gapState.current;
 
-      // Restore editor, remove mirror and ghost.
-      editorEl.style.visibility = "";
-      mirror.remove();
       ghost.remove();
+      setDropLineTop(null);
+      setSourceOverlay(null);
       isDraggingRef.current = false;
 
-      if (finalGap < 0 || !editor) return;
-
-      // No-op if drop is at current position.
+      // No-op guards.
+      if (!editor) return;
+      if (finalGap < 0) return;
       if (finalGap === sourceIndex || finalGap === sourceIndex + 1) return;
 
-      // ProseMirror transaction to reorder.
       const { state } = editor;
       const { doc } = state;
       if (sourceIndex < 0 || sourceIndex >= doc.childCount) return;
-      if (finalGap < 0 || finalGap > doc.childCount) return;
+      if (finalGap > doc.childCount) return;
 
       const sourceNode = doc.child(sourceIndex);
       const sourcePos = blockStartPos(editor, sourceIndex);
@@ -356,6 +307,24 @@ export default function RichEditor({
   return (
     <div ref={scrollerRef} className="ambo-rich-editor-scroller">
       <EditorContent editor={editor} />
+
+      {/* Dims the block being dragged without touching Tiptap's DOM */}
+      {sourceOverlay && (
+        <div
+          className="ambo-drag-source-overlay"
+          style={{ top: sourceOverlay.top, height: sourceOverlay.height }}
+          aria-hidden
+        />
+      )}
+
+      {/* Insertion point indicator */}
+      {dropLineTop !== null && (
+        <div
+          className="ambo-drop-indicator"
+          style={{ top: dropLineTop }}
+          aria-hidden
+        />
+      )}
 
       {handlePos && (
         <button
