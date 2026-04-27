@@ -165,12 +165,23 @@ export default function RichEditor({
     mirror.style.width = `${editorRect.width}px`;
     mirror.style.pointerEvents = "none";
 
+    // Inner wrapper gets the same class as the real editor so that all
+    // CSS rules (paragraph spacing, font size, blockquote styling, etc.)
+    // apply identically to the mirror — without it the text shrinks and
+    // block gaps disappear because the selectors don't match.
+    const mirrorInner = document.createElement("div");
+    mirrorInner.className = "ambo-rich-editor";
+    mirrorInner.style.outline = "none";
+    mirrorInner.style.pointerEvents = "none";
+
     blockEls.forEach((el, i) => {
       const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.transition = `margin ${150}ms ease, opacity ${120}ms ease`;
+      clone.style.transition = `margin 150ms ease, opacity 120ms ease`;
       clone.style.opacity = i === sourceIndex ? "0.28" : "1";
-      mirror.appendChild(clone);
+      mirrorInner.appendChild(clone);
     });
+
+    mirror.appendChild(mirrorInner);
 
     // Hide Tiptap editor (preserves layout), show mirror.
     editorEl.style.visibility = "hidden";

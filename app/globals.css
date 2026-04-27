@@ -298,17 +298,12 @@ body {
 /* Drop indicator — horizontal line drawn between paragraphs while a
    block is being dragged. Positioned absolutely by RichEditor.tsx based
    on whether the cursor is above or below the target block's midline. */
-/* Mirror — plain cloned divs overlaying the hidden Tiptap editor during drag.
-   Margins on these divs animate freely (Tiptap doesn't own them) to open
-   and close the gap as the user moves between insertion points. */
+/* Mirror — overlays the hidden Tiptap editor during drag. Contains an inner
+   div with class ambo-rich-editor so all typography/spacing CSS applies
+   identically to the cloned blocks. */
 .ambo-rich-editor-wrap .ambo-drag-mirror {
   pointer-events: none;
   z-index: 5;
-}
-.ambo-rich-editor-wrap .ambo-drag-mirror > * {
-  font-family: var(--ambo-font-reading);
-  color: var(--ambo-text-primary);
-  line-height: 1.75;
 }
 
 /* Quote delete button — hover-revealed × in the top-right corner of any
