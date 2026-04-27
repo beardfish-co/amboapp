@@ -155,31 +155,56 @@ export default function RichEditor({
 
     const blockEls = Array.from(editorEl.children) as HTMLElement[];
 
+    // Snapshot block viewport rects BEFORE hiding the editor — these are
+    // in clientY-space and used for gap detection throughout the drag.
+    const blockRects = blockEls.map(el => el.getBoundingClientRect());
+
     // Build mirror: cloned divs we can freely animate.
+    // Use offsetTop/offsetLeft (relative to scroller content box) so the
+    // mirror lands in exactly the right place regardless of scroll offset —
+    // unlike getBoundingClientRect() math which breaks when scrolled.
     const editorRect = editorEl.getBoundingClientRect();
     const mirror = document.createElement("div");
     mirror.className = "ambo-drag-mirror";
     mirror.style.position = "absolute";
-    mirror.style.top = `${editorRect.top - scrollerRect.top}px`;
-    mirror.style.left = `${editorRect.left - scrollerRect.left}px`;
+    mirror.style.top = `${editorEl.offsetTop}px`;
+    mirror.style.left = `${editorEl.offsetLeft}px`;
     mirror.style.width = `${editorRect.width}px`;
     mirror.style.pointerEvents = "none";
 
     // Inner wrapper gets the same class as the real editor so that all
     // CSS rules (paragraph spacing, font size, blockquote styling, etc.)
-    // apply identically to the mirror — without it the text shrinks and
-    // block gaps disappear because the selectors don't match.
+    // apply identically to the mirror.
     const mirrorInner = document.createElement("div");
     mirrorInner.className = "ambo-rich-editor";
     mirrorInner.style.outline = "none";
     mirrorInner.style.pointerEvents = "none";
 
+    // Interleave spacer divs between block clones. Spacers start at 0
+    // height and animate to GAP_PX when the cursor is at that gap.
+    // Using height on plain divs avoids any CSS margin/padding conflict.
+    const spacerEls: HTMLElement[] = [];
+
     blockEls.forEach((el, i) => {
+      // One spacer before each block (spacer[0] = before block 0, etc.)
+      const spacer = document.createElement("div");
+      spacer.style.cssText =
+        `height: 0; overflow: hidden; transition: height 150ms ease; pointer-events: none;`;
+      spacerEls.push(spacer);
+      mirrorInner.appendChild(spacer);
+
       const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.transition = `margin 150ms ease, opacity 120ms ease`;
+      clone.style.transition = `opacity 120ms ease`;
       clone.style.opacity = i === sourceIndex ? "0.28" : "1";
       mirrorInner.appendChild(clone);
     });
+
+    // One trailing spacer after the last block (gap index = blockEls.length)
+    const trailSpacer = document.createElement("div");
+    trailSpacer.style.cssText =
+      `height: 0; overflow: hidden; transition: height 150ms ease; pointer-events: none;`;
+    spacerEls.push(trailSpacer);
+    mirrorInner.appendChild(trailSpacer);
 
     mirror.appendChild(mirrorInner);
 
@@ -196,36 +221,24 @@ export default function RichEditor({
 
     let currentGapIndex = -1;
 
-    // Which gap index (0 = before first block, N = after Nth block) is the
-    // pointer closest to, based on block midpoints in the mirror.
-    // NB: use mirrorInner.children (the individual block clones), NOT
-    // mirror.children — mirror has only one child (mirrorInner itself).
+    // Which gap index is the pointer closest to?  Gap 0 = before first
+    // block, gap N = after block N-1.  Uses the pre-drag snapshotted
+    // viewport rects so the answer is always correct regardless of where
+    // the mirror happens to be positioned in the DOM.
     const getGapIndex = (clientY: number): number => {
-      const children = Array.from(mirrorInner.children) as HTMLElement[];
-      for (let i = 0; i < children.length; i++) {
-        const rect = children[i].getBoundingClientRect();
-        if (clientY < rect.top + rect.height / 2) return i;
+      for (let i = 0; i < blockRects.length; i++) {
+        if (clientY < blockRects[i].top + blockRects[i].height / 2) return i;
       }
-      return children.length;
+      return blockRects.length;
     };
 
     const openGap = (gapIndex: number) => {
       if (gapIndex === currentGapIndex) return;
       currentGapIndex = gapIndex;
-      const children = Array.from(mirrorInner.children) as HTMLElement[];
-      // Reset all margins.
-      children.forEach((el) => {
-        el.style.marginTop = "";
-        el.style.marginBottom = "";
-      });
-      if (gapIndex < 0) return;
-      // Open gap: add bottom margin to block above insertion, or top margin
-      // to the first block if inserting at position 0.
-      if (gapIndex === 0) {
-        if (children[0]) children[0].style.marginTop = `${GAP_PX}px`;
-      } else {
-        if (children[gapIndex - 1]) children[gapIndex - 1].style.marginBottom = `${GAP_PX}px`;
-      }
+      // Reset all spacers first.
+      spacerEls.forEach(s => { s.style.height = "0"; });
+      if (gapIndex < 0 || gapIndex >= spacerEls.length) return;
+      spacerEls[gapIndex].style.height = `${GAP_PX}px`;
     };
 
     const onMove = (ev: PointerEvent) => {
