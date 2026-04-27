@@ -469,9 +469,9 @@ function AmboLogo() {
     <img
       src="/ambo-mark-64.png"
       alt="Ambo mark"
-      width={28}
-      height={28}
-      style={{ display: "block", objectFit: "contain" }}
+      width={32}
+      height={32}
+      style={{ display: "block", objectFit: "contain", transform: "translateY(-2px)" }}
     />
   );
 }
