@@ -60,10 +60,12 @@ function makeDragPlugin() {
       apply(tr, prev) {
         const meta = tr.getMeta(dragPluginKey) as Partial<DragPluginState> | undefined;
         if (meta != null) {
-          return {
+          const next = {
             sourceIndex: meta.sourceIndex ?? prev.sourceIndex,
             gapIndex:    meta.gapIndex    ?? prev.gapIndex,
           };
+          console.log("[gap] plugin state updated →", next);
+          return next;
         }
         return prev;
       },
@@ -85,6 +87,9 @@ function makeDragPlugin() {
           decos.push(Decoration.node(from, to, { class: "ambo-drag-source" }));
         }
 
+        // DIAGNOSTIC — log every time the decoration set is rebuilt.
+        console.log("[gap] decoration set rebuilt, gapIndex=", gapIndex, "sourceIndex=", sourceIndex);
+
         // 2. Widget decoration — animated gap at the current insertion point.
         if (gapIndex >= 0) {
           const insertPos = posOfBlock(doc, Math.min(gapIndex, doc.childCount));
@@ -94,21 +99,33 @@ function makeDragPlugin() {
               () => {
                 const el = document.createElement("div");
                 el.className = "ambo-drag-gap";
-                // Adding the open class on the next frame triggers the CSS
-                // height transition (0 → 56 px) once ProseMirror has inserted
-                // the element into the DOM.
+
+                // DIAGNOSTIC 1 — log initial state immediately after creation.
+                console.log("[gap] toDOM called, gapIndex=", gapIndex, "initial height=", el.style.height || getComputedStyle(el).height, "in DOM=", document.contains(el));
+
+                // Attach transition listeners before the element enters the DOM.
+                el.addEventListener("transitionstart", (e: TransitionEvent) => {
+                  console.log("[gap] transition STARTED, property=", e.propertyName, "height at start=", getComputedStyle(el).height);
+                });
+                el.addEventListener("transitionend", (e: TransitionEvent) => {
+                  console.log("[gap] transition ENDED, property=", e.propertyName, "height at end=", getComputedStyle(el).height);
+                });
+
                 requestAnimationFrame(() => {
-                  // Force the browser to commit height: 0 to layout before
-                  // adding the open class. Without this read, the browser has
-                  // no start state to interpolate from and jumps straight to
-                  // the final height.
+                  // DIAGNOSTIC 2 — log state inside rAF, before and after classList.add.
+                  const hBefore = getComputedStyle(el).height;
+                  const inDom   = document.contains(el);
+                  console.log("[gap] rAF fired, in DOM=", inDom, "height before add=", hBefore);
+
                   void el.offsetHeight;
                   el.classList.add("ambo-drag-gap--open");
+
+                  const hAfter = getComputedStyle(el).height;
+                  console.log("[gap] class added, height after=", hAfter);
                 });
+
                 return el;
               },
-              // Key includes gapIndex so PM creates a fresh element each time
-              // the gap moves — guaranteeing a new expand animation.
               { side: -1, key: `drag-gap-${gapIndex}` }
             )
           );
