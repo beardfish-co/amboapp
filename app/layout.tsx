@@ -36,7 +36,7 @@ export const metadata: Metadata = {
       { url: "/ambo-mark-256.png", sizes: "256x256", type: "image/png" },
     ],
     apple: [
-      { url: "/ambo-mark-180.png", sizes: "180x180", type: "image/png" },
+      { url: "/ambo-mark-180-solid.png", sizes: "180x180", type: "image/png" },
     ],
   },
 };
