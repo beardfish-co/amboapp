@@ -289,7 +289,7 @@ export default function RichEditor({
       dwellTimer = setTimeout(() => {
         dwellTimer = null;
         commitGap(validGap);
-      }, 150);
+      }, 50);
     };
 
     const onEnd = () => {
