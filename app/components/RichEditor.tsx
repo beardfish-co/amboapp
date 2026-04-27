@@ -2,17 +2,20 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Phase 1 scaffolded the Tiptap editor. Phase 2 adds a hover-revealed
-// drag handle for reordering top-level blocks. Implementation rolls its
-// own drag — no ProseMirror plugin registration — because the upstream
-// @tiptap/extension-drag-handle-react races the initial content load
-// in our Next 16 / React 19 / Tiptap 3 stack and silently blanks
-// existing homilies (reverted in earlier Phase 2 attempt).
+// Drag-and-drop block reordering uses the Pointer Events API (not the
+// HTML5 drag API) so it works identically on mouse (desktop) and touch
+// (iPad/iPhone). The drag mechanism:
 //
-// Commit 1 (7a66702 / bce4ad9 / c459e39 / 6d93350): handle visibility
-// with document-level mousemove tracking.
-// Commit 2 (this file): HTML5 drag events on the handle, drop indicator
-// while dragging, transaction-based block reorder on drop.
+//   Mouse:  hover → handle appears in left margin → pointerdown on
+//           handle → drag
+//   Touch:  pointerdown anywhere in the 40px left-margin zone of the
+//           scroller → drag begins immediately (no handle tap needed).
+//           The left-margin zone acts as the implicit drag rail.
+//
+// A ghost div follows the pointer during drag; a blue drop-indicator
+// line appears between blocks to show the insertion point.
+// On drop, a single ProseMirror transaction reorders the blocks and
+// the parent WriteView saves + shows the undo pill.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -20,9 +23,6 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { useEffect, useRef, useState } from "react";
 
 export type RichEditorProps = {
-  // Initial HTML content to seed the editor with. We intentionally don't
-  // support prop-driven updates after mount — the editor owns its state
-  // once loaded. Re-key the component when the underlying homily changes.
   initialHtml: string;
   onUpdate?: (editor: Editor) => void;
   onReady?: (editor: Editor) => void;
@@ -47,22 +47,21 @@ function GripIcon() {
 type HandlePos = { top: number; blockIndex: number };
 type DropTarget = { blockIndex: number; above: boolean };
 
-// Walks up from `node` until it finds an element whose parent is the
-// editor's contenteditable root — that's the top-level block (a <p>, a
-// <blockquote>, etc.). Returns null if the cursor isn't over a block.
-function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElement | null {
+// Walk up from `node` until we find an element whose direct parent is the
+// editor's contenteditable root — that is the top-level block.
+function findTopLevelBlock(
+  node: Node | null,
+  editorEl: HTMLElement
+): HTMLElement | null {
   let cur: Node | null = node;
   while (cur && cur !== editorEl) {
-    if (cur instanceof HTMLElement && cur.parentElement === editorEl) {
-      return cur;
-    }
+    if (cur instanceof HTMLElement && cur.parentElement === editorEl) return cur;
     cur = cur.parentNode;
   }
   return null;
 }
 
-// Start position (in ProseMirror coords) of the Nth top-level block in
-// the current doc. Sums the sizes of preceding children.
+// ProseMirror position of the start of the Nth top-level block.
 function blockStartPos(editor: Editor, blockIndex: number): number {
   let pos = 0;
   const doc = editor.state.doc;
@@ -70,6 +69,13 @@ function blockStartPos(editor: Editor, blockIndex: number): number {
     pos += doc.child(i).nodeSize;
   }
   return pos;
+}
+
+// Plain text of the Nth block, truncated for the ghost label.
+function blockText(editor: Editor, blockIndex: number): string {
+  const doc = editor.state.doc;
+  if (blockIndex < 0 || blockIndex >= doc.childCount) return "";
+  return doc.child(blockIndex).textContent.slice(0, 120);
 }
 
 export default function RichEditor({
@@ -81,15 +87,9 @@ export default function RichEditor({
   placeholder,
 }: RichEditorProps) {
   const editor = useEditor({
-    // Tiptap warns in Next.js if we try to render the editor server-side;
-    // this flag tells it to skip SSR entirely.
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        // Keep only what Phase 1 needs: paragraph / bold / italic / blockquote.
-        // Everything else stays on StarterKit defaults so Enter, Backspace,
-        // and cursor navigation behave as priests expect.
-      }),
+      StarterKit.configure({}),
       Placeholder.configure({
         placeholder: placeholder ?? "",
         showOnlyWhenEditable: true,
@@ -98,34 +98,30 @@ export default function RichEditor({
       }),
     ],
     content: initialHtml,
-    editorProps: {
-      attributes: {
-        class: "ambo-rich-editor",
-      },
-    },
-    onUpdate: ({ editor }) => {
-      onUpdate?.(editor);
-    },
+    editorProps: { attributes: { class: "ambo-rich-editor" } },
+    onUpdate: ({ editor }) => { onUpdate?.(editor); },
   });
 
   useEffect(() => {
     if (editor && onReady) onReady(editor);
   }, [editor, onReady]);
 
-  // --- Hover-revealed drag handle ---
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  // Single hover handle (mouse only — touch uses the margin-zone path).
   const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
 
-  // --- Drag state (refs so event handlers see fresh values without
-  //     recreating the closure on every render) ---
-  const draggingIndexRef = useRef<number | null>(null);
-  const dropTargetRef = useRef<DropTarget | null>(null);
+  // Drop indicator line position (null = not dragging or no valid target).
   const [dropLineTop, setDropLineTop] = useState<number | null>(null);
-  // Quote × button — tracks which blockquote (if any) the mouse is over.
+
+  // Quote × button position.
   type QuoteDeletePos = { top: number; blockIndex: number };
   const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
 
-  // Track hovered block via document-level mousemove (see Commit 1c).
+  // True while a pointer drag is in flight — suppresses mouse hover updates.
+  const isDraggingRef = useRef(false);
+
+  // ── Mouse hover → handle reveal ─────────────────────────────────────────
   useEffect(() => {
     if (!editor) return;
     const scroller = scrollerRef.current;
@@ -133,173 +129,201 @@ export default function RichEditor({
     if (!scroller || !editorEl) return;
 
     const onMove = (e: MouseEvent) => {
-      // Suppress hover updates while a drag is in flight — the drop
-      // indicator takes over visually.
-      if (draggingIndexRef.current !== null) return;
-      const scrollerRect = scroller.getBoundingClientRect();
+      if (isDraggingRef.current) return;
+      const sr = scroller.getBoundingClientRect();
       const inBounds =
-        e.clientX >= scrollerRect.left - 36 &&
-        e.clientX <= scrollerRect.right &&
-        e.clientY >= scrollerRect.top - 4 &&
-        e.clientY <= scrollerRect.bottom + 4;
-      if (!inBounds) {
-        setHandlePos(null);
-        setQuoteDeletePos(null);
-        return;
-      }
-      // Left-margin strip: keep last-known position stable.
-      if (e.clientX < scrollerRect.left) return;
+        e.clientX >= sr.left - 36 &&
+        e.clientX <= sr.right &&
+        e.clientY >= sr.top - 4 &&
+        e.clientY <= sr.bottom + 4;
+      if (!inBounds) { setHandlePos(null); setQuoteDeletePos(null); return; }
+      if (e.clientX < sr.left) return; // in left-margin strip — keep last pos
       const hit = document.elementFromPoint(e.clientX, e.clientY);
       if (!(hit instanceof Node) || !editorEl.contains(hit)) return;
       const block = findTopLevelBlock(hit, editorEl);
       if (!block) return;
-      const blockIndex = Array.from(editorEl.children).indexOf(block);
-      if (blockIndex < 0) return;
-      const blockRect = block.getBoundingClientRect();
-      setHandlePos({
-        top: blockRect.top - scrollerRect.top + 4,
-        blockIndex,
-      });
-      // Show × button if this block is a blockquote.
+      const bi = Array.from(editorEl.children).indexOf(block);
+      if (bi < 0) return;
+      const br = block.getBoundingClientRect();
+      setHandlePos({ top: br.top - sr.top + 4, blockIndex: bi });
       if (block.tagName === "BLOCKQUOTE") {
-        setQuoteDeletePos({ top: blockRect.top - scrollerRect.top + 6, blockIndex });
+        setQuoteDeletePos({ top: br.top - sr.top + 6, blockIndex: bi });
       } else {
         setQuoteDeletePos(null);
       }
     };
 
     document.addEventListener("mousemove", onMove);
-    return () => {
-      document.removeEventListener("mousemove", onMove);
-    };
+    return () => document.removeEventListener("mousemove", onMove);
   }, [editor]);
 
-  // Drag: dragover (anywhere over editor) updates drop indicator; drop
-  // reorders. Listen on the scroller with capture so we see events
-  // before ProseMirror's own drop handler.
-  useEffect(() => {
+  // ── Shared drag logic ────────────────────────────────────────────────────
+  // Called by both the mouse handle's onPointerDown and the touch margin-zone
+  // listener. `sourceIndex` is the block to drag; `startClientY` positions
+  // the ghost initially.
+  const startDrag = (
+    sourceIndex: number,
+    startClientY: number,
+    editorEl: HTMLElement,
+    scroller: HTMLElement,
+    scrollerRect: DOMRect
+  ) => {
     if (!editor) return;
-    const scroller = scrollerRef.current;
-    const editorEl = editor.view.dom as HTMLElement;
-    if (!scroller || !editorEl) return;
 
-    const onDragOver = (e: DragEvent) => {
-      if (draggingIndexRef.current === null) return;
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      const hit = document.elementFromPoint(e.clientX, e.clientY);
+    isDraggingRef.current = true;
+    setHandlePos(null);
+    setQuoteDeletePos(null);
+
+    // Ghost element — follows the pointer, shows truncated block text.
+    const ghost = document.createElement("div");
+    ghost.className = "ambo-drag-ghost";
+    ghost.textContent = blockText(editor, sourceIndex) || "…";
+    ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
+    scroller.appendChild(ghost);
+
+    // Current drop target, updated on each pointermove.
+    let currentTarget: DropTarget | null = null;
+
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+
+      // Move ghost with pointer.
+      ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
+
+      // Hit-test underneath the ghost to find the target block.
+      ghost.style.visibility = "hidden";
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      ghost.style.visibility = "";
+
       if (!(hit instanceof Node) || !editorEl.contains(hit)) {
-        dropTargetRef.current = null;
+        currentTarget = null;
         setDropLineTop(null);
         return;
       }
       const block = findTopLevelBlock(hit, editorEl);
-      if (!block) {
-        dropTargetRef.current = null;
-        setDropLineTop(null);
-        return;
-      }
-      const blockIndex = Array.from(editorEl.children).indexOf(block);
-      if (blockIndex < 0) return;
-      const blockRect = block.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      const midY = blockRect.top + blockRect.height / 2;
-      const above = e.clientY < midY;
-      dropTargetRef.current = { blockIndex, above };
+      if (!block) { currentTarget = null; setDropLineTop(null); return; }
+      const bi = Array.from(editorEl.children).indexOf(block);
+      if (bi < 0) { currentTarget = null; setDropLineTop(null); return; }
+      const br = block.getBoundingClientRect();
+      const above = ev.clientY < br.top + br.height / 2;
+      currentTarget = { blockIndex: bi, above };
       setDropLineTop(
-        above
-          ? blockRect.top - scrollerRect.top - 1
-          : blockRect.bottom - scrollerRect.top - 1
+        above ? br.top - scrollerRect.top - 1 : br.bottom - scrollerRect.top - 1
       );
     };
 
-    const onDrop = (e: DragEvent) => {
-      if (draggingIndexRef.current === null) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const sourceIndex = draggingIndexRef.current;
-      const target = dropTargetRef.current;
-      draggingIndexRef.current = null;
-      dropTargetRef.current = null;
+    const onEnd = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointercancel", onEnd);
+
+      ghost.remove();
+      isDraggingRef.current = false;
       setDropLineTop(null);
-      if (!target) return;
 
-      const state = editor.state;
-      const doc = state.doc;
+      if (!currentTarget || !editor) return;
+
+      // ProseMirror transaction: remove source block, insert at dest.
+      const { state } = editor;
+      const { doc } = state;
       if (sourceIndex < 0 || sourceIndex >= doc.childCount) return;
-      if (target.blockIndex < 0 || target.blockIndex >= doc.childCount) return;
+      if (currentTarget.blockIndex < 0 || currentTarget.blockIndex >= doc.childCount) return;
 
-      // Compute the intended destination block index. Dropping "above"
-      // target N means inserting as the new block N; "below" means N+1.
-      const destIndex = target.above ? target.blockIndex : target.blockIndex + 1;
+      const destIndex = currentTarget.above
+        ? currentTarget.blockIndex
+        : currentTarget.blockIndex + 1;
 
-      // No-op checks: if the source is already where we'd drop it, skip.
+      // No-op: dropping in same position.
       if (destIndex === sourceIndex || destIndex === sourceIndex + 1) return;
 
       const sourceNode = doc.child(sourceIndex);
       const sourcePos = blockStartPos(editor, sourceIndex);
       const sourceEnd = sourcePos + sourceNode.nodeSize;
       let insertPos = blockStartPos(editor, destIndex);
-
-      // Adjust insertPos for the deletion we're about to perform.
-      if (insertPos > sourceEnd) {
-        insertPos -= sourceNode.nodeSize;
-      }
+      // Adjust for the deletion we're about to perform.
+      if (insertPos > sourceEnd) insertPos -= sourceNode.nodeSize;
 
       const tr = state.tr;
       tr.delete(sourcePos, sourceEnd);
       tr.insert(insertPos, sourceNode);
       editor.view.dispatch(tr);
 
-      // Notify WriteView: persist the reordered content and show undo pill.
       if (onUpdate) onUpdate(editor);
       onReorder?.();
     };
 
-    // Capture phase so we intercept before ProseMirror's bubble-phase
-    // handlers would try to treat this as content insertion.
-    scroller.addEventListener("dragover", onDragOver, true);
-    scroller.addEventListener("drop", onDrop, true);
-    return () => {
-      scroller.removeEventListener("dragover", onDragOver, true);
-      scroller.removeEventListener("drop", onDrop, true);
-    };
-  }, [editor, onUpdate]);
+    document.addEventListener("pointermove", onMove, { passive: false });
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointercancel", onEnd);
+  };
 
-  const onHandleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
-    if (!editor || !handlePos) {
+  // ── Mouse handle pointer-down ────────────────────────────────────────────
+  const onHandlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!editor || !handlePos) return;
+    const scroller = scrollerRef.current;
+    const editorEl = editor.view.dom as HTMLElement;
+    if (!scroller || !editorEl) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startDrag(
+      handlePos.blockIndex,
+      e.clientY,
+      editorEl,
+      scroller,
+      scroller.getBoundingClientRect()
+    );
+  };
+
+  // ── Touch margin-zone drag ───────────────────────────────────────────────
+  // On touch/pen devices the hover handle never appears, so we treat the
+  // left 40px of the scroller as an implicit drag rail. A pointerdown there
+  // begins a drag immediately without needing to see the handle first.
+  useEffect(() => {
+    if (!editor) return;
+    const scroller = scrollerRef.current;
+    const editorEl = editor.view.dom as HTMLElement;
+    if (!scroller || !editorEl) return;
+
+    const onScrollerPointerDown = (e: PointerEvent) => {
+      // Mouse handled by the explicit handle button above.
+      if (e.pointerType === "mouse") return;
+      if (isDraggingRef.current) return;
+
+      const sr = scroller.getBoundingClientRect();
+      const localX = e.clientX - sr.left;
+
+      // Only respond to touches in the left-margin drag zone.
+      if (localX > 40) return;
+
       e.preventDefault();
-      return;
-    }
-    setQuoteDeletePos(null);
-    draggingIndexRef.current = handlePos.blockIndex;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      // Firefox requires any setData call to actually start a drag.
-      e.dataTransfer.setData("application/x-ambo-block", String(handlePos.blockIndex));
-      // Use a 1x1 transparent drag image — the browser default shows a
-      // distracting preview of the whole handle button.
-      try {
-        const img = new Image();
-        img.src =
-          "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-        e.dataTransfer.setDragImage(img, 0, 0);
-      } catch {
-        /* setDragImage unsupported on some engines — drop silently */
-      }
-    }
-  };
 
-  const onHandleDragEnd = () => {
-    draggingIndexRef.current = null;
-    dropTargetRef.current = null;
-    setDropLineTop(null);
-  };
+      // Sample 60px to the right to find the block at this Y.
+      const hit = document.elementFromPoint(e.clientX + 60, e.clientY);
+      if (!hit || !editorEl.contains(hit as Node)) return;
+      const block = findTopLevelBlock(hit as Node, editorEl);
+      if (!block) return;
+      const bi = Array.from(editorEl.children).indexOf(block);
+      if (bi < 0) return;
+
+      startDrag(bi, e.clientY, editorEl, scroller, sr);
+    };
+
+    scroller.addEventListener("pointerdown", onScrollerPointerDown, {
+      passive: false,
+    });
+    return () => {
+      scroller.removeEventListener("pointerdown", onScrollerPointerDown);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   if (!editor) return null;
+
   return (
     <div ref={scrollerRef} className="ambo-rich-editor-scroller">
       <EditorContent editor={editor} />
+
+      {/* Mouse hover handle — hidden on touch (pointer:coarse) via CSS */}
       {handlePos && (
         <button
           type="button"
@@ -307,14 +331,14 @@ export default function RichEditor({
           className="ambo-drag-handle"
           style={{ top: handlePos.top }}
           contentEditable={false}
-          draggable
-          onDragStart={onHandleDragStart}
-          onDragEnd={onHandleDragEnd}
           tabIndex={-1}
+          onPointerDown={onHandlePointerDown}
         >
           <GripIcon />
         </button>
       )}
+
+      {/* Drop indicator line */}
       {dropLineTop !== null && (
         <div
           className="ambo-drop-indicator"
@@ -322,6 +346,8 @@ export default function RichEditor({
           aria-hidden
         />
       )}
+
+      {/* Quote × delete button */}
       {quoteDeletePos && (
         <button
           type="button"
@@ -333,11 +359,10 @@ export default function RichEditor({
           onClick={() => {
             if (!editor) return;
             const { state } = editor;
-            const { doc } = state;
             const idx = quoteDeletePos.blockIndex;
-            if (idx < 0 || idx >= doc.childCount) return;
+            if (idx < 0 || idx >= state.doc.childCount) return;
             const pos = blockStartPos(editor, idx);
-            const node = doc.child(idx);
+            const node = state.doc.child(idx);
             editor.view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
             if (onUpdate) onUpdate(editor);
             onQuoteDelete?.();

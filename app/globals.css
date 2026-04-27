@@ -343,6 +343,52 @@ body {
   color: var(--ambo-accent);
 }
 
+/* Ghost element — follows the pointer during block drag.
+   Semi-transparent pill showing the dragged block's text. */
+.ambo-rich-editor-wrap .ambo-drag-ghost {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--ambo-surface-raised);
+  border: 1.5px solid var(--ambo-accent);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-family: var(--ambo-font-reading);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ambo-text-primary);
+  opacity: 0.88;
+  pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 100;
+  transform: scale(1.01);
+}
+
+/* On touch/coarse-pointer devices the hover handle never appears, so
+   the left-margin drag rail (40px) is the only drag affordance. A
+   subtle left border on the scroller hints at its existence. */
+@media (hover: none) and (pointer: coarse) {
+  .ambo-rich-editor-wrap .ambo-rich-editor-scroller::before {
+    content: "";
+    position: absolute;
+    left: -20px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--ambo-border);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  /* Hide mouse-only handle on touch devices */
+  .ambo-rich-editor-wrap .ambo-drag-handle {
+    display: none;
+  }
+}
+
 /* Rich-text editor surface (Tiptap). Matches the typography the old
    per-paragraph <textarea> rendered, so switching to the editor doesn't
    shift the visual weight of the page. */
