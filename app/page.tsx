@@ -308,7 +308,7 @@ export default function AmboApp() {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <AmboLogo />
             <span className="ambo-wordmark" style={{
               fontSize: 22,
