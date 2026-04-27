@@ -19,6 +19,7 @@ interface HomilyListProps {
   onClose: () => void;
   onSelect: (id: string) => void;
   onCreate: () => void;
+  onOpenInWrite: (homily: HomilyRow) => void;
   refreshKey?: number;
 }
 

@@ -8,7 +8,7 @@ import ErrorBoundary from "@/app/components/ErrorBoundary";
 import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
-import HomilyList from "./components/HomilyList";
+import HomilyList, { HomilyRow } from "./components/HomilyList";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -241,6 +241,34 @@ export default function AmboApp() {
     setDrawerOpen(false);
     setMode("write");
   }, [persistCurrentId]);
+
+  const handleOpenInWrite = useCallback(async (homily: HomilyRow) => {
+    // Create a new homily pre-populated from the archived one, then open in Write.
+    // The original remains untouched in the archive.
+    await flushWriteRef.current?.();
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const newTitle = homily.title ? `${homily.title} — revised` : "Revised homily";
+      const { data } = await supabase
+        .from("homilies")
+        .insert({
+          user_id: user.id,
+          title: newTitle,
+          content: homily.content ?? "",
+          sunday_date: null, // new homily — priest assigns the new Sunday
+        })
+        .select("id")
+        .single();
+      if (data?.id) {
+        persistCurrentId(data.id);
+        setListRefreshKey((k) => k + 1);
+      }
+    } catch { /* ignore — priest still lands in Write */ }
+    setDrawerOpen(false);
+    setMode("write");
+  }, [flushWriteRef, persistCurrentId]);
 
   const handleSaved = useCallback(() => {
     setListRefreshKey((k) => k + 1);
@@ -487,6 +515,7 @@ export default function AmboApp() {
         onClose={() => setDrawerOpen(false)}
         onSelect={handleSelectHomily}
         onCreate={handleCreateHomily}
+        onOpenInWrite={handleOpenInWrite}
         refreshKey={listRefreshKey}
       />
       </ErrorBoundary>
