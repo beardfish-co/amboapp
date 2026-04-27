@@ -3,18 +3,11 @@
 // RichEditor — Tiptap wrapper for the Write surface.
 //
 // Block drag-reorder is implemented entirely through ProseMirror decorations.
-// This is the correct primitive for visual overlays in a ProseMirror editor:
-// PM renders them itself, so they are never reverted by re-renders.
 //
 // Two decorations live in a single plugin (dragPluginKey):
-//   1. Decoration.node on the source block → adds class "ambo-drag-source"
-//      which dims it via CSS.
-//   2. Decoration.widget between blocks at the current gap → a <div> that
-//      animates from height 0 to 56 px via a CSS transition, causing the
-//      surrounding blocks to spread apart naturally.
-//
-// The plugin state is updated by dispatching no-op transactions with metadata.
-// No DOM manipulation outside the decoration system. No editor hiding.
+//   1. Decoration.node on the source block → adds class "ambo-drag-source" (dims it).
+//   2. Decoration.widget at the gap position → a <div> that animates open,
+//      causing the surrounding blocks to spread apart naturally.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import { Extension } from "@tiptap/core";
@@ -36,18 +29,16 @@ export type RichEditorProps = {
 // ── ProseMirror drag plugin ──────────────────────────────────────────────────
 
 interface DragPluginState {
-  sourceIndex: number; // block being dragged; -1 = idle
-  gapIndex: number;    // insertion gap; -1 = none
+  sourceIndex: number;
+  gapIndex: number;
 }
 
 const dragPluginKey = new PluginKey<DragPluginState>("amboBlockDrag");
 
-// Absolute document position of the start of block N.
-// (For widgets: pos 0 = before block 0, pos after block N-1 = before block N.)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function posOfBlock(doc: any, blockIndex: number): number {
   let pos = 0;
-  for (let i = 0; i < blockIndex; i++) pos += (doc as any).child(i).nodeSize;
+  for (let i = 0; i < blockIndex; i++) pos += doc.child(i).nodeSize;
   return pos;
 }
 
@@ -59,16 +50,11 @@ function makeDragPlugin() {
       init: () => ({ sourceIndex: -1, gapIndex: -1 }),
       apply(tr, prev) {
         const meta = tr.getMeta(dragPluginKey) as Partial<DragPluginState> | undefined;
-        // Log EVERY transaction so we can confirm the plugin is alive and
-        // whether our meta transactions are arriving.
-        console.log("[gap-plugin] apply called — hasMeta=", meta != null, "prev=", prev, "meta=", meta);
         if (meta != null) {
-          const next = {
+          return {
             sourceIndex: meta.sourceIndex ?? prev.sourceIndex,
             gapIndex:    meta.gapIndex    ?? prev.gapIndex,
           };
-          console.log("[gap-plugin] state updated →", next);
-          return next;
         }
         return prev;
       },
@@ -77,9 +63,6 @@ function makeDragPlugin() {
     props: {
       decorations(state) {
         const pluginState = dragPluginKey.getState(state);
-        // Log before the early return so we can confirm decorations() is
-        // being called at all, regardless of drag state.
-        console.log("[gap-plugin] decorations called — pluginState=", pluginState);
         if (!pluginState || pluginState.sourceIndex < 0) return DecorationSet.empty;
 
         const { sourceIndex, gapIndex } = pluginState;
@@ -93,10 +76,7 @@ function makeDragPlugin() {
           decos.push(Decoration.node(from, to, { class: "ambo-drag-source" }));
         }
 
-        // DIAGNOSTIC — log every time the decoration set is rebuilt.
-        console.log("[gap] decoration set rebuilt, gapIndex=", gapIndex, "sourceIndex=", sourceIndex);
-
-        // 2. Widget decoration — animated gap at the current insertion point.
+        // 2. Widget decoration — animated gap at the insertion point.
         if (gapIndex >= 0) {
           const insertPos = posOfBlock(doc, Math.min(gapIndex, doc.childCount));
           decos.push(
@@ -105,33 +85,14 @@ function makeDragPlugin() {
               () => {
                 const el = document.createElement("div");
                 el.className = "ambo-drag-gap";
-
-                // DIAGNOSTIC 1 — log initial state immediately after creation.
-                console.log("[gap] toDOM called, gapIndex=", gapIndex, "initial height=", el.style.height || getComputedStyle(el).height, "in DOM=", document.contains(el));
-
-                // Attach transition listeners before the element enters the DOM.
-                el.addEventListener("transitionstart", (e: TransitionEvent) => {
-                  console.log("[gap] transition STARTED, property=", e.propertyName, "height at start=", getComputedStyle(el).height);
-                });
-                el.addEventListener("transitionend", (e: TransitionEvent) => {
-                  console.log("[gap] transition ENDED, property=", e.propertyName, "height at end=", getComputedStyle(el).height);
-                });
-
                 requestAnimationFrame(() => {
-                  // DIAGNOSTIC 2 — log state inside rAF, before and after classList.add.
-                  const hBefore = getComputedStyle(el).height;
-                  const inDom   = document.contains(el);
-                  console.log("[gap] rAF fired, in DOM=", inDom, "height before add=", hBefore);
-
                   void el.offsetHeight;
                   el.classList.add("ambo-drag-gap--open");
-
-                  const hAfter = getComputedStyle(el).height;
-                  console.log("[gap] class added, height after=", hAfter);
                 });
-
                 return el;
               },
+              // Fresh key per position so PM creates a new element each time
+              // the gap moves, giving a new expand animation.
               { side: -1, key: `drag-gap-${gapIndex}` }
             )
           );
@@ -143,7 +104,6 @@ function makeDragPlugin() {
   });
 }
 
-// Tiptap extension that registers the plugin.
 const DragReorderExtension = Extension.create({
   name: "dragReorder",
   addProseMirrorPlugins() {
@@ -178,7 +138,6 @@ function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElemen
   return null;
 }
 
-// ProseMirror absolute position of block N (for the reorder transaction).
 function blockStartPos(editor: Editor, blockIndex: number): number {
   let pos = 0;
   const doc = editor.state.doc;
@@ -278,28 +237,22 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Snapshot block rects before the drag starts. The editor DOM is
-    // untouched throughout, so these remain accurate for hit-testing.
-    const blockEls  = Array.from(editorEl.children) as HTMLElement[];
+    const blockEls   = Array.from(editorEl.children) as HTMLElement[];
     const blockRects = blockEls.map(el => el.getBoundingClientRect());
 
-    // Signal drag start — dims the source block via the node decoration.
     editor.view.dispatch(
       editor.view.state.tr.setMeta(dragPluginKey, { sourceIndex, gapIndex: -1 })
     );
 
-    // Ghost card — imperative div for zero-lag cursor tracking.
     const ghost = document.createElement("div");
     ghost.className = "ambo-drag-ghost";
     ghost.textContent = blockText(editor, sourceIndex) || "…";
     ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
     scroller.appendChild(ghost);
 
-    // Mutable slot shared between onMove and onEnd closures.
     const gapState = { current: -1 };
     let rafId: number | null = null;
 
-    // Gap N = insertion before block N (or after the last block if N = count).
     const getGapIndex = (clientY: number): number => {
       for (let i = 0; i < blockRects.length; i++) {
         if (clientY < blockRects[i].top + blockRects[i].height / 2) return i;
@@ -312,13 +265,11 @@ export default function RichEditor({
       ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
 
       const gap = getGapIndex(ev.clientY);
-      // Suppress the widget when dropping at the source block's own position.
       const validGap = (gap === sourceIndex || gap === sourceIndex + 1) ? -1 : gap;
 
       if (validGap === gapState.current) return;
       gapState.current = validGap;
 
-      // Throttle PM dispatches to one per animation frame.
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         rafId = null;
@@ -339,14 +290,12 @@ export default function RichEditor({
       ghost.remove();
       isDraggingRef.current = false;
 
-      // Clear all decorations.
       if (editor) {
         editor.view.dispatch(
           editor.view.state.tr.setMeta(dragPluginKey, { sourceIndex: -1, gapIndex: -1 })
         );
       }
 
-      // No-op guards.
       if (finalGap < 0 || !editor) return;
       if (finalGap === sourceIndex || finalGap === sourceIndex + 1) return;
 
