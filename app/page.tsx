@@ -311,11 +311,13 @@ export default function AmboApp() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <AmboLogo />
             <span className="ambo-wordmark" style={{
-              fontSize: 19,
+              fontSize: 22,
               fontWeight: 400,
               fontFamily: "var(--font-newsreader), Georgia, serif",
               letterSpacing: "0.01em",
               color: "var(--ambo-text-primary)",
+              transform: "translateY(2px)",
+              display: "inline-block",
             }}>
               ambo
             </span>
