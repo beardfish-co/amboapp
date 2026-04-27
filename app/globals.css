@@ -360,9 +360,11 @@ body {
   opacity: 0.88;
   pointer-events: none;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   z-index: 100;
   transform: scale(1.01);
 }
