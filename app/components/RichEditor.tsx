@@ -198,8 +198,10 @@ export default function RichEditor({
 
     // Which gap index (0 = before first block, N = after Nth block) is the
     // pointer closest to, based on block midpoints in the mirror.
+    // NB: use mirrorInner.children (the individual block clones), NOT
+    // mirror.children — mirror has only one child (mirrorInner itself).
     const getGapIndex = (clientY: number): number => {
-      const children = Array.from(mirror.children) as HTMLElement[];
+      const children = Array.from(mirrorInner.children) as HTMLElement[];
       for (let i = 0; i < children.length; i++) {
         const rect = children[i].getBoundingClientRect();
         if (clientY < rect.top + rect.height / 2) return i;
@@ -210,7 +212,7 @@ export default function RichEditor({
     const openGap = (gapIndex: number) => {
       if (gapIndex === currentGapIndex) return;
       currentGapIndex = gapIndex;
-      const children = Array.from(mirror.children) as HTMLElement[];
+      const children = Array.from(mirrorInner.children) as HTMLElement[];
       // Reset all margins.
       children.forEach((el) => {
         el.style.marginTop = "";
