@@ -302,7 +302,7 @@ body {
    Applied by the ProseMirror drag plugin; PM owns this class, never reverts it. */
 .ambo-drag-source {
   opacity: 0.28;
-  transition: opacity 120ms ease;
+  transition: opacity 200ms ease;
 }
 
 /* Widget decoration — animated gap that appears between blocks to show the
@@ -311,7 +311,7 @@ body {
 .ambo-drag-gap {
   height: 0;
   overflow: hidden;
-  transition: height 150ms ease;
+  transition: height 320ms ease;
   pointer-events: none;
 }
 
