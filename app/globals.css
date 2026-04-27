@@ -379,23 +379,9 @@ body {
   transform: scale(1.01);
 }
 
-/* On touch/coarse-pointer devices the hover handle never appears, so
-   the left-margin drag rail (40px) is the only drag affordance. A
-   subtle left border on the scroller hints at its existence. */
+/* On touch/coarse-pointer devices the hover handle is hidden — the
+   left-margin drag rail (40px) is the only drag affordance. */
 @media (hover: none) and (pointer: coarse) {
-  .ambo-rich-editor-wrap .ambo-rich-editor-scroller::before {
-    content: "";
-    position: absolute;
-    left: -20px;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    border-radius: 2px;
-    background: var(--ambo-border);
-    opacity: 0.5;
-    pointer-events: none;
-  }
-  /* Hide mouse-only handle on touch devices */
   .ambo-rich-editor-wrap .ambo-drag-handle {
     display: none;
   }
