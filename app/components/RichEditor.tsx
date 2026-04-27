@@ -97,7 +97,14 @@ function makeDragPlugin() {
                 // Adding the open class on the next frame triggers the CSS
                 // height transition (0 → 56 px) once ProseMirror has inserted
                 // the element into the DOM.
-                requestAnimationFrame(() => el.classList.add("ambo-drag-gap--open"));
+                requestAnimationFrame(() => {
+                  // Force the browser to commit height: 0 to layout before
+                  // adding the open class. Without this read, the browser has
+                  // no start state to interpolate from and jumps straight to
+                  // the final height.
+                  void el.offsetHeight;
+                  el.classList.add("ambo-drag-gap--open");
+                });
                 return el;
               },
               // Key includes gapIndex so PM creates a fresh element each time
