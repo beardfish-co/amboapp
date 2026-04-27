@@ -154,13 +154,9 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Dim the source block inline (class approach has selector specificity issues).
-    const blocks = Array.from(editorEl.children) as HTMLElement[];
-    const sourceBlockEl = blocks[sourceIndex] as HTMLElement | undefined;
-    if (sourceBlockEl) {
-      sourceBlockEl.style.opacity = "0.25";
-      sourceBlockEl.style.transition = "opacity 0.12s ease";
-    }
+    // Dim all editor content by marking the scroller — Tiptap doesn't manage
+    // the scroller element so it won't be reverted by ProseMirror re-renders.
+    scroller.classList.add("is-dragging");
 
     // Ghost — follows pointer, shows full block text (CSS clamps display).
     const ghost = document.createElement("div");
@@ -192,28 +188,8 @@ export default function RichEditor({
       const br = block.getBoundingClientRect();
       const above = ev.clientY < br.top + br.height / 2;
       currentTarget = { blockIndex: bi, above };
-
-      // Open a visual gap by adding margin to the target block.
-      // Reset all first, then apply to the current target.
-      const GAP = 48;
-      Array.from(editorEl.children).forEach((el) => {
-        (el as HTMLElement).style.marginTop = "";
-        (el as HTMLElement).style.marginBottom = "";
-      });
-      if (above) {
-        block.style.marginTop = `${GAP}px`;
-        block.style.transition = "margin 0.12s ease";
-      } else {
-        block.style.marginBottom = `${GAP}px`;
-        block.style.transition = "margin 0.12s ease";
-      }
-
-      // Re-measure after margin change for accurate drop line position.
-      const brUpdated = block.getBoundingClientRect();
       setDropLineTop(
-        above
-          ? brUpdated.top - scrollerRect.top - 2
-          : brUpdated.bottom - scrollerRect.top - GAP + 2
+        above ? br.top - scrollerRect.top - 2 : br.bottom - scrollerRect.top - 2
       );
     };
 
@@ -223,17 +199,7 @@ export default function RichEditor({
       document.removeEventListener("pointercancel", onEnd);
 
       ghost.remove();
-      // Restore source block opacity.
-      if (sourceBlockEl) {
-        sourceBlockEl.style.opacity = "";
-        sourceBlockEl.style.transition = "";
-      }
-      // Remove gap margin from whichever block was the drop target.
-      Array.from(editorEl.children).forEach((el) => {
-        (el as HTMLElement).style.marginTop = "";
-        (el as HTMLElement).style.marginBottom = "";
-        (el as HTMLElement).style.transition = "";
-      });
+      scroller.classList.remove("is-dragging");
       isDraggingRef.current = false;
       setDropLineTop(null);
 

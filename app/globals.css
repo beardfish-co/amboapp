@@ -302,13 +302,24 @@ body {
   position: absolute;
   left: 0;
   right: 0;
-  height: 44px;
-  background: var(--ambo-accent-faint);
-  border: 2px dashed var(--ambo-accent);
-  border-radius: 6px;
+  height: 3px;
+  background: var(--ambo-accent);
+  border-radius: 2px;
   pointer-events: none;
-  z-index: 2;
-  opacity: 0.85;
+  z-index: 10;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ambo-accent) 15%, transparent);
+}
+/* Circle cap on the left edge of the drop line */
+.ambo-rich-editor-wrap .ambo-drop-indicator::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ambo-accent);
 }
 
 /* Quote delete button — hover-revealed × in the top-right corner of any
@@ -345,9 +356,11 @@ body {
   color: var(--ambo-accent);
 }
 
-/* Source block dimmed while it's being dragged. */
-.ambo-rich-editor-wrap .ambo-block-dragging {
-  opacity: 0.3;
+/* Dim all editor content while a drag is in flight.
+   The class is added to the scroller (not a Tiptap element) so
+   ProseMirror re-renders cannot revert it. */
+.ambo-rich-editor-wrap .ambo-rich-editor-scroller.is-dragging .ambo-rich-editor > * {
+  opacity: 0.35;
   transition: opacity 0.1s ease;
 }
 
