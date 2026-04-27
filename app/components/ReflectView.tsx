@@ -1548,9 +1548,10 @@ export default function ReflectView({
       </div>
 
       {/* Right column: Discernment panel + Notes pad.
-          The outer div is the grid item — stretches to full row height so the
-          inner sticky div has room to travel. Sticky directly on a CSS grid
-          item is unreliable in Safari; the wrapper pattern is cross-browser. */}
+          The outer div is the grid item — it stretches to the full row height
+          (same as the left column) giving the inner sticky div room to travel.
+          Sticky on the grid item itself is unreliable in Safari; the wrapper
+          pattern is the cross-browser solution. */}
       <div className="reflect-side" style={{ alignSelf: "stretch" }}>
       <div
         className="reflect-side-inner"
@@ -1822,9 +1823,9 @@ export default function ReflectView({
             padding: "14px 16px 20px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
-            fontFamily: "var(--ambo-font-reading)",
+            fontFamily: "inherit",
             fontSize: 15,
-            lineHeight: 1.7,
+            lineHeight: 1.6,
           }}
         />
         {lastAdded && (
@@ -1840,11 +1841,11 @@ export default function ReflectView({
           </div>
         )}
         </aside>
+      </div>
 
       {/* Mobile toggle for notes */}
       {notesOpenMobile && null /* placeholder for future mobile sheet */}
 
-      </div>{/* end reflect-side-inner */}
       </div>{/* end reflect-side outer */}
       </div>{/* end reflect-layout grid */}
 
@@ -1861,8 +1862,8 @@ export default function ReflectView({
         }
         @media (min-width: 1201px) {
           .reflect-layout {
-            --rf-cite-size: 15px;
-            --rf-prompt-size: 16px;
+            --rf-cite-size: 13px;
+            --rf-prompt-size: 14px;
             --rf-afford-size: 13px;
             --rf-subhead-size: 14px;
             --rf-eyebrow-size: 13px;
@@ -1894,13 +1895,6 @@ export default function ReflectView({
           .reflect-notes {
             min-height: 120px !important;
           }
-        }
-        /* Hide scrollbar on notes textarea — the panel itself scrolls */
-        .reflect-notes textarea {
-          scrollbar-width: none;
-        }
-        .reflect-notes textarea::-webkit-scrollbar {
-          display: none;
         }
       `}</style>
     </div>
