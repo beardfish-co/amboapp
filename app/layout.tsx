@@ -29,6 +29,16 @@ export const metadata: Metadata = {
   title: "Ambo — Homily writing space",
   description: "A sacred writing workspace for priests. Read, pray, and write your homily in a space designed for encounter.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/ambo-mark-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/ambo-mark-64.png", sizes: "64x64", type: "image/png" },
+      { url: "/ambo-mark-256.png", sizes: "256x256", type: "image/png" },
+    ],
+    apple: [
+      { url: "/ambo-mark-180.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
