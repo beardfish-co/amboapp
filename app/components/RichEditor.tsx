@@ -2,23 +2,26 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Block drag-reorder uses pointer events (works on both mouse and touch/iPad):
+// Block drag-reorder is implemented entirely through ProseMirror decorations.
+// This is the correct primitive for visual overlays in a ProseMirror editor:
+// PM renders them itself, so they are never reverted by re-renders.
 //
-//   Mouse entry: hover → grip handle → pointerdown on handle.
-//   Touch entry: pointerdown anywhere in the left 40px margin zone.
+// Two decorations live in a single plugin (dragPluginKey):
+//   1. Decoration.node on the source block → adds class "ambo-drag-source"
+//      which dims it via CSS.
+//   2. Decoration.widget between blocks at the current gap → a <div> that
+//      animates from height 0 to 56 px via a CSS transition, causing the
+//      surrounding blocks to spread apart naturally.
 //
-// During drag:
-//   - A ghost card follows the cursor showing the grabbed block's text.
-//   - A source-overlay div dims the grabbed block in place.
-//   - A drop-indicator line (React state) appears between blocks at the
-//     current insertion point. No mirror, no editor hiding — just a
-//     React-rendered absolute div that's trivially reliable.
-//
-// On release: ProseMirror transaction reorders the actual document.
+// The plugin state is updated by dispatching no-op transactions with metadata.
+// No DOM manipulation outside the decoration system. No editor hiding.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { Extension } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { useEffect, useRef, useState } from "react";
 
 export type RichEditorProps = {
@@ -30,22 +33,111 @@ export type RichEditorProps = {
   placeholder?: string;
 };
 
+// ── ProseMirror drag plugin ──────────────────────────────────────────────────
+
+interface DragPluginState {
+  sourceIndex: number; // block being dragged; -1 = idle
+  gapIndex: number;    // insertion gap; -1 = none
+}
+
+const dragPluginKey = new PluginKey<DragPluginState>("amboBlockDrag");
+
+// Absolute document position of the start of block N.
+// (For widgets: pos 0 = before block 0, pos after block N-1 = before block N.)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function posOfBlock(doc: any, blockIndex: number): number {
+  let pos = 0;
+  for (let i = 0; i < blockIndex; i++) pos += (doc as any).child(i).nodeSize;
+  return pos;
+}
+
+function makeDragPlugin() {
+  return new Plugin<DragPluginState>({
+    key: dragPluginKey,
+
+    state: {
+      init: () => ({ sourceIndex: -1, gapIndex: -1 }),
+      apply(tr, prev) {
+        const meta = tr.getMeta(dragPluginKey) as Partial<DragPluginState> | undefined;
+        if (meta != null) {
+          return {
+            sourceIndex: meta.sourceIndex ?? prev.sourceIndex,
+            gapIndex:    meta.gapIndex    ?? prev.gapIndex,
+          };
+        }
+        return prev;
+      },
+    },
+
+    props: {
+      decorations(state) {
+        const pluginState = dragPluginKey.getState(state);
+        if (!pluginState || pluginState.sourceIndex < 0) return DecorationSet.empty;
+
+        const { sourceIndex, gapIndex } = pluginState;
+        const { doc } = state;
+        const decos: Decoration[] = [];
+
+        // 1. Node decoration — dims the block being dragged.
+        if (sourceIndex < doc.childCount) {
+          const from = posOfBlock(doc, sourceIndex);
+          const to   = from + doc.child(sourceIndex).nodeSize;
+          decos.push(Decoration.node(from, to, { class: "ambo-drag-source" }));
+        }
+
+        // 2. Widget decoration — animated gap at the current insertion point.
+        if (gapIndex >= 0) {
+          const insertPos = posOfBlock(doc, Math.min(gapIndex, doc.childCount));
+          decos.push(
+            Decoration.widget(
+              insertPos,
+              () => {
+                const el = document.createElement("div");
+                el.className = "ambo-drag-gap";
+                // Adding the open class on the next frame triggers the CSS
+                // height transition (0 → 56 px) once ProseMirror has inserted
+                // the element into the DOM.
+                requestAnimationFrame(() => el.classList.add("ambo-drag-gap--open"));
+                return el;
+              },
+              // Key includes gapIndex so PM creates a fresh element each time
+              // the gap moves — guaranteeing a new expand animation.
+              { side: -1, key: `drag-gap-${gapIndex}` }
+            )
+          );
+        }
+
+        return DecorationSet.create(doc, decos);
+      },
+    },
+  });
+}
+
+// Tiptap extension that registers the plugin.
+const DragReorderExtension = Extension.create({
+  name: "dragReorder",
+  addProseMirrorPlugins() {
+    return [makeDragPlugin()];
+  },
+});
+
+// ── Shared helpers ───────────────────────────────────────────────────────────
+
 function GripIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="5" r="1.5" fill="currentColor" />
-      <circle cx="15" cy="5" r="1.5" fill="currentColor" />
-      <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="9"  cy="5"  r="1.5" fill="currentColor" />
+      <circle cx="15" cy="5"  r="1.5" fill="currentColor" />
+      <circle cx="9"  cy="12" r="1.5" fill="currentColor" />
       <circle cx="15" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="9" cy="19" r="1.5" fill="currentColor" />
+      <circle cx="9"  cy="19" r="1.5" fill="currentColor" />
       <circle cx="15" cy="19" r="1.5" fill="currentColor" />
     </svg>
   );
 }
 
-type HandlePos = { top: number; blockIndex: number };
+type HandlePos      = { top: number; blockIndex: number };
 type QuoteDeletePos = { top: number; blockIndex: number };
-type SourceOverlay = { top: number; height: number };
 
 function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElement | null {
   let cur: Node | null = node;
@@ -56,6 +148,7 @@ function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElemen
   return null;
 }
 
+// ProseMirror absolute position of block N (for the reorder transaction).
 function blockStartPos(editor: Editor, blockIndex: number): number {
   let pos = 0;
   const doc = editor.state.doc;
@@ -70,6 +163,8 @@ function blockText(editor: Editor, blockIndex: number): string {
   if (blockIndex < 0 || blockIndex >= doc.childCount) return "";
   return doc.child(blockIndex).textContent;
 }
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function RichEditor({
   initialHtml,
@@ -89,6 +184,7 @@ export default function RichEditor({
         showOnlyCurrent: false,
         includeChildren: false,
       }),
+      DragReorderExtension,
     ],
     content: initialHtml,
     editorProps: { attributes: { class: "ambo-rich-editor" } },
@@ -99,16 +195,12 @@ export default function RichEditor({
     if (editor && onReady) onReady(editor);
   }, [editor, onReady]);
 
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
+  const scrollerRef  = useRef<HTMLDivElement | null>(null);
+  const [handlePos,      setHandlePos]      = useState<HandlePos | null>(null);
   const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
   const isDraggingRef = useRef(false);
 
-  // Drag visual state — React-driven so they're always in sync with layout.
-  const [dropLineTop, setDropLineTop] = useState<number | null>(null);
-  const [sourceOverlay, setSourceOverlay] = useState<SourceOverlay | null>(null);
-
-  // ── Mouse hover → handle reveal ─────────────────────────────────────────
+  // ── Mouse hover → handle reveal ───────────────────────────────────────────
   useEffect(() => {
     if (!editor) return;
     const scroller = scrollerRef.current;
@@ -120,7 +212,7 @@ export default function RichEditor({
       const sr = scroller.getBoundingClientRect();
       const inBounds =
         e.clientX >= sr.left - 36 && e.clientX <= sr.right &&
-        e.clientY >= sr.top - 4 && e.clientY <= sr.bottom + 4;
+        e.clientY >= sr.top  - 4  && e.clientY <= sr.bottom + 4;
       if (!inBounds) { setHandlePos(null); setQuoteDeletePos(null); return; }
       if (e.clientX < sr.left) return;
       const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -142,7 +234,7 @@ export default function RichEditor({
     return () => document.removeEventListener("mousemove", onMove);
   }, [editor]);
 
-  // ── Core drag logic ──────────────────────────────────────────────────────
+  // ── Core drag logic ───────────────────────────────────────────────────────
   const startDrag = (
     sourceIndex: number,
     startClientY: number,
@@ -156,30 +248,28 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Snapshot block rects before any DOM changes (viewport coordinates,
-    // matching ev.clientY throughout the drag).
-    const blockEls = Array.from(editorEl.children) as HTMLElement[];
+    // Snapshot block rects before the drag starts. The editor DOM is
+    // untouched throughout, so these remain accurate for hit-testing.
+    const blockEls  = Array.from(editorEl.children) as HTMLElement[];
     const blockRects = blockEls.map(el => el.getBoundingClientRect());
 
-    // Dim the source block via a React-state overlay div (no Tiptap DOM touch).
-    setSourceOverlay({
-      top: blockRects[sourceIndex].top - scrollerRect.top,
-      height: blockRects[sourceIndex].height,
-    });
+    // Signal drag start — dims the source block via the node decoration.
+    editor.view.dispatch(
+      editor.view.state.tr.setMeta(dragPluginKey, { sourceIndex, gapIndex: -1 })
+    );
 
-    // Ghost card follows the pointer (imperative div for zero-lag response).
+    // Ghost card — imperative div for zero-lag cursor tracking.
     const ghost = document.createElement("div");
     ghost.className = "ambo-drag-ghost";
     ghost.textContent = blockText(editor, sourceIndex) || "…";
     ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
     scroller.appendChild(ghost);
 
-    // Use a plain object (not a React ref) so onMove and onEnd share
-    // the same mutable slot without any closure staleness.
+    // Mutable slot shared between onMove and onEnd closures.
     const gapState = { current: -1 };
+    let rafId: number | null = null;
 
-    // Which gap does this clientY land in?
-    // Gap 0 = before block 0, gap N = after block N-1.
+    // Gap N = insertion before block N (or after the last block if N = count).
     const getGapIndex = (clientY: number): number => {
       for (let i = 0; i < blockRects.length; i++) {
         if (clientY < blockRects[i].top + blockRects[i].height / 2) return i;
@@ -187,59 +277,58 @@ export default function RichEditor({
       return blockRects.length;
     };
 
-    // Converts a gap index to a scroller-relative Y position for the
-    // drop indicator line.
-    const gapToLineTop = (gapIndex: number): number => {
-      if (gapIndex === 0) return blockRects[0].top - scrollerRect.top - 1;
-      if (gapIndex >= blockRects.length)
-        return blockRects[blockRects.length - 1].bottom - scrollerRect.top - 1;
-      // Midpoint of the space between the two neighbouring blocks.
-      const above = blockRects[gapIndex - 1].bottom;
-      const below = blockRects[gapIndex].top;
-      return (above + below) / 2 - scrollerRect.top;
-    };
-
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
       ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
 
       const gap = getGapIndex(ev.clientY);
-      gapState.current = gap;
+      // Suppress the widget when dropping at the source block's own position.
+      const validGap = (gap === sourceIndex || gap === sourceIndex + 1) ? -1 : gap;
 
-      // Suppress indicator when dropping in the current position is a no-op.
-      if (gap === sourceIndex || gap === sourceIndex + 1) {
-        setDropLineTop(null);
-      } else {
-        setDropLineTop(gapToLineTop(gap));
-      }
+      if (validGap === gapState.current) return;
+      gapState.current = validGap;
+
+      // Throttle PM dispatches to one per animation frame.
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!editor) return;
+        editor.view.dispatch(
+          editor.view.state.tr.setMeta(dragPluginKey, { sourceIndex, gapIndex: validGap })
+        );
+      });
     };
 
     const onEnd = () => {
       document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointerup",   onEnd);
       document.removeEventListener("pointercancel", onEnd);
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
 
       const finalGap = gapState.current;
-
       ghost.remove();
-      setDropLineTop(null);
-      setSourceOverlay(null);
       isDraggingRef.current = false;
 
+      // Clear all decorations.
+      if (editor) {
+        editor.view.dispatch(
+          editor.view.state.tr.setMeta(dragPluginKey, { sourceIndex: -1, gapIndex: -1 })
+        );
+      }
+
       // No-op guards.
-      if (!editor) return;
-      if (finalGap < 0) return;
+      if (finalGap < 0 || !editor) return;
       if (finalGap === sourceIndex || finalGap === sourceIndex + 1) return;
 
       const { state } = editor;
-      const { doc } = state;
+      const { doc }   = state;
       if (sourceIndex < 0 || sourceIndex >= doc.childCount) return;
       if (finalGap > doc.childCount) return;
 
       const sourceNode = doc.child(sourceIndex);
-      const sourcePos = blockStartPos(editor, sourceIndex);
-      const sourceEnd = sourcePos + sourceNode.nodeSize;
-      let insertPos = blockStartPos(editor, finalGap);
+      const sourcePos  = blockStartPos(editor, sourceIndex);
+      const sourceEnd  = sourcePos + sourceNode.nodeSize;
+      let insertPos    = blockStartPos(editor, finalGap);
       if (insertPos > sourceEnd) insertPos -= sourceNode.nodeSize;
 
       const tr = state.tr;
@@ -252,11 +341,11 @@ export default function RichEditor({
     };
 
     document.addEventListener("pointermove", onMove, { passive: false });
-    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointerup",   onEnd);
     document.addEventListener("pointercancel", onEnd);
   };
 
-  // ── Mouse handle pointer-down ────────────────────────────────────────────
+  // ── Mouse handle pointer-down ─────────────────────────────────────────────
   const onHandlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     if (!editor || !handlePos) return;
     const scroller = scrollerRef.current;
@@ -265,16 +354,10 @@ export default function RichEditor({
     e.preventDefault();
     e.stopPropagation();
     e.currentTarget.releasePointerCapture(e.pointerId);
-    startDrag(
-      handlePos.blockIndex,
-      e.clientY,
-      editorEl,
-      scroller,
-      scroller.getBoundingClientRect()
-    );
+    startDrag(handlePos.blockIndex, e.clientY, editorEl, scroller, scroller.getBoundingClientRect());
   };
 
-  // ── Touch left-margin drag rail ──────────────────────────────────────────
+  // ── Touch left-margin drag rail ───────────────────────────────────────────
   useEffect(() => {
     if (!editor) return;
     const scroller = scrollerRef.current;
@@ -308,24 +391,6 @@ export default function RichEditor({
     <div ref={scrollerRef} className="ambo-rich-editor-scroller">
       <EditorContent editor={editor} />
 
-      {/* Dims the block being dragged without touching Tiptap's DOM */}
-      {sourceOverlay && (
-        <div
-          className="ambo-drag-source-overlay"
-          style={{ top: sourceOverlay.top, height: sourceOverlay.height }}
-          aria-hidden
-        />
-      )}
-
-      {/* Insertion point indicator */}
-      {dropLineTop !== null && (
-        <div
-          className="ambo-drop-indicator"
-          style={{ top: dropLineTop }}
-          aria-hidden
-        />
-      )}
-
       {handlePos && (
         <button
           type="button"
@@ -353,7 +418,7 @@ export default function RichEditor({
             const { state } = editor;
             const idx = quoteDeletePos.blockIndex;
             if (idx < 0 || idx >= state.doc.childCount) return;
-            const pos = blockStartPos(editor, idx);
+            const pos  = blockStartPos(editor, idx);
             const node = state.doc.child(idx);
             editor.view.dispatch(state.tr.delete(pos, pos + node.nodeSize));
             if (onUpdate) onUpdate(editor);
