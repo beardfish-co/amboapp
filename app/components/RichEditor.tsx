@@ -59,12 +59,15 @@ function makeDragPlugin() {
       init: () => ({ sourceIndex: -1, gapIndex: -1 }),
       apply(tr, prev) {
         const meta = tr.getMeta(dragPluginKey) as Partial<DragPluginState> | undefined;
+        // Log EVERY transaction so we can confirm the plugin is alive and
+        // whether our meta transactions are arriving.
+        console.log("[gap-plugin] apply called — hasMeta=", meta != null, "prev=", prev, "meta=", meta);
         if (meta != null) {
           const next = {
             sourceIndex: meta.sourceIndex ?? prev.sourceIndex,
             gapIndex:    meta.gapIndex    ?? prev.gapIndex,
           };
-          console.log("[gap] plugin state updated →", next);
+          console.log("[gap-plugin] state updated →", next);
           return next;
         }
         return prev;
@@ -74,6 +77,9 @@ function makeDragPlugin() {
     props: {
       decorations(state) {
         const pluginState = dragPluginKey.getState(state);
+        // Log before the early return so we can confirm decorations() is
+        // being called at all, regardless of drag state.
+        console.log("[gap-plugin] decorations called — pluginState=", pluginState);
         if (!pluginState || pluginState.sourceIndex < 0) return DecorationSet.empty;
 
         const { sourceIndex, gapIndex } = pluginState;
