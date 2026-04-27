@@ -252,6 +252,7 @@ export default function RichEditor({
 
     const gapState = { current: -1 };
     let rafId: number | null = null;
+    let dwellTimer: ReturnType<typeof setTimeout> | null = null;
 
     const getGapIndex = (clientY: number): number => {
       for (let i = 0; i < blockRects.length; i++) {
@@ -260,16 +261,8 @@ export default function RichEditor({
       return blockRects.length;
     };
 
-    const onMove = (ev: PointerEvent) => {
-      ev.preventDefault();
-      ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
-
-      const gap = getGapIndex(ev.clientY);
-      const validGap = (gap === sourceIndex || gap === sourceIndex + 1) ? -1 : gap;
-
-      if (validGap === gapState.current) return;
+    const commitGap = (validGap: number) => {
       gapState.current = validGap;
-
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         rafId = null;
@@ -280,11 +273,31 @@ export default function RichEditor({
       });
     };
 
+    const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
+      ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
+
+      const gap = getGapIndex(ev.clientY);
+      const validGap = (gap === sourceIndex || gap === sourceIndex + 1) ? -1 : gap;
+
+      if (validGap === gapState.current) return;
+
+      // Dwell: wait 150 ms after crossing a midpoint before committing to
+      // the new gap position. Prevents rapid snapping as the cursor moves
+      // and gives the opening animation time to be seen.
+      if (dwellTimer !== null) { clearTimeout(dwellTimer); dwellTimer = null; }
+      dwellTimer = setTimeout(() => {
+        dwellTimer = null;
+        commitGap(validGap);
+      }, 150);
+    };
+
     const onEnd = () => {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup",   onEnd);
       document.removeEventListener("pointercancel", onEnd);
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      if (dwellTimer !== null) { clearTimeout(dwellTimer); dwellTimer = null; }
 
       const finalGap = gapState.current;
       ghost.remove();

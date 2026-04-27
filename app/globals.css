@@ -311,7 +311,7 @@ body {
 .ambo-drag-gap {
   height: 0;
   overflow: hidden;
-  transition: height 320ms ease;
+  transition: height 600ms ease-in-out;
   pointer-events: none;
 }
 
