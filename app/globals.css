@@ -343,6 +343,12 @@ body {
   color: var(--ambo-accent);
 }
 
+/* Source block dimmed while it's being dragged. */
+.ambo-rich-editor-wrap .ambo-block-dragging {
+  opacity: 0.3;
+  transition: opacity 0.1s ease;
+}
+
 /* Ghost element — follows the pointer during block drag.
    Semi-transparent pill showing the dragged block's text. */
 .ambo-rich-editor-wrap .ambo-drag-ghost {

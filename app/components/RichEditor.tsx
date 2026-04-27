@@ -2,20 +2,13 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Drag-and-drop block reordering uses the Pointer Events API (not the
-// HTML5 drag API) so it works identically on mouse (desktop) and touch
-// (iPad/iPhone). The drag mechanism:
+// Drag-and-drop block reordering uses Pointer Events (not HTML5 drag API)
+// so it works on both mouse (desktop) and touch (iPad/iPhone).
 //
-//   Mouse:  hover → handle appears in left margin → pointerdown on
-//           handle → drag
-//   Touch:  pointerdown anywhere in the 40px left-margin zone of the
-//           scroller → drag begins immediately (no handle tap needed).
-//           The left-margin zone acts as the implicit drag rail.
-//
-// A ghost div follows the pointer during drag; a blue drop-indicator
-// line appears between blocks to show the insertion point.
-// On drop, a single ProseMirror transaction reorders the blocks and
-// the parent WriteView saves + shows the undo pill.
+// IMPORTANT: after pointerdown the browser implicitly captures the pointer
+// to the target element, so document-level pointermove never fires unless
+// we explicitly release that capture. releasePointerCapture() is called in
+// both drag entry points (handle pointerdown + touch margin pointerdown).
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -47,8 +40,6 @@ function GripIcon() {
 type HandlePos = { top: number; blockIndex: number };
 type DropTarget = { blockIndex: number; above: boolean };
 
-// Walk up from `node` until we find an element whose direct parent is the
-// editor's contenteditable root — that is the top-level block.
 function findTopLevelBlock(
   node: Node | null,
   editorEl: HTMLElement
@@ -61,7 +52,6 @@ function findTopLevelBlock(
   return null;
 }
 
-// ProseMirror position of the start of the Nth top-level block.
 function blockStartPos(editor: Editor, blockIndex: number): number {
   let pos = 0;
   const doc = editor.state.doc;
@@ -71,11 +61,11 @@ function blockStartPos(editor: Editor, blockIndex: number): number {
   return pos;
 }
 
-// Plain text of the Nth block, truncated for the ghost label.
+// Full text content of a block — no truncation here; CSS clamps the ghost display.
 function blockText(editor: Editor, blockIndex: number): string {
   const doc = editor.state.doc;
   if (blockIndex < 0 || blockIndex >= doc.childCount) return "";
-  return doc.child(blockIndex).textContent.slice(0, 120);
+  return doc.child(blockIndex).textContent;
 }
 
 export default function RichEditor({
@@ -107,18 +97,10 @@ export default function RichEditor({
   }, [editor, onReady]);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  // Single hover handle (mouse only — touch uses the margin-zone path).
   const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
-
-  // Drop indicator line position (null = not dragging or no valid target).
   const [dropLineTop, setDropLineTop] = useState<number | null>(null);
-
-  // Quote × button position.
   type QuoteDeletePos = { top: number; blockIndex: number };
   const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
-
-  // True while a pointer drag is in flight — suppresses mouse hover updates.
   const isDraggingRef = useRef(false);
 
   // ── Mouse hover → handle reveal ─────────────────────────────────────────
@@ -132,12 +114,10 @@ export default function RichEditor({
       if (isDraggingRef.current) return;
       const sr = scroller.getBoundingClientRect();
       const inBounds =
-        e.clientX >= sr.left - 36 &&
-        e.clientX <= sr.right &&
-        e.clientY >= sr.top - 4 &&
-        e.clientY <= sr.bottom + 4;
+        e.clientX >= sr.left - 36 && e.clientX <= sr.right &&
+        e.clientY >= sr.top - 4 && e.clientY <= sr.bottom + 4;
       if (!inBounds) { setHandlePos(null); setQuoteDeletePos(null); return; }
-      if (e.clientX < sr.left) return; // in left-margin strip — keep last pos
+      if (e.clientX < sr.left) return;
       const hit = document.elementFromPoint(e.clientX, e.clientY);
       if (!(hit instanceof Node) || !editorEl.contains(hit)) return;
       const block = findTopLevelBlock(hit, editorEl);
@@ -157,10 +137,10 @@ export default function RichEditor({
     return () => document.removeEventListener("mousemove", onMove);
   }, [editor]);
 
-  // ── Shared drag logic ────────────────────────────────────────────────────
-  // Called by both the mouse handle's onPointerDown and the touch margin-zone
-  // listener. `sourceIndex` is the block to drag; `startClientY` positions
-  // the ghost initially.
+  // ── Core drag logic ──────────────────────────────────────────────────────
+  // Shared by mouse-handle path and touch-margin path.
+  // Caller must release pointer capture BEFORE calling this so that
+  // document-level pointermove receives events.
   const startDrag = (
     sourceIndex: number,
     startClientY: number,
@@ -174,27 +154,29 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Ghost element — follows the pointer, shows truncated block text.
+    // Dim the source block so the priest can see where it came from.
+    const blocks = Array.from(editorEl.children) as HTMLElement[];
+    const sourceBlockEl = blocks[sourceIndex];
+    if (sourceBlockEl) sourceBlockEl.classList.add("ambo-block-dragging");
+
+    // Ghost — follows pointer, shows full block text (CSS clamps display).
     const ghost = document.createElement("div");
     ghost.className = "ambo-drag-ghost";
     ghost.textContent = blockText(editor, sourceIndex) || "…";
     ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
     scroller.appendChild(ghost);
 
-    // Current drop target, updated on each pointermove.
     let currentTarget: DropTarget | null = null;
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
 
-      // Move ghost with pointer.
+      // Move ghost.
       ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
 
-      // Hit-test underneath the ghost to find the target block.
-      ghost.style.visibility = "hidden";
+      // Hit-test: ghost has pointer-events:none so elementFromPoint finds
+      // whatever is underneath it without needing to hide it.
       const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-      ghost.style.visibility = "";
-
       if (!(hit instanceof Node) || !editorEl.contains(hit)) {
         currentTarget = null;
         setDropLineTop(null);
@@ -218,12 +200,12 @@ export default function RichEditor({
       document.removeEventListener("pointercancel", onEnd);
 
       ghost.remove();
+      if (sourceBlockEl) sourceBlockEl.classList.remove("ambo-block-dragging");
       isDraggingRef.current = false;
       setDropLineTop(null);
 
       if (!currentTarget || !editor) return;
 
-      // ProseMirror transaction: remove source block, insert at dest.
       const { state } = editor;
       const { doc } = state;
       if (sourceIndex < 0 || sourceIndex >= doc.childCount) return;
@@ -232,15 +214,12 @@ export default function RichEditor({
       const destIndex = currentTarget.above
         ? currentTarget.blockIndex
         : currentTarget.blockIndex + 1;
-
-      // No-op: dropping in same position.
       if (destIndex === sourceIndex || destIndex === sourceIndex + 1) return;
 
       const sourceNode = doc.child(sourceIndex);
       const sourcePos = blockStartPos(editor, sourceIndex);
       const sourceEnd = sourcePos + sourceNode.nodeSize;
       let insertPos = blockStartPos(editor, destIndex);
-      // Adjust for the deletion we're about to perform.
       if (insertPos > sourceEnd) insertPos -= sourceNode.nodeSize;
 
       const tr = state.tr;
@@ -265,6 +244,8 @@ export default function RichEditor({
     if (!scroller || !editorEl) return;
     e.preventDefault();
     e.stopPropagation();
+    // Release implicit pointer capture so document receives pointermove.
+    e.currentTarget.releasePointerCapture(e.pointerId);
     startDrag(
       handlePos.blockIndex,
       e.clientY,
@@ -274,10 +255,7 @@ export default function RichEditor({
     );
   };
 
-  // ── Touch margin-zone drag ───────────────────────────────────────────────
-  // On touch/pen devices the hover handle never appears, so we treat the
-  // left 40px of the scroller as an implicit drag rail. A pointerdown there
-  // begins a drag immediately without needing to see the handle first.
+  // ── Touch left-margin drag rail ──────────────────────────────────────────
   useEffect(() => {
     if (!editor) return;
     const scroller = scrollerRef.current;
@@ -285,35 +263,25 @@ export default function RichEditor({
     if (!scroller || !editorEl) return;
 
     const onScrollerPointerDown = (e: PointerEvent) => {
-      // Mouse handled by the explicit handle button above.
       if (e.pointerType === "mouse") return;
       if (isDraggingRef.current) return;
-
       const sr = scroller.getBoundingClientRect();
       const localX = e.clientX - sr.left;
-
-      // Only respond to touches in the left-margin drag zone.
       if (localX > 40) return;
-
       e.preventDefault();
-
-      // Sample 60px to the right to find the block at this Y.
+      // Release capture so document pointermove fires.
+      scroller.releasePointerCapture(e.pointerId);
       const hit = document.elementFromPoint(e.clientX + 60, e.clientY);
       if (!hit || !editorEl.contains(hit as Node)) return;
       const block = findTopLevelBlock(hit as Node, editorEl);
       if (!block) return;
       const bi = Array.from(editorEl.children).indexOf(block);
       if (bi < 0) return;
-
       startDrag(bi, e.clientY, editorEl, scroller, sr);
     };
 
-    scroller.addEventListener("pointerdown", onScrollerPointerDown, {
-      passive: false,
-    });
-    return () => {
-      scroller.removeEventListener("pointerdown", onScrollerPointerDown);
-    };
+    scroller.addEventListener("pointerdown", onScrollerPointerDown, { passive: false });
+    return () => scroller.removeEventListener("pointerdown", onScrollerPointerDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
@@ -323,7 +291,6 @@ export default function RichEditor({
     <div ref={scrollerRef} className="ambo-rich-editor-scroller">
       <EditorContent editor={editor} />
 
-      {/* Mouse hover handle — hidden on touch (pointer:coarse) via CSS */}
       {handlePos && (
         <button
           type="button"
@@ -338,7 +305,6 @@ export default function RichEditor({
         </button>
       )}
 
-      {/* Drop indicator line */}
       {dropLineTop !== null && (
         <div
           className="ambo-drop-indicator"
@@ -347,7 +313,6 @@ export default function RichEditor({
         />
       )}
 
-      {/* Quote × delete button */}
       {quoteDeletePos && (
         <button
           type="button"
