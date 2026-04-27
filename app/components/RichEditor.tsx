@@ -154,9 +154,19 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Dim all editor content by marking the scroller — Tiptap doesn't manage
-    // the scroller element so it won't be reverted by ProseMirror re-renders.
-    scroller.classList.add("is-dragging");
+    // Overlay the source block with a semi-transparent div — we can't set
+    // opacity on Tiptap-managed elements (ProseMirror reverts them), but we
+    // can position our own div on top of the source block inside the scroller.
+    const blocks = Array.from(editorEl.children) as HTMLElement[];
+    const sourceBlockEl = blocks[sourceIndex];
+    const sourceOverlay = document.createElement("div");
+    sourceOverlay.className = "ambo-drag-source-overlay";
+    if (sourceBlockEl) {
+      const sbr = sourceBlockEl.getBoundingClientRect();
+      sourceOverlay.style.top = `${sbr.top - scrollerRect.top}px`;
+      sourceOverlay.style.height = `${sbr.height}px`;
+    }
+    scroller.appendChild(sourceOverlay);
 
     // Ghost — follows pointer, shows full block text (CSS clamps display).
     const ghost = document.createElement("div");
@@ -188,8 +198,11 @@ export default function RichEditor({
       const br = block.getBoundingClientRect();
       const above = ev.clientY < br.top + br.height / 2;
       currentTarget = { blockIndex: bi, above };
+      const SLOT_H = 44;
       setDropLineTop(
-        above ? br.top - scrollerRect.top - 2 : br.bottom - scrollerRect.top - 2
+        above
+          ? br.top - scrollerRect.top - SLOT_H / 2
+          : br.bottom - scrollerRect.top - SLOT_H / 2
       );
     };
 
@@ -199,7 +212,7 @@ export default function RichEditor({
       document.removeEventListener("pointercancel", onEnd);
 
       ghost.remove();
-      scroller.classList.remove("is-dragging");
+      sourceOverlay.remove();
       isDraggingRef.current = false;
       setDropLineTop(null);
 

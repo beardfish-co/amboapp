@@ -298,28 +298,19 @@ body {
 /* Drop indicator — horizontal line drawn between paragraphs while a
    block is being dragged. Positioned absolutely by RichEditor.tsx based
    on whether the cursor is above or below the target block's midline. */
+/* Drop slot — tall enough to feel like space has opened, centred on
+   the insertion point between blocks. */
 .ambo-rich-editor-wrap .ambo-drop-indicator {
   position: absolute;
   left: 0;
   right: 0;
-  height: 3px;
-  background: var(--ambo-accent);
-  border-radius: 2px;
+  height: 44px;
+  background: color-mix(in srgb, var(--ambo-accent) 8%, transparent);
+  border-top: 2px solid var(--ambo-accent);
+  border-bottom: 2px solid var(--ambo-accent);
+  border-radius: 4px;
   pointer-events: none;
   z-index: 10;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ambo-accent) 15%, transparent);
-}
-/* Circle cap on the left edge of the drop line */
-.ambo-rich-editor-wrap .ambo-drop-indicator::before {
-  content: "";
-  position: absolute;
-  left: -4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--ambo-accent);
 }
 
 /* Quote delete button — hover-revealed × in the top-right corner of any
@@ -356,12 +347,18 @@ body {
   color: var(--ambo-accent);
 }
 
-/* Dim all editor content while a drag is in flight.
-   The class is added to the scroller (not a Tiptap element) so
-   ProseMirror re-renders cannot revert it. */
-.ambo-rich-editor-wrap .ambo-rich-editor-scroller.is-dragging .ambo-rich-editor > * {
-  opacity: 0.35;
-  transition: opacity 0.1s ease;
+/* Overlay positioned on top of the source block while dragging.
+   We cannot set opacity on Tiptap elements directly (ProseMirror reverts them),
+   so we layer our own div over the source block instead. */
+.ambo-rich-editor-wrap .ambo-drag-source-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--ambo-surface);
+  opacity: 0.68;
+  pointer-events: none;
+  border-radius: 3px;
+  z-index: 1;
 }
 
 /* Ghost element — follows the pointer during block drag.
