@@ -298,19 +298,17 @@ body {
 /* Drop indicator — horizontal line drawn between paragraphs while a
    block is being dragged. Positioned absolutely by RichEditor.tsx based
    on whether the cursor is above or below the target block's midline. */
-/* Drop slot — tall enough to feel like space has opened, centred on
-   the insertion point between blocks. */
-.ambo-rich-editor-wrap .ambo-drop-indicator {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 44px;
-  background: color-mix(in srgb, var(--ambo-accent) 8%, transparent);
-  border-top: 2px solid var(--ambo-accent);
-  border-bottom: 2px solid var(--ambo-accent);
-  border-radius: 4px;
+/* Mirror — plain cloned divs overlaying the hidden Tiptap editor during drag.
+   Margins on these divs animate freely (Tiptap doesn't own them) to open
+   and close the gap as the user moves between insertion points. */
+.ambo-rich-editor-wrap .ambo-drag-mirror {
   pointer-events: none;
-  z-index: 10;
+  z-index: 5;
+}
+.ambo-rich-editor-wrap .ambo-drag-mirror > * {
+  font-family: var(--ambo-font-reading);
+  color: var(--ambo-text-primary);
+  line-height: 1.75;
 }
 
 /* Quote delete button — hover-revealed × in the top-right corner of any
@@ -345,20 +343,6 @@ body {
   background: var(--ambo-accent-faint);
   border-color: var(--ambo-accent);
   color: var(--ambo-accent);
-}
-
-/* Overlay positioned on top of the source block while dragging.
-   We cannot set opacity on Tiptap elements directly (ProseMirror reverts them),
-   so we layer our own div over the source block instead. */
-.ambo-rich-editor-wrap .ambo-drag-source-overlay {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: var(--ambo-surface);
-  opacity: 0.68;
-  pointer-events: none;
-  border-radius: 3px;
-  z-index: 1;
 }
 
 /* Ghost element — follows the pointer during block drag.

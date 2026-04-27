@@ -2,13 +2,18 @@
 
 // RichEditor — Tiptap wrapper for the Write surface.
 //
-// Drag-and-drop block reordering uses Pointer Events (not HTML5 drag API)
-// so it works on both mouse (desktop) and touch (iPad/iPhone).
+// Block drag-reorder uses a "mirror" technique to get animated gap feedback:
 //
-// IMPORTANT: after pointerdown the browser implicitly captures the pointer
-// to the target element, so document-level pointermove never fires unless
-// we explicitly release that capture. releasePointerCapture() is called in
-// both drag entry points (handle pointerdown + touch margin pointerdown).
+//   1. On drag start — snapshot all top-level blocks, hide the Tiptap editor,
+//      render plain cloned divs (the mirror) in its place.
+//   2. During drag — animate margin on mirror blocks to open / close the gap
+//      at the current insertion point. Tiptap can't revert margins on divs it
+//      doesn't own, so the animation is stable.
+//   3. On drop — remove mirror, restore editor, dispatch a ProseMirror
+//      transaction to reorder the actual document.
+//
+// Mouse entry: hover → grip handle → pointerdown on handle.
+// Touch entry: pointerdown anywhere in the left 40px margin zone.
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -38,12 +43,8 @@ function GripIcon() {
 }
 
 type HandlePos = { top: number; blockIndex: number };
-type DropTarget = { blockIndex: number; above: boolean };
 
-function findTopLevelBlock(
-  node: Node | null,
-  editorEl: HTMLElement
-): HTMLElement | null {
+function findTopLevelBlock(node: Node | null, editorEl: HTMLElement): HTMLElement | null {
   let cur: Node | null = node;
   while (cur && cur !== editorEl) {
     if (cur instanceof HTMLElement && cur.parentElement === editorEl) return cur;
@@ -61,12 +62,14 @@ function blockStartPos(editor: Editor, blockIndex: number): number {
   return pos;
 }
 
-// Full text content of a block — no truncation here; CSS clamps the ghost display.
 function blockText(editor: Editor, blockIndex: number): string {
   const doc = editor.state.doc;
   if (blockIndex < 0 || blockIndex >= doc.childCount) return "";
   return doc.child(blockIndex).textContent;
 }
+
+// Gap size (px) that opens between blocks during drag.
+const GAP_PX = 56;
 
 export default function RichEditor({
   initialHtml,
@@ -98,7 +101,6 @@ export default function RichEditor({
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [handlePos, setHandlePos] = useState<HandlePos | null>(null);
-  const [dropLineTop, setDropLineTop] = useState<number | null>(null);
   type QuoteDeletePos = { top: number; blockIndex: number };
   const [quoteDeletePos, setQuoteDeletePos] = useState<QuoteDeletePos | null>(null);
   const isDraggingRef = useRef(false);
@@ -137,10 +139,7 @@ export default function RichEditor({
     return () => document.removeEventListener("mousemove", onMove);
   }, [editor]);
 
-  // ── Core drag logic ──────────────────────────────────────────────────────
-  // Shared by mouse-handle path and touch-margin path.
-  // Caller must release pointer capture BEFORE calling this so that
-  // document-level pointermove receives events.
+  // ── Mirror drag ──────────────────────────────────────────────────────────
   const startDrag = (
     sourceIndex: number,
     startClientY: number,
@@ -154,56 +153,86 @@ export default function RichEditor({
     setHandlePos(null);
     setQuoteDeletePos(null);
 
-    // Overlay the source block with a semi-transparent div — we can't set
-    // opacity on Tiptap-managed elements (ProseMirror reverts them), but we
-    // can position our own div on top of the source block inside the scroller.
-    const blocks = Array.from(editorEl.children) as HTMLElement[];
-    const sourceBlockEl = blocks[sourceIndex];
-    const sourceOverlay = document.createElement("div");
-    sourceOverlay.className = "ambo-drag-source-overlay";
-    if (sourceBlockEl) {
-      const sbr = sourceBlockEl.getBoundingClientRect();
-      sourceOverlay.style.top = `${sbr.top - scrollerRect.top}px`;
-      sourceOverlay.style.height = `${sbr.height}px`;
-    }
-    scroller.appendChild(sourceOverlay);
+    const blockEls = Array.from(editorEl.children) as HTMLElement[];
 
-    // Ghost — follows pointer, shows full block text (CSS clamps display).
+    // Build mirror: cloned divs we can freely animate.
+    const editorRect = editorEl.getBoundingClientRect();
+    const mirror = document.createElement("div");
+    mirror.className = "ambo-drag-mirror";
+    mirror.style.position = "absolute";
+    mirror.style.top = `${editorRect.top - scrollerRect.top}px`;
+    mirror.style.left = `${editorRect.left - scrollerRect.left}px`;
+    mirror.style.width = `${editorRect.width}px`;
+    mirror.style.pointerEvents = "none";
+
+    blockEls.forEach((el, i) => {
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.style.transition = `margin ${150}ms ease, opacity ${120}ms ease`;
+      clone.style.opacity = i === sourceIndex ? "0.28" : "1";
+      mirror.appendChild(clone);
+    });
+
+    // Hide Tiptap editor (preserves layout), show mirror.
+    editorEl.style.visibility = "hidden";
+    scroller.appendChild(mirror);
+
+    // Ghost follows pointer.
     const ghost = document.createElement("div");
     ghost.className = "ambo-drag-ghost";
     ghost.textContent = blockText(editor, sourceIndex) || "…";
     ghost.style.top = `${startClientY - scrollerRect.top - 16}px`;
     scroller.appendChild(ghost);
 
-    let currentTarget: DropTarget | null = null;
+    let currentGapIndex = -1;
+
+    // Which gap index (0 = before first block, N = after Nth block) is the
+    // pointer closest to, based on block midpoints in the mirror.
+    const getGapIndex = (clientY: number): number => {
+      const children = Array.from(mirror.children) as HTMLElement[];
+      for (let i = 0; i < children.length; i++) {
+        const rect = children[i].getBoundingClientRect();
+        if (clientY < rect.top + rect.height / 2) return i;
+      }
+      return children.length;
+    };
+
+    const openGap = (gapIndex: number) => {
+      if (gapIndex === currentGapIndex) return;
+      currentGapIndex = gapIndex;
+      const children = Array.from(mirror.children) as HTMLElement[];
+      // Reset all margins.
+      children.forEach((el) => {
+        el.style.marginTop = "";
+        el.style.marginBottom = "";
+      });
+      if (gapIndex < 0) return;
+      // Open gap: add bottom margin to block above insertion, or top margin
+      // to the first block if inserting at position 0.
+      if (gapIndex === 0) {
+        if (children[0]) children[0].style.marginTop = `${GAP_PX}px`;
+      } else {
+        if (children[gapIndex - 1]) children[gapIndex - 1].style.marginBottom = `${GAP_PX}px`;
+      }
+    };
 
     const onMove = (ev: PointerEvent) => {
       ev.preventDefault();
-
-      // Move ghost.
       ghost.style.top = `${ev.clientY - scrollerRect.top - 16}px`;
 
-      // Hit-test: ghost has pointer-events:none so elementFromPoint finds
-      // whatever is underneath it without needing to hide it.
-      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
-      if (!(hit instanceof Node) || !editorEl.contains(hit)) {
-        currentTarget = null;
-        setDropLineTop(null);
+      // Only open a gap if cursor is inside the editor's bounding area.
+      const er = editorEl.getBoundingClientRect();
+      if (ev.clientY < er.top || ev.clientY > er.bottom + GAP_PX) {
+        openGap(-1);
         return;
       }
-      const block = findTopLevelBlock(hit, editorEl);
-      if (!block) { currentTarget = null; setDropLineTop(null); return; }
-      const bi = Array.from(editorEl.children).indexOf(block);
-      if (bi < 0) { currentTarget = null; setDropLineTop(null); return; }
-      const br = block.getBoundingClientRect();
-      const above = ev.clientY < br.top + br.height / 2;
-      currentTarget = { blockIndex: bi, above };
-      const SLOT_H = 44;
-      setDropLineTop(
-        above
-          ? br.top - scrollerRect.top - SLOT_H / 2
-          : br.bottom - scrollerRect.top - SLOT_H / 2
-      );
+
+      const gap = getGapIndex(ev.clientY);
+      // Don't open a gap where the source block already sits.
+      if (gap === sourceIndex || gap === sourceIndex + 1) {
+        openGap(-1);
+      } else {
+        openGap(gap);
+      }
     };
 
     const onEnd = () => {
@@ -211,27 +240,29 @@ export default function RichEditor({
       document.removeEventListener("pointerup", onEnd);
       document.removeEventListener("pointercancel", onEnd);
 
+      const finalGap = currentGapIndex;
+
+      // Restore editor, remove mirror and ghost.
+      editorEl.style.visibility = "";
+      mirror.remove();
       ghost.remove();
-      sourceOverlay.remove();
       isDraggingRef.current = false;
-      setDropLineTop(null);
 
-      if (!currentTarget || !editor) return;
+      if (finalGap < 0 || !editor) return;
 
+      // No-op if drop is at current position.
+      if (finalGap === sourceIndex || finalGap === sourceIndex + 1) return;
+
+      // ProseMirror transaction to reorder.
       const { state } = editor;
       const { doc } = state;
       if (sourceIndex < 0 || sourceIndex >= doc.childCount) return;
-      if (currentTarget.blockIndex < 0 || currentTarget.blockIndex >= doc.childCount) return;
-
-      const destIndex = currentTarget.above
-        ? currentTarget.blockIndex
-        : currentTarget.blockIndex + 1;
-      if (destIndex === sourceIndex || destIndex === sourceIndex + 1) return;
+      if (finalGap < 0 || finalGap > doc.childCount) return;
 
       const sourceNode = doc.child(sourceIndex);
       const sourcePos = blockStartPos(editor, sourceIndex);
       const sourceEnd = sourcePos + sourceNode.nodeSize;
-      let insertPos = blockStartPos(editor, destIndex);
+      let insertPos = blockStartPos(editor, finalGap);
       if (insertPos > sourceEnd) insertPos -= sourceNode.nodeSize;
 
       const tr = state.tr;
@@ -256,7 +287,6 @@ export default function RichEditor({
     if (!scroller || !editorEl) return;
     e.preventDefault();
     e.stopPropagation();
-    // Release implicit pointer capture so document receives pointermove.
     e.currentTarget.releasePointerCapture(e.pointerId);
     startDrag(
       handlePos.blockIndex,
@@ -278,10 +308,8 @@ export default function RichEditor({
       if (e.pointerType === "mouse") return;
       if (isDraggingRef.current) return;
       const sr = scroller.getBoundingClientRect();
-      const localX = e.clientX - sr.left;
-      if (localX > 40) return;
+      if (e.clientX - sr.left > 40) return;
       e.preventDefault();
-      // Release capture so document pointermove fires.
       scroller.releasePointerCapture(e.pointerId);
       const hit = document.elementFromPoint(e.clientX + 60, e.clientY);
       if (!hit || !editorEl.contains(hit as Node)) return;
@@ -315,14 +343,6 @@ export default function RichEditor({
         >
           <GripIcon />
         </button>
-      )}
-
-      {dropLineTop !== null && (
-        <div
-          className="ambo-drop-indicator"
-          style={{ top: dropLineTop }}
-          aria-hidden
-        />
       )}
 
       {quoteDeletePos && (
