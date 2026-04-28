@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     ? ["thread", "followups", "notes", "content"]
     : (layers.filter((l) => l !== "all") as EmbedLayer[]);
 
-  const updates: Record<string, number[] | null> = {};
+  const updates: Record<string, string | null> = {};
   const results: Record<string, "ok" | "empty" | "error"> = {};
 
   for (const layer of targetLayers) {
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
       }
 
       const embedding = await generateEmbedding(text);
-      updates[`embedding_${layer}`] = embedding;
+      updates[`embedding_${layer}`] = embedding ? `[${embedding.join(",")}]` : null;
       results[layer] = embedding ? "ok" : "error";
     } catch (err) {
       console.error(`[embed-homily] Layer ${layer} failed:`, err);
