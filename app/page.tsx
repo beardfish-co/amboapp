@@ -382,7 +382,7 @@ export default function AmboApp() {
               fontWeight: 400,
               fontFamily: "var(--font-newsreader), Georgia, serif",
               letterSpacing: "0.01em",
-              color: "var(--ambo-text-primary)",
+              color: "var(--ambo-accent)",
               transform: "translateY(2px)",
               display: "inline-block",
             }}>
