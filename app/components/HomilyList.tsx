@@ -598,7 +598,7 @@ export default function HomilyList({
     setTimeout(() => {
       setClosingDrawer(false);
       onClose();
-    }, 560);
+    }, 540);
   }, [onClose]);
 
   // ── Keyboard: Escape closes reading view, then delete confirm, then drawer ──
@@ -731,7 +731,7 @@ export default function HomilyList({
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
           animation: closingDrawer
-            ? "fadeOut 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            ? "fadeOut 540ms ease-in both"
             : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
@@ -751,8 +751,8 @@ export default function HomilyList({
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
           animation: closingDrawer
-            ? "slideOutLeft 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
-            : "slideInLeft 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+            ? "slideOutLeft 540ms ease-in both"
+            : "slideInLeft 780ms ease-out",
           overflow: "hidden",
         } as React.CSSProperties}
       >

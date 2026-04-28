@@ -111,7 +111,7 @@ export default function ReadingsDrawer({
 
   const handleCloseDrawer = () => {
     setClosingDrawer(true);
-    setTimeout(() => { setClosingDrawer(false); onClose(); }, 560);
+    setTimeout(() => { setClosingDrawer(false); onClose(); }, 540);
   };
 
   useEffect(() => {
@@ -200,7 +200,7 @@ export default function ReadingsDrawer({
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
           animation: closingDrawer
-            ? "fadeOut 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            ? "fadeOut 540ms ease-in both"
             : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
@@ -222,8 +222,8 @@ export default function ReadingsDrawer({
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
           animation: closingDrawer
-            ? "slideOutRight 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
-            : "slideInRight 700ms cubic-bezier(0.22, 1, 0.36, 1)",
+            ? "slideOutRight 540ms ease-in both"
+            : "slideInRight 780ms ease-out",
         }}
       >
         {/* ── Header ── */}
@@ -313,16 +313,17 @@ export default function ReadingsDrawer({
         {/* ── Instruction hint (once-only, dismissable) ── */}
         {hintVisible && (
           <div style={{
-            padding: "10px 20px 12px",
+            overflow: "hidden",
+            // maxHeight drives the height collapse; opacity fades the content in sync
+            maxHeight: hintClosing ? "0px" : "150px",
+            opacity: hintClosing ? 0 : 1,
+            paddingTop: hintClosing ? 0 : 10,
+            paddingBottom: hintClosing ? 0 : 12,
+            paddingLeft: 20,
+            paddingRight: 20,
             borderBottom: "1px solid var(--ambo-border)",
-            animation: hintClosing
-              ? "hintFadeOut 400ms ease-out both"
-              : "hintFadeIn 400ms ease-in both",
+            transition: "max-height 400ms ease-out, opacity 400ms ease-out, padding 400ms ease-out",
           }}>
-            <style>{`
-              @keyframes hintFadeIn  { from { opacity: 0 } to { opacity: 1 } }
-              @keyframes hintFadeOut { from { opacity: 1 } to { opacity: 0 } }
-            `}</style>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
               <p style={{
                 margin: 0,
