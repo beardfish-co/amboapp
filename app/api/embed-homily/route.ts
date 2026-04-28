@@ -115,16 +115,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (Object.keys(updates).length > 0) {
-    const { error: updateErr } = await admin
-      .from("homilies")
-      .update(updates)
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (updateErr) {
-      console.error("[embed-homily] Supabase update failed:", updateErr.message);
-      return NextResponse.json({ error: "DB write failed" }, { status: 500 });
+  // Store each embedding via a Postgres function that does explicit ::vector cast.
+  // Direct PostgREST updates don't reliably cast string -> vector.
+  for (const [col, val] of Object.entries(updates)) {
+    const layer = col.replace("embedding_", "");
+    const { error: rpcErr } = await admin.rpc("store_homily_embedding", {
+      p_homily_id: id,
+      p_user_id: user.id,
+      p_layer: layer,
+      p_embedding: val, // null clears the column; string gets cast ::vector
+    });
+    if (rpcErr) {
+      console.error(`[embed-homily] store_homily_embedding failed for ${layer}:`, rpcErr.message);
     }
   }
 
