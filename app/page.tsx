@@ -375,15 +375,18 @@ export default function AmboApp() {
           alignItems: "center",
           justifyContent: "space-between",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <AmboLogo />
             <span className="ambo-wordmark" style={{
-              fontSize: 19,
-              fontWeight: 600,
-              letterSpacing: "-0.02em",
+              fontSize: 22,
+              fontWeight: 400,
+              fontFamily: "var(--font-newsreader), Georgia, serif",
+              letterSpacing: "0.01em",
               color: "var(--ambo-text-primary)",
+              transform: "translateY(2px)",
+              display: "inline-block",
             }}>
-              Ambo
+              ambo
             </span>
           </div>
 
@@ -534,9 +537,9 @@ function AmboLogo() {
     <img
       src="/ambo-mark-64.png"
       alt="Ambo mark"
-      width={28}
-      height={28}
-      style={{ display: "block", objectFit: "contain" }}
+      width={32}
+      height={32}
+      style={{ display: "block", objectFit: "contain", transform: "translateY(-2px)" }}
     />
   );
 }
