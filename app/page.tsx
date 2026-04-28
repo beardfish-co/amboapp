@@ -350,7 +350,9 @@ export default function AmboApp() {
         backdropFilter: "blur(20px) saturate(1.4)",
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",
-        overflow: "hidden",
+        // overflow must be visible so the AccountMenu dropdown can escape the header boundary.
+        // The inner wrapper clips the sliding content when the header collapses.
+        overflow: headerHidden ? "hidden" : "visible",
         pointerEvents: headerHidden ? "none" : "auto",
         height: headerHidden ? 0 : 60,
         transition: headerHidden ? "height 0.5s ease 0.2s" : "height 0.4s ease",
@@ -365,7 +367,7 @@ export default function AmboApp() {
             : "transform 0.45s ease, opacity 0.35s ease",
         }}>
         <div className="ambo-header-inner" style={{
-          maxWidth: 760,
+          maxWidth: 1180,
           margin: "0 auto",
           padding: "0 24px",
           height: 60,
@@ -528,11 +530,13 @@ export default function AmboApp() {
 
 function AmboLogo() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="9" y="2" width="6" height="12" rx="1.5" fill="var(--ambo-accent)" opacity="0.85" />
-      <rect x="5" y="10" width="14" height="2.5" rx="1.25" fill="var(--ambo-accent)" />
-      <rect x="11" y="14.5" width="2" height="7.5" rx="1" fill="var(--ambo-accent)" opacity="0.6" />
-      <rect x="8" y="21" width="8" height="1.5" rx="0.75" fill="var(--ambo-accent)" opacity="0.5" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/ambo-mark-64.png"
+      alt="Ambo mark"
+      width={28}
+      height={28}
+      style={{ display: "block", objectFit: "contain" }}
+    />
   );
 }
