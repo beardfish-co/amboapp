@@ -141,9 +141,7 @@ function HomilyCard({ h, isActive, onOpen, onDelete }: HomilyCardProps) {
         padding: "18px 22px 16px",
         margin: "0 0 8px",
         cursor: "pointer",
-        transition: "box-shadow 0.15s, opacity 0.15s",
-        outline: isActive ? "1.5px solid var(--ambo-accent)" : "none",
-        outlineOffset: -1,
+        transition: "box-shadow 0.15s",
       }}
       onClick={() => onOpen(h)}
       onMouseEnter={(e) => {
@@ -368,11 +366,12 @@ function SectionLabel({ label }: { label: string }) {
 // Scrim dims the drawer + main app behind at ~17% opacity.
 interface ReadingViewProps {
   homily: HomilyRow | SearchResult;
+  closing: boolean;
   onClose: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
 }
 
-function ReadingView({ homily, onClose, onOpenInWrite }: ReadingViewProps) {
+function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewProps) {
   const sundayName = homily.sunday_date
     ? sundayNameCache.get(homily.sunday_date)
     : undefined;
@@ -399,9 +398,19 @@ function ReadingView({ homily, onClose, onOpenInWrite }: ReadingViewProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const anim = closing
+    ? "rvFadeOut 400ms ease-in both"
+    : "rvFadeIn 400ms ease-out both";
+
   return (
     <>
-      {/* Scrim + scroll container — tap outside glass panel to dismiss */}
+      {/* Pure-opacity keyframes — no transform */}
+      <style>{`
+        @keyframes rvFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes rvFadeOut { from { opacity: 1 } to { opacity: 0 } }
+      `}</style>
+
+      {/* Scrim + scroll container — tap outside to dismiss */}
       <div
         onClick={onClose}
         style={{
@@ -413,18 +422,22 @@ function ReadingView({ homily, onClose, onOpenInWrite }: ReadingViewProps) {
           display: "flex",
           justifyContent: "center",
           alignItems: "flex-start",
-          animation: "fadeIn 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+          padding: "clamp(0px, 7vh, 72px) clamp(0px, 7vw, 100px)",
+          animation: anim,
         }}
       >
+        {/* Glass panel — stops propagation, rounded corners, contained */}
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
             width: "min(680px, 100%)",
-            minHeight: "100%",
-            padding: "52px clamp(24px, 6vw, 48px) 80px",
+            minHeight: "min(500px, 70vh)",
+            padding: "48px clamp(24px, 5vw, 52px) 72px",
             background: "rgba(238, 242, 247, 0.94)",
             backdropFilter: "blur(22px) saturate(1.4)",
             WebkitBackdropFilter: "blur(22px) saturate(1.4)",
+            borderRadius: "clamp(0px, 2vw, 20px)",
+            boxShadow: "var(--ambo-shadow-lg)",
             flexShrink: 0,
           }}
         >
@@ -593,6 +606,7 @@ export default function HomilyList({
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
   const [searchStatus, setSearchStatus] = useState<"idle" | "listening" | "done" | "error">("idle");
   const [viewingHomily, setViewingHomily] = useState<HomilyRow | SearchResult | null>(null);
+  const [closingReading, setClosingReading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -656,7 +670,7 @@ export default function HomilyList({
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (viewingHomily) setViewingHomily(null);
+        if (viewingHomily) closeReading();
         else if (confirmDeleteId) setConfirmDeleteId(null);
         else onClose();
       }
@@ -685,7 +699,7 @@ export default function HomilyList({
   // ── Focus search input on open — prevents any card from carrying focus ring ──
   useEffect(() => {
     if (!open) return;
-    const t = setTimeout(() => searchInputRef.current?.focus(), 80);
+    const t = setTimeout(() => searchInputRef.current?.focus(), 150);
     return () => clearTimeout(t);
   }, [open]);
 
@@ -717,6 +731,15 @@ export default function HomilyList({
     searchTimerRef.current = setTimeout(() => runSearch(q), 650);
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [searchQuery, runSearch]);
+
+  // ── Close reading view with graceful fade-out before unmount ─────────────────
+  const closeReading = useCallback(() => {
+    setClosingReading(true);
+    setTimeout(() => {
+      setViewingHomily(null);
+      setClosingReading(false);
+    }, 400);
+  }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
@@ -752,9 +775,11 @@ export default function HomilyList({
       {viewingHomily && (
         <ReadingView
           homily={viewingHomily}
-          onClose={() => setViewingHomily(null)}
+          closing={closingReading}
+          onClose={closeReading}
           onOpenInWrite={(h) => {
             setViewingHomily(null);
+            setClosingReading(false);
             onOpenInWrite(h);
           }}
         />
