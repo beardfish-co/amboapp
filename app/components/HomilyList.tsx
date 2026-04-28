@@ -399,8 +399,8 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewPro
   }, [onClose]);
 
   const anim = closing
-    ? "rvFadeOut 400ms ease-in both"
-    : "rvFadeIn 400ms ease-out both";
+    ? "rvFadeOut 560ms ease-in both"
+    : "rvFadeIn 560ms ease-out both";
 
   return (
     <>
@@ -430,7 +430,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewPro
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: "min(680px, 100%)",
+            width: "min(760px, 100%)",
             minHeight: "min(500px, 70vh)",
             padding: "48px clamp(24px, 5vw, 52px) 72px",
             background: "rgba(238, 242, 247, 0.94)",
@@ -738,7 +738,7 @@ export default function HomilyList({
     setTimeout(() => {
       setViewingHomily(null);
       setClosingReading(false);
-    }, 400);
+    }, 560);
   }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
