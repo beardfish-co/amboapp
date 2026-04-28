@@ -242,8 +242,8 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
     <div
       className="glass-card"
       style={{
-        padding: "20px 22px 18px",
-        margin: "0 0 10px",
+        padding: "18px 22px 16px",
+        margin: "0 0 8px",
         cursor: "pointer",
         transition: "box-shadow 0.15s",
         opacity: isLoose ? 0.78 : 1,
@@ -262,11 +262,11 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
         alignItems: "baseline",
         justifyContent: "space-between",
         gap: 10,
-        marginBottom: subtitle ? 4 : (result.excerpt ? 10 : 4),
+        marginBottom: subtitle ? 4 : 10,
       }}>
         <div style={{
           fontFamily: "var(--ambo-font-reading)",
-          fontSize: isLoose ? 15 : 16,
+          fontSize: 16,
           fontStyle: "italic",
           fontWeight: 500,
           color: "var(--ambo-text-primary)",
@@ -287,7 +287,7 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
           fontSize: 11,
           fontWeight: 500,
           color: "var(--ambo-accent)",
-          marginBottom: result.excerpt ? 10 : 4,
+          marginBottom: 10,
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -300,7 +300,7 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
       {/* Excerpt — body typeface, no quotes, no italic */}
       {result.excerpt && (
         <div style={{
-          fontSize: isLoose ? 12 : 13,
+          fontSize: 13,
           color: "var(--ambo-text-secondary)",
           lineHeight: 1.65,
           marginBottom: 14,
@@ -401,37 +401,31 @@ function ReadingView({ homily, onClose, onOpenInWrite }: ReadingViewProps) {
 
   return (
     <>
-      {/* Scrim — dimmed backdrop over everything, tap to dismiss */}
+      {/* Scrim + scroll container — tap outside glass panel to dismiss */}
       <div
         onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(10, 15, 25, 0.17)",
           zIndex: 200,
-          animation: "fadeIn 280ms ease",
-        }}
-      />
-
-      {/* Reading surface — centred column, scrollable, no card chrome */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 201,
+          background: "rgba(10, 15, 25, 0.17)",
           overflowY: "auto",
-          /* pointer-events:none so clicks on empty areas still hit the scrim */
-          pointerEvents: "none",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
           animation: "fadeIn 280ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         <div
+          onClick={(e) => e.stopPropagation()}
           style={{
-            maxWidth: 680,
-            margin: "0 auto",
+            width: "min(680px, 100%)",
             minHeight: "100%",
-            padding: "52px 48px 80px",
-            pointerEvents: "auto",
+            padding: "52px clamp(24px, 6vw, 48px) 80px",
+            background: "rgba(238, 242, 247, 0.94)",
+            backdropFilter: "blur(22px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(22px) saturate(1.4)",
+            flexShrink: 0,
           }}
         >
           {/* Top chrome — chevron + edit */}
@@ -686,6 +680,13 @@ export default function HomilyList({
     if (open) {
       setPlaceholderIndex(Math.floor(Math.random() * SEARCH_PLACEHOLDERS.length));
     }
+  }, [open]);
+
+  // ── Focus search input on open — prevents any card from carrying focus ring ──
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => searchInputRef.current?.focus(), 80);
+    return () => clearTimeout(t);
   }, [open]);
 
   // ── Semantic search with debounce ──────────────────────────────────────
