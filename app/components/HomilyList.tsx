@@ -400,6 +400,7 @@ export default function HomilyList({
     } catch {
       setSearchError("Search is unavailable right now. Try again in a moment.");
       setSearchResults(null);
+      setHasSearched(true); // show the error message even on failure
     } finally {
       setSearchLoading(false);
     }
