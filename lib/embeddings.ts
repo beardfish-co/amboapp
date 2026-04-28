@@ -94,12 +94,29 @@ export function buildFollowupsText(
  * Splits into paragraphs/sentences and returns the first substantive one
  * (> 40 chars). Falls back to the first 280 chars if nothing qualifies.
  */
-export function findExcerpt(text: string, maxLength = 280): string {
+export function findExcerpt(text: string, query?: string, maxLength = 280): string {
   if (!text) return "";
-  const paras = text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  const substantial = paras.find((p) => p.length > 40);
-  const excerpt = substantial ?? paras[0] ?? text;
-  if (excerpt.length <= maxLength) return excerpt;
-  const cut = excerpt.lastIndexOf(" ", maxLength);
-  return excerpt.slice(0, cut > 0 ? cut : maxLength) + "…";
+  const paras = text.split(/\n+/).map((s) => s.trim()).filter((p) => p.length > 20);
+  if (paras.length === 0) return "";
+
+  if (query) {
+    const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+    let bestPara = "";
+    let bestScore = 0;
+    for (const para of paras) {
+      const lower = para.toLowerCase();
+      const score = terms.filter((t) => lower.includes(t)).length;
+      if (score > bestScore) { bestScore = score; bestPara = para; }
+    }
+    if (bestPara && bestScore > 0) {
+      if (bestPara.length <= maxLength) return bestPara;
+      const cut = bestPara.lastIndexOf(" ", maxLength);
+      return bestPara.slice(0, cut > 0 ? cut : maxLength) + "…";
+    }
+  }
+
+  const substantial = paras.find((p) => p.length > 40) ?? paras[0];
+  if (substantial.length <= maxLength) return substantial;
+  const cut = substantial.lastIndexOf(" ", maxLength);
+  return substantial.slice(0, cut > 0 ? cut : maxLength) + "…";
 }

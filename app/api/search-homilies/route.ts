@@ -57,15 +57,15 @@ interface SearchRow {
   content: string | null;
 }
 
-function extractExcerptWithLayer(row: SearchRow): { excerpt: string; excerptLayer: SearchRow["matched_layer"] } {
+function extractExcerptWithLayer(row: SearchRow, query: string): { excerpt: string; excerptLayer: SearchRow["matched_layer"] } {
   const MIN_USEFUL = 50;
 
   const fromLayer = (layer: SearchRow["matched_layer"]): string => {
     switch (layer) {
-      case "thread":    return findExcerpt(row.seed ?? "");
-      case "followups": return findExcerpt(buildFollowupsText(row.seed_why_now, row.seed_eucharist, row.seed_response));
-      case "notes":     return findExcerpt(row.notes ?? "");
-      case "content":   return findExcerpt(stripHtml(row.content));
+      case "thread":    return findExcerpt(row.seed ?? "", query);
+      case "followups": return findExcerpt(buildFollowupsText(row.seed_why_now, row.seed_eucharist, row.seed_response), query);
+      case "notes":     return findExcerpt(row.notes ?? "", query);
+      case "content":   return findExcerpt(stripHtml(row.content), query);
     }
   };
 
@@ -73,10 +73,10 @@ function extractExcerptWithLayer(row: SearchRow): { excerpt: string; excerptLaye
   if (primary.length >= MIN_USEFUL) return { excerpt: primary, excerptLayer: row.matched_layer };
 
   // Matched layer too short — fall back to content, then thread
-  const contentExcerpt = findExcerpt(stripHtml(row.content));
+  const contentExcerpt = findExcerpt(stripHtml(row.content), query);
   if (contentExcerpt.length >= MIN_USEFUL) return { excerpt: contentExcerpt, excerptLayer: "content" };
 
-  const threadExcerpt = findExcerpt(row.seed ?? "");
+  const threadExcerpt = findExcerpt(row.seed ?? "", query);
   if (threadExcerpt.length >= MIN_USEFUL) return { excerpt: threadExcerpt, excerptLayer: "thread" };
 
   return { excerpt: primary, excerptLayer: row.matched_layer };
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
     score: Math.round(row.best_score * 1000) / 1000,
     confidence: row.best_score >= STRONG_THRESHOLD ? "strong" : "weak" as "strong" | "weak",
     matchedLayer: row.matched_layer,
-    ...extractExcerptWithLayer(row),
+    ...extractExcerptWithLayer(row, parsed.thematic ?? query.trim()),
   }));
 
   return NextResponse.json({
