@@ -533,6 +533,7 @@ export default function HomilyList({
   const [searchStatus, setSearchStatus] = useState<"idle" | "listening" | "done" | "error">("idle");
   const [viewingHomily, setViewingHomily] = useState<HomilyRow | SearchResult | null>(null);
   const [closingReading, setClosingReading] = useState(false);
+  const [closingDrawer, setClosingDrawer] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -590,6 +591,15 @@ export default function HomilyList({
     })();
     return () => { cancelled = true; };
   }, [open, homilies]);
+
+  // ── Close drawer with slide-out animation before unmounting ─────────────────
+  const handleCloseDrawer = useCallback(() => {
+    setClosingDrawer(true);
+    setTimeout(() => {
+      setClosingDrawer(false);
+      onClose();
+    }, 560);
+  }, [onClose]);
 
   // ── Keyboard: Escape closes reading view, then delete confirm, then drawer ──
   useEffect(() => {
@@ -693,7 +703,7 @@ export default function HomilyList({
 
   const isSearchActive = searchQuery.trim().length > 0;
 
-  if (!open) return null;
+  if (!open && !closingDrawer) return null;
 
   return (
     <>
