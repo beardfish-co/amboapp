@@ -14,6 +14,7 @@
   --ambo-surface-raised:   rgba(255, 255, 255, 0.85);
   /* Header uses the page bg colour (not white) so it blends with the surface */
   --ambo-header-bg:        rgba(238, 242, 247, 0.88);
+  --ambo-surface-reading:  rgba(238, 242, 247, 0.94); /* reading view modal — theme-aware */
 
   --ambo-accent:           #4A6FA5;
   --ambo-accent-light:     rgba(74, 111, 165, 0.12);
@@ -579,6 +580,7 @@ body {
     --ambo-surface-solid:    #1C2A3D;
     --ambo-surface-raised:   rgba(255, 255, 255, 0.09);
     --ambo-header-bg:        rgba(15, 24, 36, 0.88);
+    --ambo-surface-reading:  rgba(15, 24, 36, 0.94);
 
     --ambo-accent:           #6B93C8;
     --ambo-accent-light:     rgba(107, 147, 200, 0.15);
@@ -606,6 +608,7 @@ body {
   --ambo-surface-solid:    #1C2A3D;
   --ambo-surface-raised:   rgba(255, 255, 255, 0.09);
   --ambo-header-bg:        rgba(15, 24, 36, 0.88);
+  --ambo-surface-reading:  rgba(15, 24, 36, 0.94);
 
   --ambo-accent:           #6B93C8;
   --ambo-accent-light:     rgba(107, 147, 200, 0.15);
