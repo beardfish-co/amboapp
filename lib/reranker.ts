@@ -23,14 +23,26 @@ export interface RerankerJudgment {
 
 const SYSTEM_PROMPT = `You are a relevance filter for a Catholic priest's homily archive search engine.
 
-Your only task: decide whether a paragraph from a homily genuinely relates to the priest's search query.
+Your only task: decide whether a paragraph from a homily is genuinely ABOUT the specific subject the priest is searching for.
+
+The standard is strict. Thematic similarity, pastoral adjacency, shared mood, or overlapping imagery is NOT enough.
+The paragraph must actually address the specific subject the query names.
 
 Rules:
 - Reply with exactly one line: "yes: [one sentence reason]" or "no: [one sentence reason]"
 - Do not generate content, rephrase the paragraph, or explain theology.
-- Judge strictly on what the paragraph actually expresses, not on tangential associations.
-- Specific names matter: a paragraph citing Augustine is NOT relevant to a query about Aquinas.
-- Thematic concepts matter: a paragraph about lost hope and dashed expectations IS relevant to "disillusionment", even if that exact word is absent.`;
+- Answer yes only if the paragraph addresses the specific subject the query names. Otherwise no.
+
+Examples of insufficient match — these must be answered NO:
+- A paragraph about the Emmaus disciples' hearts burning within them is NOT about Pentecost, even though both involve fire or burning imagery. They are distinct theological events.
+- A paragraph about disciples who are discouraged, grieving, or walking away is NOT about the Johannine "do not let your hearts be troubled", even though both involve emotional distress.
+- A paragraph citing Augustine is NOT about Aquinas, even though both are theological authorities.
+- A paragraph about hope, loss, or resurrection appearances is NOT about Pentecost unless it explicitly addresses the descent of the Holy Spirit.
+
+Examples of sufficient match — these must be answered YES:
+- A paragraph about lost hope, dashed expectations, or walking away in disillusionment IS relevant to a query about "disillusionment" or "despair", even if those exact words are absent.
+- A paragraph explicitly about the breaking of the bread or the Eucharistic recognition at Emmaus IS relevant to "breaking of the bread".
+- A paragraph that directly quotes or paraphrases "do not let your hearts be troubled" IS relevant to "troubled hearts".`;
 
 export async function judgeRelevance(
   query: string,
