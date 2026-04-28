@@ -1,24 +1,4 @@
 // POST /api/search-homilies
-//
-// Natural-language search over the priest's homily archive.
-//
-// Two-threshold architecture (spec §7a):
-//
-//   DOC_THRESHOLD (Postgres):
-//     Whole-document cosine similarity floor. Keeps near-zero noise out of
-//     the pipeline. Candidates that pass come into TypeScript for para-level
-//     evaluation.
-//
-//   PARA_THRESHOLD (application):
-//     Per-paragraph cosine similarity between the query and each paragraph of
-//     a candidate homily. A homily passes only if at least one paragraph
-//     exceeds this threshold. The best-matching paragraph becomes the excerpt.
-//     This is the true semantic gate — it requires a passage that genuinely
-//     matches the query's *meaning*, not just its vocabulary.
-//
-// _debug (temporary): returned with every response while thresholds are being
-//   tuned. Shows doc score, per-paragraph scores, and gate decision for every
-//   candidate that came through Postgres. Remove before production.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -31,16 +11,11 @@ import {
   splitParagraphs,
 } from "@/lib/embeddings";
 
-// Whole-document floor — keeps near-zero noise out before para evaluation.
-const DOC_THRESHOLD  = 0.17;
-// Per-paragraph similarity required to include a homily and produce an excerpt.
-// Set conservatively while calibrating; tune up once real scores are known.
-const PARA_THRESHOLD = 0.40;
-// Above this doc score the result is labelled "strong" (display only).
-const STRONG_LABEL   = 0.26;
-
-const MAX_RESULTS = 20;
-const MIN_PARA_LENGTH = 40; // chars; shorter paras excluded from search
+const DOC_THRESHOLD  = 0.17;   // Postgres-side floor (whole-document score)
+const PARA_THRESHOLD = 0.30;   // Per-paragraph gate — lowered from 0.40 after calibration
+const STRONG_LABEL   = 0.50;   // Para score above which result is labelled "strong"
+const MAX_RESULTS    = 20;
+const MIN_PARA_LENGTH = 40;
 
 interface SearchRow {
   id: string;
@@ -59,11 +34,9 @@ interface SearchRow {
 
 type LayerKey = SearchRow["matched_layer"];
 
-// ── Diagnostic types ─────────────────────────────────────────────────────────
-
 interface ParaDiag {
-  text: string;          // first 120 chars of paragraph
-  score: number;         // cosine similarity to query
+  text: string;
+  score: number;
 }
 
 interface RowDiag {
@@ -71,13 +44,19 @@ interface RowDiag {
   docScore: number;
   paraCount: number;
   bestParaScore: number;
-  bestParaText: string;  // first 120 chars
+  bestParaText: string;
   allParas: ParaDiag[];
-  decision: "included" | "excluded-below-para-threshold" | "excluded-embed-failed";
+  decision: "included" | "excluded-below-para-threshold" | "excluded-no-content";
   excerptShown: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Always returns a diag — even for excluded rows — so calibration data is never lost.
+interface ParaEvalResult {
+  excerpt: string | null;
+  excerptLayer: LayerKey;
+  bestScore: number;
+  diag: RowDiag;
+}
 
 function layerText(row: SearchRow, layer: LayerKey): string {
   switch (layer) {
@@ -88,54 +67,38 @@ function layerText(row: SearchRow, layer: LayerKey): string {
   }
 }
 
-// ── Core para-similarity search ───────────────────────────────────────────────
-
-/**
- * For a single candidate homily, embed every paragraph of its content layer,
- * compute cosine similarity to the query embedding, and return the best match.
- *
- * Returns null if no paragraph can be embedded or the best score is below
- * PARA_THRESHOLD (= no matched chunk → no result, per spec §7a).
- */
-async function findBestParagraph(
+async function evaluateParagraphs(
   row: SearchRow,
   queryEmbedding: number[],
-): Promise<{
-  excerpt: string;
-  excerptLayer: LayerKey;
-  bestScore: number;
-  diag: RowDiag;
-} | null> {
-  // Collect candidate text from all four layers; content layer is primary
+): Promise<ParaEvalResult> {
   const contentText = layerText(row, "content");
   const paras = splitParagraphs(contentText, MIN_PARA_LENGTH);
 
-  // Also include thread/seed as single unit if long enough
   const threadText = layerText(row, "thread");
   const notesText  = layerText(row, "notes");
-  const extraParas: Array<{ text: string; layer: LayerKey }> = [];
-  if (threadText.length >= MIN_PARA_LENGTH)
-    extraParas.push({ text: threadText, layer: "thread" });
-  if (notesText.length >= MIN_PARA_LENGTH)
-    extraParas.push({ text: notesText, layer: "notes" });
+  const extras: Array<{ text: string; layer: LayerKey }> = [];
+  if (threadText.length >= MIN_PARA_LENGTH) extras.push({ text: threadText, layer: "thread" });
+  if (notesText.length  >= MIN_PARA_LENGTH) extras.push({ text: notesText,  layer: "notes"  });
 
-  const allCandidates: Array<{ text: string; layer: LayerKey }> = [
+  const candidates: Array<{ text: string; layer: LayerKey }> = [
     ...paras.map((p) => ({ text: p, layer: "content" as LayerKey })),
-    ...extraParas,
+    ...extras,
   ];
 
-  if (allCandidates.length === 0) {
-    const diag: RowDiag = {
-      title: row.title, docScore: row.best_score, paraCount: 0,
-      bestParaScore: 0, bestParaText: "", allParas: [],
-      decision: "excluded-embed-failed", excerptShown: "",
+  if (candidates.length === 0) {
+    return {
+      excerpt: null, excerptLayer: "content", bestScore: 0,
+      diag: {
+        title: row.title, docScore: Math.round(row.best_score * 1000) / 1000,
+        paraCount: 0, bestParaScore: 0, bestParaText: "", allParas: [],
+        decision: "excluded-no-content", excerptShown: "",
+      },
     };
-    return null;
   }
 
-  // Embed all paragraphs in parallel to minimise latency
+  // Embed all paragraphs in parallel
   const embeddings = await Promise.all(
-    allCandidates.map((c) => generateEmbedding(c.text.slice(0, 2000)))
+    candidates.map((c) => generateEmbedding(c.text.slice(0, 2000)))
   );
 
   let bestScore = 0;
@@ -143,46 +106,45 @@ async function findBestParagraph(
   let bestLayer: LayerKey = "content";
   const paraDiags: ParaDiag[] = [];
 
-  for (let i = 0; i < allCandidates.length; i++) {
+  for (let i = 0; i < candidates.length; i++) {
     const emb = embeddings[i];
     if (!emb) continue;
     const score = dotProduct(queryEmbedding, emb);
-    paraDiags.push({ text: allCandidates[i].text.slice(0, 120), score: Math.round(score * 1000) / 1000 });
+    paraDiags.push({ text: candidates[i].text.slice(0, 120), score: Math.round(score * 1000) / 1000 });
     if (score > bestScore) {
       bestScore = score;
-      bestText  = allCandidates[i].text;
-      bestLayer = allCandidates[i].layer;
+      bestText  = candidates[i].text;
+      bestLayer = candidates[i].layer;
     }
   }
 
-  // Sort by score descending for readable debug output
   paraDiags.sort((a, b) => b.score - a.score);
 
   const passed = bestScore >= PARA_THRESHOLD;
-  const diag: RowDiag = {
-    title: row.title,
-    docScore: Math.round(row.best_score * 1000) / 1000,
-    paraCount: allCandidates.length,
-    bestParaScore: Math.round(bestScore * 1000) / 1000,
-    bestParaText: bestText.slice(0, 120),
-    allParas: paraDiags,
-    decision: passed ? "included" : "excluded-below-para-threshold",
-    excerptShown: passed ? bestText.slice(0, 280) : "",
-  };
 
-  if (!passed) return null;
-
-  // Truncate to 280 chars at a word boundary
-  let excerpt = bestText;
-  if (excerpt.length > 280) {
-    const cut = excerpt.lastIndexOf(" ", 280);
-    excerpt = excerpt.slice(0, cut > 0 ? cut : 280) + "…";
+  let excerpt: string | null = null;
+  if (passed) {
+    excerpt = bestText.length > 280
+      ? bestText.slice(0, bestText.lastIndexOf(" ", 280) || 280) + "…"
+      : bestText;
   }
 
-  return { excerpt, excerptLayer: bestLayer, bestScore, diag };
+  return {
+    excerpt,
+    excerptLayer: bestLayer,
+    bestScore,
+    diag: {
+      title: row.title,
+      docScore: Math.round(row.best_score * 1000) / 1000,
+      paraCount: candidates.length,
+      bestParaScore: Math.round(bestScore * 1000) / 1000,
+      bestParaText: bestText.slice(0, 120),
+      allParas: paraDiags,
+      decision: passed ? "included" : "excluded-below-para-threshold",
+      excerptShown: excerpt ?? "",
+    },
+  };
 }
-
-// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -203,12 +165,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.thematic)
     return NextResponse.json({ results: [], query: parsed, totalFound: 0, _debug: [] });
 
-  // Embed the query once — reused for both doc-level search and para scoring
   const queryEmbedding = await generateEmbedding(parsed.thematic);
   if (!queryEmbedding)
     return NextResponse.json({ error: "Embedding generation failed" }, { status: 503 });
 
-  // Doc-level search via pgvector (Postgres-side floor filter)
   const { data: rows, error: searchErr } = await supabase.rpc("search_homilies", {
     p_user_id: user.id,
     p_query_embedding: `[${queryEmbedding.join(",")}]`,
@@ -224,70 +184,38 @@ export async function POST(req: NextRequest) {
   }
 
   const candidates = (rows as SearchRow[]) ?? [];
-  console.log(`[search-homilies] query="${parsed.thematic}" doc_candidates=${candidates.length} doc_floor=${DOC_THRESHOLD} para_threshold=${PARA_THRESHOLD}`);
+  console.log(`[search-homilies] query="${parsed.thematic}" candidates=${candidates.length} doc≥${DOC_THRESHOLD} para≥${PARA_THRESHOLD}`);
 
-  // Para-level evaluation: run all candidates in parallel
-  const paraResults = await Promise.all(
-    candidates.map((row) => findBestParagraph(row, queryEmbedding))
+  const evals = await Promise.all(
+    candidates.map((row) => evaluateParagraphs(row, queryEmbedding))
   );
 
   const results: Array<{
-    id: string;
-    title: string | null;
-    sundayDate: string | null;
-    updatedAt: string;
-    score: number;
-    confidence: "strong" | "weak";
-    matchedLayer: LayerKey;
-    excerptLayer: LayerKey;
-    excerpt: string;
+    id: string; title: string | null; sundayDate: string | null;
+    updatedAt: string; score: number; confidence: "strong" | "weak";
+    matchedLayer: LayerKey; excerptLayer: LayerKey; excerpt: string;
   }> = [];
 
-  const debugRows: RowDiag[] = [];
-
   for (let i = 0; i < candidates.length; i++) {
-    const row    = candidates[i];
-    const result = paraResults[i];
-
-    if (!result) {
-      // Build a minimal diag for excluded rows (diag is on result when included)
-      const excludedDiag: RowDiag = {
-        title: row.title,
-        docScore: Math.round(row.best_score * 1000) / 1000,
-        paraCount: 0,
-        bestParaScore: 0,
-        bestParaText: "",
-        allParas: [],
-        decision: "excluded-below-para-threshold",
-        excerptShown: "",
-      };
-      debugRows.push(excludedDiag);
-      console.log(`[search-homilies] EXCLUDED "${row.title}" docScore=${row.best_score.toFixed(3)}`);
-      continue;
-    }
-
-    debugRows.push(result.diag);
-    console.log(`[search-homilies] INCLUDED "${row.title}" docScore=${row.best_score.toFixed(3)} bestParaScore=${result.bestScore.toFixed(3)}`);
-
+    const row  = candidates[i];
+    const eval_ = evals[i];
+    console.log(`[search-homilies] "${row.title}" doc=${row.best_score.toFixed(3)} bestPara=${eval_.bestScore.toFixed(3)} decision=${eval_.diag.decision}`);
+    if (eval_.excerpt === null) continue;
     results.push({
-      id: row.id,
-      title: row.title,
-      sundayDate: row.sunday_date,
+      id: row.id, title: row.title, sundayDate: row.sunday_date,
       updatedAt: row.updated_at,
-      score: Math.round(result.bestScore * 1000) / 1000,  // show para score, not doc score
-      confidence: result.bestScore >= STRONG_LABEL ? "strong" : "weak",
+      score: Math.round(eval_.bestScore * 1000) / 1000,
+      confidence: eval_.bestScore >= STRONG_LABEL ? "strong" : "weak",
       matchedLayer: row.matched_layer,
-      excerptLayer: result.excerptLayer,
-      excerpt: result.excerpt,
+      excerptLayer: eval_.excerptLayer,
+      excerpt: eval_.excerpt,
     });
   }
 
-  console.log(`[search-homilies] final results=${results.length}`);
+  console.log(`[search-homilies] final=${results.length}`);
 
   return NextResponse.json({
-    results,
-    query: parsed,
-    totalFound: results.length,
-    _debug: debugRows,  // remove before production
+    results, query: parsed, totalFound: results.length,
+    _debug: evals.map((e) => e.diag),
   });
 }
