@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
   // Step 4: Run pgvector search via Postgres function
   const { data: rows, error: searchErr } = await supabase.rpc("search_homilies", {
     p_user_id: user.id,
-    p_query_embedding: embedding,
+    p_query_embedding: `[${embedding.join(",")}]`,
     p_from_date: parsed.dateRange?.from ?? null,
     p_to_date: parsed.dateRange?.to ?? null,
     p_match_threshold: WEAK_THRESHOLD,
@@ -123,9 +123,11 @@ export async function POST(req: NextRequest) {
   });
 
   if (searchErr) {
-    console.error("[search-homilies] RPC error:", searchErr.message);
-    return NextResponse.json({ error: "Search failed" }, { status: 500 });
+    console.error("[search-homilies] RPC error:", searchErr.message, searchErr.details, searchErr.hint);
+    return NextResponse.json({ error: "Search failed", detail: searchErr.message }, { status: 500 });
   }
+
+  console.log(`[search-homilies] query="${parsed.thematic}" rows=${(rows as unknown[])?.length ?? 0}`);
 
   const results = (rows as SearchRow[] ?? []).map((row) => ({
     id: row.id,
