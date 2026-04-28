@@ -76,7 +76,6 @@ export default function ReadingsDrawer({
   // Instruction hint — shown once, can be re-surfaced via "?" icon
   const [hintSeen, setHintSeen] = useState(true);   // default true — read from localStorage on mount
   const [hintVisible, setHintVisible] = useState(false);
-  const [hintClosing, setHintClosing] = useState(false);
   const [closingDrawer, setClosingDrawer] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
@@ -92,21 +91,13 @@ export default function ReadingsDrawer({
   }, []);
 
   const dismissHint = () => {
-    setHintClosing(true);
+    setHintVisible(false);
     setHintSeen(true);
     try { localStorage.setItem(HINT_KEY, "1"); } catch { /* ignore */ }
-    setTimeout(() => { setHintClosing(false); setHintVisible(false); }, 400);
   };
 
   const toggleHint = () => {
-    if (hintVisible && !hintClosing) {
-      // Fade out
-      setHintClosing(true);
-      setTimeout(() => { setHintClosing(false); setHintVisible(false); }, 400);
-    } else {
-      setHintClosing(false);
-      setHintVisible(true);
-    }
+    setHintVisible((v) => !v);
   };
 
   const handleCloseDrawer = () => {
@@ -310,20 +301,15 @@ export default function ReadingsDrawer({
           </div>
         </div>
 
-        {/* ── Instruction hint (once-only, dismissable) ── */}
-        {hintVisible && (
-          <div style={{
-            overflow: "hidden",
-            // maxHeight drives the height collapse; opacity fades the content in sync
-            maxHeight: hintClosing ? "0px" : "150px",
-            opacity: hintClosing ? 0 : 1,
-            paddingTop: hintClosing ? 0 : 10,
-            paddingBottom: hintClosing ? 0 : 12,
-            paddingLeft: 20,
-            paddingRight: 20,
-            borderBottom: "1px solid var(--ambo-border)",
-            transition: "max-height 400ms ease-out, opacity 400ms ease-out, padding 400ms ease-out",
-          }}>
+        {/* ── Instruction hint — always in DOM so the CSS transition runs in both directions ── */}
+        <div style={{
+          overflow: "hidden",
+          maxHeight: hintVisible ? "150px" : "0px",
+          opacity: hintVisible ? 1 : 0,
+          transition: "max-height 400ms ease-out, opacity 400ms ease-out",
+        }}>
+          {/* Inner wrapper carries padding + border so they're clipped by overflow:hidden above */}
+          <div style={{ padding: "10px 20px 12px", borderBottom: "1px solid var(--ambo-border)" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
               <p style={{
                 margin: 0,
@@ -357,7 +343,7 @@ export default function ReadingsDrawer({
               )}
             </div>
           </div>
-        )}
+        </div>
 
         {/* ── Body ── */}
         <div
@@ -402,44 +388,79 @@ export default function ReadingsDrawer({
 
         {/* ── Inline insert pill — floats at the end of the priest's selection ── */}
         {selection && selectionRect && (
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={handleInsertSelection}
+          <div
             style={{
               position: "fixed",
               top: selectionRect.bottom + 6,
-              left: Math.min(selectionRect.right + 6, (typeof window !== "undefined" ? window.innerWidth : 440) - 82),
+              left: Math.min(selectionRect.right + 6, (typeof window !== "undefined" ? window.innerWidth : 440) - 110),
               zIndex: 110,
+              display: "inline-flex",
+              alignItems: "center",
               border: "1px solid var(--ambo-border)",
               background: "var(--ambo-surface-raised)",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               boxShadow: "var(--ambo-shadow-sm)",
               borderRadius: "var(--ambo-radius-pill)",
-              fontSize: 12,
-              fontStyle: "italic",
-              fontFamily: "var(--ambo-font-ui)",
-              fontWeight: 500,
-              color: "var(--ambo-text-secondary)",
-              cursor: "pointer",
-              padding: "5px 13px",
-              lineHeight: 1,
               animation: "fadeIn 120ms ease",
-              transition: "background 0.15s, color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = "var(--ambo-surface-solid)";
-              el.style.color = "var(--ambo-text-primary)";
-            }}
-            onMouseLeave={(e) => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = "var(--ambo-surface-raised)";
-              el.style.color = "var(--ambo-text-secondary)";
+              overflow: "hidden",
             }}
           >
-            insert
-          </button>
+            {/* insert action */}
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleInsertSelection}
+              style={{
+                border: "none",
+                background: "none",
+                fontSize: 12,
+                fontStyle: "italic",
+                fontFamily: "var(--ambo-font-ui)",
+                fontWeight: 500,
+                color: "var(--ambo-text-secondary)",
+                cursor: "pointer",
+                padding: "5px 10px 5px 13px",
+                lineHeight: 1,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--ambo-text-primary)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--ambo-text-secondary)"; }}
+            >
+              insert
+            </button>
+            {/* thin divider */}
+            <span style={{
+              width: 1,
+              alignSelf: "stretch",
+              background: "var(--ambo-border)",
+              flexShrink: 0,
+            }} />
+            {/* dismiss × */}
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setSelection(null);
+                setSelectionRect(null);
+                if (typeof window !== "undefined") window.getSelection()?.removeAllRanges();
+              }}
+              aria-label="Clear selection"
+              style={{
+                border: "none",
+                background: "none",
+                fontSize: 14,
+                lineHeight: 1,
+                color: "var(--ambo-text-muted)",
+                cursor: "pointer",
+                padding: "5px 11px 5px 8px",
+                opacity: 0.6,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.6"; }}
+            >
+              ×
+            </button>
+          </div>
         )}
       </aside>
     </>
