@@ -19,7 +19,7 @@ import {
 } from "@/lib/embeddings";
 
 const STRONG_THRESHOLD = 0.26;
-const WEAK_THRESHOLD   = 0.20;
+const WEAK_THRESHOLD   = 0.17; // floor before term-match gate; gate is the primary discriminator
 const MAX_RESULTS      = 20;
 
 interface SearchRow {
