@@ -2,44 +2,10 @@
 //
 // Natural-language search over the priest's homily archive.
 //
-// Flow (per spec section 5):
-//   1. Sonnet parses the query into { thematic, dateRange, isFactualLookup }
-//      Sonnet never sees any homily content.
-//   2. The thematic component is embedded via OpenAI text-embedding-3-small.
-//   3. pgvector similarity search runs against all 4 content layers,
-//      filtered by date range if present.
-//   4. Three-zone threshold filter (spec §7a):
-//        < WEAK_THRESHOLD  → never returned (Postgres rejects)
-//        WEAK–STRONG       → only returned if query terms appear in the text
-//                           (no matched chunk → no result)
-//        ≥ STRONG          → returned unconditionally (genuine semantic match)
-//
-// Note on score calibration:
-//   The spec's §7a floor of ~0.55 is calibrated for passage-level embeddings.
-//   With whole-document embeddings, cosine scores compress to 0.15–0.35.
-//   STRONG/WEAK here are calibrated to that range. Thresholds will rise when
-//   passage-level embeddings are implemented.
-//
-// Request body: { query: string }
-//
-// Response:
-//   {
-//     results: Array<{
-//       id: string,
-//       title: string | null,
-//       sundayDate: string | null,
-//       updatedAt: string,
-//       score: number,
-//       confidence: "strong" | "weak",
-//       matchedLayer: "thread" | "followups" | "notes" | "content",
-//       excerptLayer: "thread" | "followups" | "notes" | "content",
-//       excerpt: string,
-//     }>,
-//     query: ParsedQuery,
-//     totalFound: number,
-//   }
-//
-// Auth: requires signed-in user.
+// Three-zone threshold (spec §7a):
+//   < WEAK   → Postgres rejects
+//   WEAK–STRONG → included only if query terms appear in text
+//   ≥ STRONG → always included (semantic match with different vocabulary)
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -52,14 +18,6 @@ import {
   hasTermMatch,
 } from "@/lib/embeddings";
 
-// Thresholds calibrated for whole-document cosine similarity (text-embedding-3-small).
-// Passage-level embeddings (planned) will push scores into the 0.55+ range; these
-// thresholds will rise accordingly.
-//
-// Three zones:
-//   < WEAK   → Postgres rejects; never reaches application layer
-//   WEAK–STRONG → included only if query terms appear in text (§7a: no matched chunk = no result)
-//   ≥ STRONG → always included (trust the semantic match regardless of exact term presence)
 const STRONG_THRESHOLD = 0.26;
 const WEAK_THRESHOLD   = 0.20;
 const MAX_RESULTS      = 20;
@@ -81,6 +39,24 @@ interface SearchRow {
 
 type LayerKey = SearchRow["matched_layer"];
 
+// ── Diagnostic types ────────────────────────────────────────────────────────
+interface LayerDiag {
+  layer: LayerKey;
+  textLength: number;
+  excerptFound: string;    // "" if no terms matched
+  termMatch: boolean;
+}
+interface RowDiag {
+  title: string | null;
+  score: number;
+  matchedLayer: LayerKey;
+  layers: LayerDiag[];
+  anyTermMatch: boolean;
+  isStrong: boolean;
+  decision: "included" | "excluded-no-terms" | "included-strong-fallback";
+  excerpt: string;
+}
+
 function layerText(row: SearchRow, layer: LayerKey): string {
   switch (layer) {
     case "thread":    return row.seed ?? "";
@@ -90,74 +66,92 @@ function layerText(row: SearchRow, layer: LayerKey): string {
   }
 }
 
-/**
- * Find the best excerpt and its source layer for a result row.
- *
- * Returns null when:
- *   - the score is below STRONG_THRESHOLD, AND
- *   - no query term appears in any text layer
- * This implements spec §7a: "no matched chunk → no result".
- * It prevents the system from showing the opening line of an irrelevant homily
- * just because it's the closest document in the corpus.
- */
 function extractExcerptWithLayer(
   row: SearchRow,
   query: string,
   score: number,
-): { excerpt: string; excerptLayer: LayerKey } | null {
+): { excerpt: string; excerptLayer: LayerKey; diag: RowDiag } | null {
   const MIN_USEFUL = 50;
   const LAYERS: LayerKey[] = ["thread", "followups", "notes", "content"];
+  const isStrong = score >= STRONG_THRESHOLD;
 
-  // 1. Try the matched layer first — most likely to contain relevant text
-  const primaryText = layerText(row, row.matched_layer);
-  const primaryExcerpt = findExcerpt(primaryText, query);
-  if (primaryExcerpt.length >= MIN_USEFUL) {
-    return { excerpt: primaryExcerpt, excerptLayer: row.matched_layer };
-  }
+  const layerDiags: LayerDiag[] = [];
 
-  // 2. Try the other layers in order
-  for (const layer of LAYERS) {
-    if (layer === row.matched_layer) continue;
+  // Probe all layers, matched layer first
+  const orderedLayers: LayerKey[] = [
+    row.matched_layer,
+    ...LAYERS.filter((l) => l !== row.matched_layer),
+  ];
+
+  let bestExcerpt = "";
+  let bestLayer: LayerKey = row.matched_layer;
+  let anyTermMatch = false;
+
+  for (const layer of orderedLayers) {
     const text = layerText(row, layer);
-    const excerpt = findExcerpt(text, query);
-    if (excerpt.length >= MIN_USEFUL) {
-      return { excerpt, excerptLayer: layer };
+    const excerpt = findExcerpt(text, query);  // "" when no terms match
+    const termMatch = excerpt.length > 0;       // findExcerpt with query only returns non-empty if terms matched
+    if (termMatch) anyTermMatch = true;
+
+    layerDiags.push({
+      layer,
+      textLength: text.length,
+      excerptFound: excerpt,
+      termMatch,
+    });
+
+    if (!bestExcerpt && excerpt.length >= MIN_USEFUL) {
+      bestExcerpt = excerpt;
+      bestLayer = layer;
     }
   }
 
-  // 3. No layer yielded a long-enough excerpt with query-term hits.
-  //    For STRONG matches, trust the semantic score and fall back to the first
-  //    substantial paragraph of the content layer (the homily body).
-  if (score >= STRONG_THRESHOLD) {
+  // Build partial diag (decision filled in below)
+  const diag: RowDiag = {
+    title: row.title,
+    score: Math.round(score * 1000) / 1000,
+    matchedLayer: row.matched_layer,
+    layers: layerDiags,
+    anyTermMatch,
+    isStrong,
+    decision: "excluded-no-terms",
+    excerpt: "",
+  };
+
+  // Decision
+  if (bestExcerpt) {
+    // At least one layer had a term-matched excerpt long enough to show
+    diag.decision = "included";
+    diag.excerpt = bestExcerpt;
+    return { excerpt: bestExcerpt, excerptLayer: bestLayer, diag };
+  }
+
+  if (isStrong) {
+    // Strong semantic match — fall back to first paragraph of content/thread
     const contentText = layerText(row, "content");
-    const fallback = findExcerpt(contentText, undefined); // no query = first paragraph
+    const fallback = findExcerpt(contentText, undefined);
     if (fallback.length >= MIN_USEFUL) {
-      return { excerpt: fallback, excerptLayer: "content" };
+      diag.decision = "included-strong-fallback";
+      diag.excerpt = fallback;
+      return { excerpt: fallback, excerptLayer: "content", diag };
     }
     const threadText = layerText(row, "thread");
     const threadFallback = findExcerpt(threadText, undefined);
     if (threadFallback.length >= MIN_USEFUL) {
-      return { excerpt: threadFallback, excerptLayer: "thread" };
+      diag.decision = "included-strong-fallback";
+      diag.excerpt = threadFallback;
+      return { excerpt: threadFallback, excerptLayer: "thread", diag };
     }
   }
 
-  // 4. Weak match with no term evidence anywhere: spec §7a — exclude entirely.
-  //    Verify: does ANY layer contain at least one query term?
-  const anyTermMatch = LAYERS.some((layer) => hasTermMatch(layerText(row, layer), query));
-  if (!anyTermMatch) {
-    // No chunk matched — do not show this result.
-    return null;
-  }
-
-  // 5. Terms are present but excerpts are all short — return what we have from matched layer.
-  return { excerpt: primaryExcerpt, excerptLayer: row.matched_layer };
+  // Weak match with no term evidence — exclude per spec §7a
+  diag.decision = "excluded-no-terms";
+  return null;
 }
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -175,25 +169,17 @@ export async function POST(req: NextRequest) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-
-  // Step 1: Parse query with Sonnet
   const parsed = await parseSearchQuery(query.trim(), today);
 
-  // Step 2: If no thematic content, we can't do similarity search
   if (!parsed.thematic) {
-    return NextResponse.json({ results: [], query: parsed, totalFound: 0 });
+    return NextResponse.json({ results: [], query: parsed, totalFound: 0, _debug: [] });
   }
 
-  // Step 3: Embed the thematic component
   const embedding = await generateEmbedding(parsed.thematic);
   if (!embedding) {
-    return NextResponse.json(
-      { error: "Embedding generation failed" },
-      { status: 503 },
-    );
+    return NextResponse.json({ error: "Embedding generation failed" }, { status: 503 });
   }
 
-  // Step 4: Run pgvector search — Postgres applies the WEAK floor
   const { data: rows, error: searchErr } = await supabase.rpc("search_homilies", {
     p_user_id: user.id,
     p_query_embedding: `[${embedding.join(",")}]`,
@@ -204,14 +190,13 @@ export async function POST(req: NextRequest) {
   });
 
   if (searchErr) {
-    console.error("[search-homilies] RPC error:", searchErr.message, searchErr.details, searchErr.hint);
+    console.error("[search-homilies] RPC error:", searchErr.message);
     return NextResponse.json({ error: "Search failed", detail: searchErr.message }, { status: 500 });
   }
 
   const termForExcerpt = parsed.thematic ?? query.trim();
-  console.log(`[search-homilies] query="${termForExcerpt}" rows_from_db=${(rows as unknown[])?.length ?? 0}`);
+  console.log(`[search-homilies] parsed="${termForExcerpt}" rows_from_db=${(rows as unknown[])?.length ?? 0} weak=${WEAK_THRESHOLD} strong=${STRONG_THRESHOLD}`);
 
-  // Step 5: Apply three-zone filter in application layer
   const results: Array<{
     id: string;
     title: string | null;
@@ -224,13 +209,31 @@ export async function POST(req: NextRequest) {
     excerpt: string;
   }> = [];
 
+  const debugRows: RowDiag[] = [];
+
   for (const row of (rows as SearchRow[] ?? [])) {
     const excerptResult = extractExcerptWithLayer(row, termForExcerpt, row.best_score);
+
     if (excerptResult === null) {
-      // §7a: no matched chunk — exclude
-      console.log(`[search-homilies] excluded "${row.title}" (score=${row.best_score.toFixed(3)}, no term match)`);
+      // Build a diag entry for the excluded row so it's visible in _debug
+      const excludedDiag: RowDiag = {
+        title: row.title,
+        score: Math.round(row.best_score * 1000) / 1000,
+        matchedLayer: row.matched_layer,
+        layers: [],
+        anyTermMatch: false,
+        isStrong: row.best_score >= STRONG_THRESHOLD,
+        decision: "excluded-no-terms",
+        excerpt: "",
+      };
+      debugRows.push(excludedDiag);
+      console.log(`[search-homilies] EXCLUDED "${row.title}" score=${row.best_score.toFixed(3)} strong=${row.best_score >= STRONG_THRESHOLD}`);
       continue;
     }
+
+    debugRows.push(excerptResult.diag);
+    console.log(`[search-homilies] INCLUDED "${row.title}" score=${row.best_score.toFixed(3)} decision=${excerptResult.diag.decision} anyTermMatch=${excerptResult.diag.anyTermMatch}`);
+
     results.push({
       id: row.id,
       title: row.title,
@@ -244,11 +247,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  console.log(`[search-homilies] after threshold+term filter: ${results.length} results`);
+  console.log(`[search-homilies] final results=${results.length}`);
 
   return NextResponse.json({
     results,
     query: parsed,
     totalFound: results.length,
+    _debug: debugRows,   // temporary — remove before production
   });
 }
