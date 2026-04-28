@@ -118,21 +118,39 @@ function parseContentParagraphs(content: string | null): string[] {
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-/** Browse list card — glass surface, serif italic title */
-interface HomilyCardProps {
-  h: HomilyRow;
-  isActive: boolean;
-  onOpen: (h: HomilyRow) => void;
+/**
+ * Unified archive card — identical glass surface in both browse and search states.
+ * Pass `excerpt` (and optionally `layer`/`confidence`) for search results;
+ * omit them for the browse list. The card surface never varies between modes.
+ */
+interface ArchiveCardProps {
+  id: string;
+  title: string | null;
+  sunday_date: string | null;
+  updated_at: string;
+  content: string | null;
+  onOpen: () => void;
   onDelete: (id: string) => void;
+  // Search-result extras — omit entirely for browse cards
+  excerpt?: string;
+  layer?: "content" | "thread" | "notes" | "followups";
+  confidence?: "strong" | "loose";
 }
 
-function HomilyCard({ h, isActive, onOpen, onDelete }: HomilyCardProps) {
-  const sundayName = h.sunday_date ? sundayNameCache.get(h.sunday_date) : undefined;
-  const title = (h.title && h.title.trim()) || sundayName || "Untitled";
-  const subtitle = h.sunday_date
-    ? `${sundayName ?? "Sunday"} · ${lectionaryYear(h.sunday_date)}`
+function ArchiveCard({
+  id, title, sunday_date, updated_at, content,
+  onOpen, onDelete,
+  excerpt, layer, confidence,
+}: ArchiveCardProps) {
+  const sundayName = sunday_date ? sundayNameCache.get(sunday_date) : undefined;
+  const displayTitle = (title && title.trim()) || sundayName || "Untitled";
+  const subtitle = sunday_date
+    ? `${sundayName ?? "Sunday"} · ${lectionaryYear(sunday_date)}`
     : null;
-  const words = wordCount(h.content);
+  const isSearchResult = excerpt !== undefined;
+  const isLoose = confidence === "loose";
+  const layerLabel = layer && layer !== "content" ? LAYER_LABELS[layer] : null;
+  const words = wordCount(content);
 
   return (
     <div
@@ -143,7 +161,7 @@ function HomilyCard({ h, isActive, onOpen, onDelete }: HomilyCardProps) {
         cursor: "pointer",
         transition: "box-shadow 0.15s",
       }}
-      onClick={() => onOpen(h)}
+      onClick={onOpen}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = "var(--ambo-shadow-lg)";
       }}
@@ -170,10 +188,10 @@ function HomilyCard({ h, isActive, onOpen, onDelete }: HomilyCardProps) {
           whiteSpace: "nowrap",
           flex: 1,
         }}>
-          {title}
+          {displayTitle}
         </div>
         <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", flexShrink: 0 }}>
-          {relativeTime(h.updated_at)}
+          {relativeTime(updated_at)}
         </div>
       </div>
 
@@ -192,111 +210,8 @@ function HomilyCard({ h, isActive, onOpen, onDelete }: HomilyCardProps) {
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}>
-        <div style={{ fontSize: 11, color: "var(--ambo-text-muted)" }}>
-          {words} {words === 1 ? "word" : "words"}
-          {h.sunday_date && (
-            <span style={{ marginLeft: 8 }}>· {friendlyDate(h.sunday_date)}</span>
-          )}
-        </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(h.id); }}
-          aria-label="Delete homily"
-          style={{
-            border: "none", background: "none", color: "var(--ambo-text-muted)",
-            cursor: "pointer", padding: "2px 6px", borderRadius: 6,
-            fontSize: 11, fontFamily: "inherit", opacity: 0.7,
-          }}
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Search result card — glass surface, with excerpt and confidence label */
-interface SearchResultCardProps {
-  result: SearchResult;
-  onOpen: (r: SearchResult) => void;
-  onDelete: (id: string) => void;
-}
-
-function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
-  const isLoose = result.confidence === "loose";
-  const sundayName = result.sunday_date ? sundayNameCache.get(result.sunday_date) : undefined;
-  const title = (result.title && result.title.trim()) || sundayName || "Untitled";
-  const subtitle = result.sunday_date
-    ? `${sundayName ?? "Sunday"} · ${lectionaryYear(result.sunday_date)}`
-    : null;
-  const layerLabel = result.layer !== "content" ? LAYER_LABELS[result.layer] : null;
-
-  return (
-    <div
-      className="glass-card"
-      style={{
-        padding: "18px 22px 16px",
-        margin: "0 0 8px",
-        cursor: "pointer",
-        transition: "box-shadow 0.15s",
-        opacity: isLoose ? 0.78 : 1,
-      }}
-      onClick={() => onOpen(result)}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--ambo-shadow-lg)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.boxShadow = "var(--ambo-shadow-md)";
-      }}
-    >
-      {/* Title + timestamp */}
-      <div style={{
-        display: "flex",
-        alignItems: "baseline",
-        justifyContent: "space-between",
-        gap: 10,
-        marginBottom: subtitle ? 4 : 10,
-      }}>
-        <div style={{
-          fontFamily: "var(--ambo-font-reading)",
-          fontSize: 16,
-          fontStyle: "italic",
-          fontWeight: 500,
-          color: "var(--ambo-text-primary)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          flex: 1,
-        }}>
-          {title}
-        </div>
-        <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", flexShrink: 0 }}>
-          {relativeTime(result.updated_at)}
-        </div>
-      </div>
-
-      {subtitle && (
-        <div style={{
-          fontSize: 11,
-          fontWeight: 500,
-          color: "var(--ambo-accent)",
-          marginBottom: 10,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          opacity: 0.85,
-        }}>
-          {subtitle}
-        </div>
-      )}
-
-      {/* Excerpt — body typeface, no quotes, no italic */}
-      {result.excerpt && (
+      {/* Excerpt — search results only */}
+      {isSearchResult && excerpt && (
         <div style={{
           fontSize: 13,
           color: "var(--ambo-text-secondary)",
@@ -307,11 +222,11 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
         }}>
-          {result.excerpt}
+          {excerpt}
         </div>
       )}
 
-      {/* Footer row */}
+      {/* Footer */}
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -325,11 +240,22 @@ function SearchResultCard({ result, onOpen, onDelete }: SearchResultCardProps) {
           gap: 8,
           flexWrap: "wrap",
         }}>
-          {layerLabel && <span style={{ fontStyle: "italic" }}>{layerLabel}</span>}
-          {isLoose && <span style={{ fontStyle: "italic", opacity: 0.75 }}>loosely related</span>}
+          {isSearchResult ? (
+            <>
+              {layerLabel && <span style={{ fontStyle: "italic" }}>{layerLabel}</span>}
+              {isLoose && <span style={{ fontStyle: "italic", opacity: 0.75 }}>loosely related</span>}
+            </>
+          ) : (
+            <>
+              <span>{words} {words === 1 ? "word" : "words"}</span>
+              {sunday_date && (
+                <span>· {friendlyDate(sunday_date)}</span>
+              )}
+            </>
+          )}
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(result.id); }}
+          onClick={(e) => { e.stopPropagation(); onDelete(id); }}
           aria-label="Delete homily"
           style={{
             border: "none", background: "none", color: "var(--ambo-text-muted)",
@@ -399,8 +325,8 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewPro
   }, [onClose]);
 
   const anim = closing
-    ? "rvFadeOut 560ms ease-in both"
-    : "rvFadeIn 560ms ease-out both";
+    ? "rvFadeOut 540ms ease-in both"
+    : "rvFadeIn 780ms ease-out both";
 
   return (
     <>
@@ -738,7 +664,7 @@ export default function HomilyList({
     setTimeout(() => {
       setViewingHomily(null);
       setClosingReading(false);
-    }, 560);
+    }, 540);
   }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
@@ -968,10 +894,17 @@ export default function HomilyList({
                   <>
                     <SectionLabel label={`${searchResults.length} ${searchResults.length === 1 ? "result" : "results"}`} />
                     {searchResults.map((r) => (
-                      <SearchResultCard
+                      <ArchiveCard
                         key={r.id}
-                        result={r}
-                        onOpen={setViewingHomily}
+                        id={r.id}
+                        title={r.title}
+                        sunday_date={r.sunday_date}
+                        updated_at={r.updated_at}
+                        content={r.content}
+                        excerpt={r.excerpt}
+                        layer={r.layer}
+                        confidence={r.confidence}
+                        onOpen={() => setViewingHomily(r)}
                         onDelete={(id) => setConfirmDeleteId(id)}
                       />
                     ))}
@@ -1006,10 +939,14 @@ export default function HomilyList({
                 <>
                   <SectionLabel label="Recent" />
                   {recentHomilies.map((h) => (
-                    <HomilyCard
-                      key={h.id} h={h}
-                      isActive={h.id === currentId}
-                      onOpen={setViewingHomily}
+                    <ArchiveCard
+                      key={h.id}
+                      id={h.id}
+                      title={h.title}
+                      sunday_date={h.sunday_date}
+                      updated_at={h.updated_at}
+                      content={h.content}
+                      onOpen={() => setViewingHomily(h)}
                       onDelete={(id) => setConfirmDeleteId(id)}
                     />
                   ))}
@@ -1021,10 +958,14 @@ export default function HomilyList({
                 <>
                   <SectionLabel label={recentHomilies.length > 0 ? "Archive" : "All Homilies"} />
                   {olderHomilies.map((h) => (
-                    <HomilyCard
-                      key={h.id} h={h}
-                      isActive={h.id === currentId}
-                      onOpen={setViewingHomily}
+                    <ArchiveCard
+                      key={h.id}
+                      id={h.id}
+                      title={h.title}
+                      sunday_date={h.sunday_date}
+                      updated_at={h.updated_at}
+                      content={h.content}
+                      onOpen={() => setViewingHomily(h)}
                       onDelete={(id) => setConfirmDeleteId(id)}
                     />
                   ))}
