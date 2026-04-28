@@ -32,6 +32,8 @@ interface ActiveSelection {
   reference: string;
 }
 
+const HINT_KEY = "ambo:readings-hint-seen";
+
 function messageForStatus(status: ReadingsStatus): string {
   if (status === "not_published") {
     return "Readings for this date aren't published yet. Universalis makes them available about nine days ahead — they'll load automatically then.";
@@ -70,7 +72,31 @@ export default function ReadingsDrawer({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState<ActiveSelection | null>(null);
+  // Instruction hint — shown once, can be re-surfaced via "?" icon
+  const [hintSeen, setHintSeen] = useState(true);   // default true — read from localStorage on mount
+  const [hintVisible, setHintVisible] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  // Read hint-seen flag from localStorage on mount
+  useEffect(() => {
+    try {
+      const seen = typeof window !== "undefined" && localStorage.getItem(HINT_KEY);
+      if (!seen) {
+        setHintSeen(false);
+        setHintVisible(true);
+      }
+    } catch { /* private mode or blocked */ }
+  }, []);
+
+  const dismissHint = () => {
+    setHintVisible(false);
+    setHintSeen(true);
+    try { localStorage.setItem(HINT_KEY, "1"); } catch { /* ignore */ }
+  };
+
+  const toggleHint = () => {
+    setHintVisible((v) => !v);
+  };
 
   useEffect(() => {
     if (!open || !sundayDate) return;
@@ -113,21 +139,11 @@ export default function ReadingsDrawer({
         return;
       }
       const body = bodyRef.current;
-      if (!body) {
-        setSelection(null);
-        return;
-      }
+      if (!body) { setSelection(null); return; }
       const range = sel.getRangeAt(0);
-      // Only count selections that start inside the drawer body
-      if (!body.contains(range.startContainer)) {
-        setSelection(null);
-        return;
-      }
+      if (!body.contains(range.startContainer)) { setSelection(null); return; }
       const text = sel.toString().trim();
-      if (!text) {
-        setSelection(null);
-        return;
-      }
+      if (!text) { setSelection(null); return; }
       const ref =
         readingRefFromNode(range.startContainer) ??
         readingRefFromNode(range.endContainer) ??
@@ -145,13 +161,12 @@ export default function ReadingsDrawer({
     if (!selection || !selection.text) return;
     onInsert({ text: selection.text, citation: selection.reference });
     setSelection(null);
-    // Clear the actual browser selection too
     if (typeof window !== "undefined") window.getSelection()?.removeAllRanges();
   };
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — identical to My Homilies drawer */}
       <div
         onClick={onClose}
         style={{
@@ -184,19 +199,35 @@ export default function ReadingsDrawer({
           animation: "slideInRight 640ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
-          padding: "20px 20px 14px",
+          padding: "16px 20px 14px",
           borderBottom: "1px solid var(--ambo-border)",
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
           gap: 12,
+          flexShrink: 0,
         }}>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {/* Quiet "readings" eyebrow — same style as FIRST READING labels on Reflect */}
+            <div style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--ambo-text-muted)",
+              opacity: 0.7,
+              marginBottom: 4,
+            }}>
+              readings
+            </div>
+            {/* Liturgical day — italic serif primary title */}
             <h2 style={{
-              fontSize: 15,
-              fontWeight: 600,
+              fontFamily: "var(--ambo-font-reading)",
+              fontSize: 17,
+              fontStyle: "italic",
+              fontWeight: 500,
               letterSpacing: "-0.01em",
               color: "var(--ambo-text-primary)",
               margin: 0,
@@ -204,56 +235,96 @@ export default function ReadingsDrawer({
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
             }}>
-              Readings
+              {data?.dayName ?? (loading ? "…" : "Readings")}
             </h2>
-            {data?.dayName && (
-              <div style={{
-                fontSize: 12,
-                color: "var(--ambo-text-muted)",
-                marginTop: 2,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}>
-                {data.dayName}
-              </div>
-            )}
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              border: "none",
-              background: "none",
-              fontSize: 20,
-              lineHeight: 1,
-              color: "var(--ambo-text-muted)",
-              cursor: "pointer",
-              padding: 4,
-              borderRadius: 6,
-              flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
+
+          {/* Right side: "?" hint icon + close × */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            {sundayDate && data && (
+              <button
+                onClick={toggleHint}
+                aria-label="How to use readings"
+                title="How to insert readings"
+                style={{
+                  border: "none",
+                  background: "none",
+                  fontSize: 13,
+                  lineHeight: 1,
+                  color: hintVisible ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                  cursor: "pointer",
+                  padding: "4px 6px",
+                  borderRadius: 6,
+                  opacity: hintVisible ? 1 : 0.6,
+                  fontFamily: "inherit",
+                  transition: "opacity 0.15s",
+                }}
+              >
+                ?
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              style={{
+                border: "none",
+                background: "none",
+                fontSize: 20,
+                lineHeight: 1,
+                color: "var(--ambo-text-muted)",
+                cursor: "pointer",
+                padding: 4,
+                borderRadius: 6,
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
-        {/* Hint when no selection is active */}
-        {sundayDate && data && !selection && (
+        {/* ── Instruction hint (once-only, dismissable) ── */}
+        {hintVisible && (
           <div style={{
-            padding: "10px 20px",
-            fontSize: 12,
-            color: "var(--ambo-text-muted)",
+            padding: "10px 20px 12px",
             borderBottom: "1px solid var(--ambo-border)",
-            background: "var(--ambo-surface)",
-            lineHeight: 1.5,
+            animation: "fadeIn 200ms ease",
           }}>
-            Highlight any text to insert just that piece, or use Insert to drop in a whole paragraph.
+            <p style={{
+              margin: 0,
+              fontSize: 12,
+              fontStyle: "italic",
+              color: "var(--ambo-text-muted)",
+              lineHeight: 1.55,
+            }}>
+              highlight to insert a phrase, or tap <em>insert</em> for the whole passage.
+            </p>
+            {!hintSeen && (
+              <button
+                onClick={dismissHint}
+                style={{
+                  marginTop: 6,
+                  border: "none",
+                  background: "none",
+                  fontSize: 11,
+                  color: "var(--ambo-text-muted)",
+                  opacity: 0.6,
+                  cursor: "pointer",
+                  padding: 0,
+                  fontFamily: "inherit",
+                }}
+              >
+                got it
+              </button>
+            )}
           </div>
         )}
 
-        {/* Body */}
-        <div ref={bodyRef} style={{ flex: 1, overflowY: "auto", padding: "16px 20px 80px" }}>
+        {/* ── Body ── */}
+        <div
+          ref={bodyRef}
+          style={{ flex: 1, overflowY: "auto", padding: "12px 16px 80px" }}
+        >
           {!sundayDate && (
             <EmptyState
               title="No Sunday set"
@@ -262,129 +333,64 @@ export default function ReadingsDrawer({
           )}
 
           {sundayDate && loading && (
-            <div style={{ fontSize: 13, color: "var(--ambo-text-muted)", padding: 20, textAlign: "center" }}>
-              Loading readings…
+            <div style={{
+              fontSize: 13,
+              fontStyle: "italic",
+              color: "var(--ambo-text-muted)",
+              padding: 20,
+              textAlign: "center",
+            }}>
+              Loading…
             </div>
           )}
 
           {sundayDate && error && (
-            <EmptyState
-              title="Couldn’t load readings"
-              body={`The readings service didn’t respond (${error}). Check your connection and try again.`}
-            />
+            <EmptyState title="Couldn't load readings" body={error} />
           )}
 
           {sundayDate && data && data.readings.map((r) => {
             const paragraphs = splitReadingParagraphs(r.text);
             return (
-              <section
+              <ReadingCard
                 key={r.id}
-                data-reading-id={r.id}
-                data-reading-ref={r.reference}
-                style={{ marginBottom: 28 }}
-              >
-                {/* Reading head */}
-                <div style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  marginBottom: 4,
-                }}>
-                  <h3 style={{
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    color: "var(--ambo-accent)",
-                    margin: 0,
-                  }}>
-                    {r.title}
-                  </h3>
-                  <span style={{
-                    fontSize: 11,
-                    fontStyle: "italic",
-                    color: "var(--ambo-text-muted)",
-                  }}>
-                    {r.reference}
-                  </span>
-                </div>
-
-                {r.heading && (
-                  <div style={{
-                    fontSize: 12,
-                    fontStyle: "italic",
-                    color: "var(--ambo-text-secondary)",
-                    marginBottom: 8,
-                  }}>
-                    {r.heading}
-                  </div>
-                )}
-
-
-                {/* Paragraph list */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {paragraphs.map((para, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        position: "relative",
-                        paddingRight: 72,
-                      }}
-                    >
-                      <p style={{
-                        fontFamily: "var(--ambo-font-reading)",
-                        fontSize: "var(--ambo-size-lg)",
-                        lineHeight: "var(--ambo-lh-reading)",
-                        color: "var(--ambo-text-primary)",
-                        margin: 0,
-                        whiteSpace: "pre-wrap",
-                      }}>
-                        {para}
-                      </p>
-                      <button
-                        onMouseDown={(e) => e.preventDefault() /* don't steal selection */}
-                        onClick={() => onInsert({ text: para, citation: r.reference })}
-                        style={insertBtnStyle}
-                        title="Insert this paragraph as a quote"
-                      >
-                        Insert
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </section>
+                reading={r}
+                paragraphs={paragraphs}
+                onInsert={onInsert}
+              />
             );
           })}
         </div>
 
-        {/* Floating Insert-selection action bar */}
+        {/* ── Floating insert-selection bar ── */}
         {selection && (
           <div style={{
             position: "absolute",
-            left: 16,
-            right: 16,
-            bottom: 16,
-            background: "var(--ambo-bg)",
-            border: "1px solid var(--ambo-accent)",
+            left: 12,
+            right: 12,
+            bottom: 12,
+            background: "var(--ambo-surface)",
+            backdropFilter: "blur(16px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(16px) saturate(1.3)",
+            border: "1px solid var(--ambo-border)",
             borderRadius: 14,
-            padding: "10px 12px",
+            padding: "10px 14px",
             display: "flex",
             alignItems: "center",
             gap: 10,
             boxShadow: "var(--ambo-shadow-md)",
-            animation: "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+            animation: "fadeIn 200ms ease",
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--ambo-accent)",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
                 textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                marginBottom: 2,
+                color: "var(--ambo-text-muted)",
+                opacity: 0.7,
+                marginBottom: 3,
               }}>
-                Selection
+                selection
               </div>
               <div style={{
                 fontSize: 12,
@@ -393,27 +399,29 @@ export default function ReadingsDrawer({
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
                 fontStyle: "italic",
+                fontFamily: "var(--ambo-font-reading)",
               }}>
-                “{selection.text}”
+                "{selection.text}"
               </div>
             </div>
             <button
-              onMouseDown={(e) => e.preventDefault() /* preserve selection until click fires */}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={handleInsertSelection}
               style={{
-                border: "none",
-                background: "var(--ambo-accent)",
-                color: "white",
+                border: "1px solid var(--ambo-border)",
+                background: "transparent",
+                color: "var(--ambo-text-secondary)",
                 fontSize: 12,
-                fontWeight: 600,
-                padding: "7px 14px",
+                fontStyle: "italic",
+                fontFamily: "inherit",
+                padding: "6px 14px",
                 borderRadius: 100,
                 cursor: "pointer",
-                fontFamily: "inherit",
                 flexShrink: 0,
+                transition: "opacity 0.15s",
               }}
             >
-              Insert selection
+              insert
             </button>
           </div>
         )}
@@ -422,14 +430,130 @@ export default function ReadingsDrawer({
   );
 }
 
+// ── Reading card — glass surface matching the My Homilies drawer cards ────────
+interface ReadingCardProps {
+  reading: Reading;
+  paragraphs: string[];
+  onInsert: (payload: { text: string; citation: string }) => void;
+}
+
+function ReadingCard({ reading: r, paragraphs, onInsert }: ReadingCardProps) {
+  return (
+    <div
+      className="glass-card"
+      data-reading-id={r.id}
+      data-reading-ref={r.reference}
+      style={{
+        padding: "16px 20px 18px",
+        margin: "0 0 10px",
+      }}
+    >
+      {/* Reading label + citation — same eyebrow style as Reflect page */}
+      <div style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        gap: 8,
+        marginBottom: r.heading ? 4 : 12,
+      }}>
+        <span style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--ambo-text-muted)",
+        }}>
+          {r.title}
+        </span>
+        <span style={{
+          fontSize: 11,
+          fontStyle: "italic",
+          color: "var(--ambo-text-muted)",
+          opacity: 0.75,
+          flexShrink: 0,
+        }}>
+          {r.reference}
+        </span>
+      </div>
+
+      {r.heading && (
+        <div style={{
+          fontFamily: "var(--ambo-font-reading)",
+          fontSize: 13,
+          fontStyle: "italic",
+          color: "var(--ambo-text-secondary)",
+          marginBottom: 10,
+          lineHeight: 1.5,
+        }}>
+          {r.heading}
+        </div>
+      )}
+
+      {/* Paragraphs */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+        {paragraphs.map((para, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+              paddingBottom: 12,
+            }}
+          >
+            <p style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontSize: "var(--ambo-size-lg)",
+              lineHeight: "var(--ambo-lh-reading)",
+              color: "var(--ambo-text-primary)",
+              margin: 0,
+              whiteSpace: "pre-wrap",
+              flex: 1,
+            }}>
+              {para}
+            </p>
+            {/* Quiet italic "insert" link — visually recessive, functionally available */}
+            <button
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => onInsert({ text: para, citation: r.reference })}
+              title="Insert this paragraph"
+              style={{
+                border: "none",
+                background: "none",
+                fontSize: 11,
+                fontStyle: "italic",
+                fontFamily: "inherit",
+                color: "var(--ambo-text-muted)",
+                opacity: 0.55,
+                cursor: "pointer",
+                padding: "4px 0",
+                flexShrink: 0,
+                lineHeight: 1,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.9"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.55"; }}
+            >
+              insert
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Empty / error state ───────────────────────────────────────────────────────
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div style={{ padding: "32px 8px", textAlign: "center" }}>
       <div style={{
-        fontSize: 14,
-        fontWeight: 600,
+        fontFamily: "var(--ambo-font-reading)",
+        fontSize: 15,
+        fontStyle: "italic",
         color: "var(--ambo-text-primary)",
-        marginBottom: 6,
+        marginBottom: 8,
       }}>
         {title}
       </div>
@@ -443,35 +567,3 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
-
-const insertBtnStyle: React.CSSProperties = {
-  position: "absolute",
-  top: 0,
-  right: 0,
-  border: "1px solid var(--ambo-border)",
-  background: "var(--ambo-bg)",
-  color: "var(--ambo-accent)",
-  fontSize: 11,
-  fontWeight: 600,
-  padding: "4px 10px",
-  borderRadius: 100,
-  cursor: "pointer",
-  fontFamily: "inherit",
-  transition: "all 0.15s",
-};
-
-const insertAllStyle: React.CSSProperties = {
-  border: "1px dashed var(--ambo-border)",
-  background: "transparent",
-  color: "var(--ambo-accent)",
-  fontSize: 11,
-  fontWeight: 600,
-  padding: "5px 10px",
-  borderRadius: 100,
-  cursor: "pointer",
-  fontFamily: "inherit",
-  marginBottom: 10,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 4,
-};
