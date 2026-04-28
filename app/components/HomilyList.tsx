@@ -370,6 +370,8 @@ export default function HomilyList({
       setSearchResults(null);
       setSearchError(null);
       setHasSearched(false);
+      // Reset so the backfill re-runs on next open (picks up any format fixes)
+      backfilledRef.current.clear();
     }
   }, [open]);
 
