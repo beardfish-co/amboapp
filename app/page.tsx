@@ -346,7 +346,7 @@ export default function AmboApp() {
         top: 0,
         zIndex: 50,
         // Styling stays on the outer element — backdrop-filter must live here
-        background: "var(--ambo-surface-raised)",
+        background: "var(--ambo-header-bg)",
         backdropFilter: "blur(20px) saturate(1.4)",
         WebkitBackdropFilter: "blur(20px) saturate(1.4)",
         borderBottom: "1px solid var(--ambo-border)",
