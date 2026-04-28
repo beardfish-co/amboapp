@@ -1881,6 +1881,13 @@ export default function ReflectView({
             max-height: none !important;
             overflow: visible !important;
           }
+          /* Hide scrollbar on notes textarea — the panel itself scrolls */
+          .reflect-notes textarea {
+            scrollbar-width: none;
+          }
+          .reflect-notes textarea::-webkit-scrollbar {
+            display: none;
+          }
           .reflect-notes {
             min-height: 280px;
           }
