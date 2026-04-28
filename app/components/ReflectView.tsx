@@ -1872,6 +1872,20 @@ export default function ReflectView({
           }
         }
 
+        /* Hide scrollbars on the sticky right column and notes textarea — all viewports */
+        .reflect-side-inner {
+          scrollbar-width: none;
+        }
+        .reflect-side-inner::-webkit-scrollbar {
+          display: none;
+        }
+        .reflect-notes textarea {
+          scrollbar-width: none;
+        }
+        .reflect-notes textarea::-webkit-scrollbar {
+          display: none;
+        }
+
         @media (max-width: 900px) {
           .reflect-layout {
             grid-template-columns: minmax(0, 1fr) !important;
@@ -1880,19 +1894,6 @@ export default function ReflectView({
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
-          }
-          /* Hide scrollbars on the sticky right column and notes textarea */
-          .reflect-side-inner {
-            scrollbar-width: none;
-          }
-          .reflect-side-inner::-webkit-scrollbar {
-            display: none;
-          }
-          .reflect-notes textarea {
-            scrollbar-width: none;
-          }
-          .reflect-notes textarea::-webkit-scrollbar {
-            display: none;
           }
           .reflect-notes {
             min-height: 280px;
