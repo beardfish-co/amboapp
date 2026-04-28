@@ -3,9 +3,17 @@
 // Natural-language search over the priest's homily archive.
 //
 // Three-zone threshold (spec §7a):
-//   < WEAK   → Postgres rejects
-//   WEAK–STRONG → included only if query terms appear in text
-//   ≥ STRONG → always included (semantic match with different vocabulary)
+//   < WEAK_THRESHOLD  → Postgres rejects; never reaches application layer
+//   WEAK–STRONG       → included only if query terms appear in text
+//                       (spec §6/§7a: no matched chunk = no result)
+//   ≥ STRONG          → always included; trust the semantic match even if
+//                       vocabulary differs (fallback to first paragraph)
+//
+// Note on score calibration:
+//   The spec's §7a floor of ~0.55 is calibrated for passage-level embeddings.
+//   With whole-document embeddings, cosine scores compress to 0.15–0.35.
+//   Thresholds here are calibrated to that range and will rise when
+//   passage-level embeddings are implemented.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -15,11 +23,13 @@ import {
   stripHtml,
   buildFollowupsText,
   findExcerpt,
-  hasTermMatch,
 } from "@/lib/embeddings";
 
+// Calibrated from real beta data (whole-document cosine, text-embedding-3-small).
+// WEAK is the Postgres floor — keeps near-zero noise out of the pipeline.
+// The term-match gate in extractExcerptWithLayer is the primary discriminator.
 const STRONG_THRESHOLD = 0.26;
-const WEAK_THRESHOLD   = 0.17; // floor before term-match gate; gate is the primary discriminator
+const WEAK_THRESHOLD   = 0.17;
 const MAX_RESULTS      = 20;
 
 interface SearchRow {
@@ -39,24 +49,6 @@ interface SearchRow {
 
 type LayerKey = SearchRow["matched_layer"];
 
-// ── Diagnostic types ────────────────────────────────────────────────────────
-interface LayerDiag {
-  layer: LayerKey;
-  textLength: number;
-  excerptFound: string;    // "" if no terms matched
-  termMatch: boolean;
-}
-interface RowDiag {
-  title: string | null;
-  score: number;
-  matchedLayer: LayerKey;
-  layers: LayerDiag[];
-  anyTermMatch: boolean;
-  isStrong: boolean;
-  decision: "included" | "excluded-no-terms" | "included-strong-fallback";
-  excerpt: string;
-}
-
 function layerText(row: SearchRow, layer: LayerKey): string {
   switch (layer) {
     case "thread":    return row.seed ?? "";
@@ -66,86 +58,51 @@ function layerText(row: SearchRow, layer: LayerKey): string {
   }
 }
 
+/**
+ * Find the best excerpt and its source layer for a result row.
+ *
+ * Returns null when the score is below STRONG_THRESHOLD and no query term
+ * appears in any text layer. This implements spec §6/§7a: every displayed
+ * excerpt must be a passage that actually matched — not a fallback opening line.
+ *
+ * For STRONG matches, falls back to the first substantial paragraph of the
+ * content layer (genuine semantic match with different vocabulary).
+ */
 function extractExcerptWithLayer(
   row: SearchRow,
   query: string,
   score: number,
-): { excerpt: string; excerptLayer: LayerKey; diag: RowDiag } | null {
+): { excerpt: string; excerptLayer: LayerKey } | null {
   const MIN_USEFUL = 50;
   const LAYERS: LayerKey[] = ["thread", "followups", "notes", "content"];
-  const isStrong = score >= STRONG_THRESHOLD;
 
-  const layerDiags: LayerDiag[] = [];
-
-  // Probe all layers, matched layer first
+  // Try matched layer first, then the rest — findExcerpt returns "" if no terms match
   const orderedLayers: LayerKey[] = [
     row.matched_layer,
     ...LAYERS.filter((l) => l !== row.matched_layer),
   ];
 
-  let bestExcerpt = "";
-  let bestLayer: LayerKey = row.matched_layer;
-  let anyTermMatch = false;
-
   for (const layer of orderedLayers) {
-    const text = layerText(row, layer);
-    const excerpt = findExcerpt(text, query);  // "" when no terms match
-    const termMatch = excerpt.length > 0;       // findExcerpt with query only returns non-empty if terms matched
-    if (termMatch) anyTermMatch = true;
-
-    layerDiags.push({
-      layer,
-      textLength: text.length,
-      excerptFound: excerpt,
-      termMatch,
-    });
-
-    if (!bestExcerpt && excerpt.length >= MIN_USEFUL) {
-      bestExcerpt = excerpt;
-      bestLayer = layer;
+    const excerpt = findExcerpt(layerText(row, layer), query);
+    if (excerpt.length >= MIN_USEFUL) {
+      return { excerpt, excerptLayer: layer };
     }
   }
 
-  // Build partial diag (decision filled in below)
-  const diag: RowDiag = {
-    title: row.title,
-    score: Math.round(score * 1000) / 1000,
-    matchedLayer: row.matched_layer,
-    layers: layerDiags,
-    anyTermMatch,
-    isStrong,
-    decision: "excluded-no-terms",
-    excerpt: "",
-  };
-
-  // Decision
-  if (bestExcerpt) {
-    // At least one layer had a term-matched excerpt long enough to show
-    diag.decision = "included";
-    diag.excerpt = bestExcerpt;
-    return { excerpt: bestExcerpt, excerptLayer: bestLayer, diag };
-  }
-
-  if (isStrong) {
-    // Strong semantic match — fall back to first paragraph of content/thread
-    const contentText = layerText(row, "content");
-    const fallback = findExcerpt(contentText, undefined);
-    if (fallback.length >= MIN_USEFUL) {
-      diag.decision = "included-strong-fallback";
-      diag.excerpt = fallback;
-      return { excerpt: fallback, excerptLayer: "content", diag };
+  // No layer yielded a term-matched excerpt long enough to show.
+  if (score >= STRONG_THRESHOLD) {
+    // Trust the semantic score — fall back to first paragraph of content/thread.
+    const contentFallback = findExcerpt(layerText(row, "content"), undefined);
+    if (contentFallback.length >= MIN_USEFUL) {
+      return { excerpt: contentFallback, excerptLayer: "content" };
     }
-    const threadText = layerText(row, "thread");
-    const threadFallback = findExcerpt(threadText, undefined);
+    const threadFallback = findExcerpt(layerText(row, "thread"), undefined);
     if (threadFallback.length >= MIN_USEFUL) {
-      diag.decision = "included-strong-fallback";
-      diag.excerpt = threadFallback;
-      return { excerpt: threadFallback, excerptLayer: "thread", diag };
+      return { excerpt: threadFallback, excerptLayer: "thread" };
     }
   }
 
-  // Weak match with no term evidence — exclude per spec §7a
-  diag.decision = "excluded-no-terms";
+  // Weak match with no term evidence — exclude per spec §7a.
   return null;
 }
 
@@ -172,7 +129,7 @@ export async function POST(req: NextRequest) {
   const parsed = await parseSearchQuery(query.trim(), today);
 
   if (!parsed.thematic) {
-    return NextResponse.json({ results: [], query: parsed, totalFound: 0, _debug: [] });
+    return NextResponse.json({ results: [], query: parsed, totalFound: 0 });
   }
 
   const embedding = await generateEmbedding(parsed.thematic);
@@ -195,7 +152,7 @@ export async function POST(req: NextRequest) {
   }
 
   const termForExcerpt = parsed.thematic ?? query.trim();
-  console.log(`[search-homilies] parsed="${termForExcerpt}" rows_from_db=${(rows as unknown[])?.length ?? 0} weak=${WEAK_THRESHOLD} strong=${STRONG_THRESHOLD}`);
+  console.log(`[search-homilies] query="${termForExcerpt}" rows_from_db=${(rows as unknown[])?.length ?? 0}`);
 
   const results: Array<{
     id: string;
@@ -209,31 +166,12 @@ export async function POST(req: NextRequest) {
     excerpt: string;
   }> = [];
 
-  const debugRows: RowDiag[] = [];
-
   for (const row of (rows as SearchRow[] ?? [])) {
     const excerptResult = extractExcerptWithLayer(row, termForExcerpt, row.best_score);
-
     if (excerptResult === null) {
-      // Build a diag entry for the excluded row so it's visible in _debug
-      const excludedDiag: RowDiag = {
-        title: row.title,
-        score: Math.round(row.best_score * 1000) / 1000,
-        matchedLayer: row.matched_layer,
-        layers: [],
-        anyTermMatch: false,
-        isStrong: row.best_score >= STRONG_THRESHOLD,
-        decision: "excluded-no-terms",
-        excerpt: "",
-      };
-      debugRows.push(excludedDiag);
-      console.log(`[search-homilies] EXCLUDED "${row.title}" score=${row.best_score.toFixed(3)} strong=${row.best_score >= STRONG_THRESHOLD}`);
+      console.log(`[search-homilies] excluded "${row.title}" score=${row.best_score.toFixed(3)} (no matched chunk)`);
       continue;
     }
-
-    debugRows.push(excerptResult.diag);
-    console.log(`[search-homilies] INCLUDED "${row.title}" score=${row.best_score.toFixed(3)} decision=${excerptResult.diag.decision} anyTermMatch=${excerptResult.diag.anyTermMatch}`);
-
     results.push({
       id: row.id,
       title: row.title,
@@ -249,10 +187,5 @@ export async function POST(req: NextRequest) {
 
   console.log(`[search-homilies] final results=${results.length}`);
 
-  return NextResponse.json({
-    results,
-    query: parsed,
-    totalFound: results.length,
-    _debug: debugRows,   // temporary — remove before production
-  });
+  return NextResponse.json({ results, query: parsed, totalFound: results.length });
 }
