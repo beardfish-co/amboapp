@@ -57,19 +57,29 @@ interface SearchRow {
   content: string | null;
 }
 
-function extractExcerpt(row: SearchRow): string {
-  switch (row.matched_layer) {
-    case "thread":
-      return findExcerpt(row.seed ?? "");
-    case "followups":
-      return findExcerpt(
-        buildFollowupsText(row.seed_why_now, row.seed_eucharist, row.seed_response)
-      );
-    case "notes":
-      return findExcerpt(row.notes ?? "");
-    case "content":
-      return findExcerpt(stripHtml(row.content));
-  }
+function extractExcerptWithLayer(row: SearchRow): { excerpt: string; excerptLayer: SearchRow["matched_layer"] } {
+  const MIN_USEFUL = 50;
+
+  const fromLayer = (layer: SearchRow["matched_layer"]): string => {
+    switch (layer) {
+      case "thread":    return findExcerpt(row.seed ?? "");
+      case "followups": return findExcerpt(buildFollowupsText(row.seed_why_now, row.seed_eucharist, row.seed_response));
+      case "notes":     return findExcerpt(row.notes ?? "");
+      case "content":   return findExcerpt(stripHtml(row.content));
+    }
+  };
+
+  const primary = fromLayer(row.matched_layer);
+  if (primary.length >= MIN_USEFUL) return { excerpt: primary, excerptLayer: row.matched_layer };
+
+  // Matched layer too short — fall back to content, then thread
+  const contentExcerpt = findExcerpt(stripHtml(row.content));
+  if (contentExcerpt.length >= MIN_USEFUL) return { excerpt: contentExcerpt, excerptLayer: "content" };
+
+  const threadExcerpt = findExcerpt(row.seed ?? "");
+  if (threadExcerpt.length >= MIN_USEFUL) return { excerpt: threadExcerpt, excerptLayer: "thread" };
+
+  return { excerpt: primary, excerptLayer: row.matched_layer };
 }
 
 export async function POST(req: NextRequest) {
@@ -139,7 +149,7 @@ export async function POST(req: NextRequest) {
     score: Math.round(row.best_score * 1000) / 1000,
     confidence: row.best_score >= STRONG_THRESHOLD ? "strong" : "weak" as "strong" | "weak",
     matchedLayer: row.matched_layer,
-    excerpt: extractExcerpt(row),
+    ...extractExcerptWithLayer(row),
   }));
 
   return NextResponse.json({

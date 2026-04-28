@@ -23,6 +23,7 @@ interface SearchResult {
   score: number;
   confidence: "strong" | "weak";
   matchedLayer: "thread" | "followups" | "notes" | "content";
+  excerptLayer: "thread" | "followups" | "notes" | "content";
   excerpt: string;
 }
 
@@ -542,7 +543,7 @@ export default function HomilyList({
                             )}
                             <div style={{ padding: "0 12px 10px" }}>
                               <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: isWeak ? "var(--ambo-text-muted)" : "var(--ambo-accent)" }}>
-                                {LAYER_LABELS[r.matchedLayer]}
+                                {LAYER_LABELS[r.excerptLayer]}
                               </span>
                             </div>
                           </div>
