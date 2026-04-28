@@ -12,7 +12,7 @@ import {
 } from "@/lib/embeddings";
 
 const DOC_THRESHOLD  = 0.17;   // Postgres-side floor (whole-document score)
-const PARA_THRESHOLD = 0.30;   // Per-paragraph gate — lowered from 0.40 after calibration
+const PARA_THRESHOLD = 0.35;   // Calibrated from real beta data: clean gap between trap queries (0.31-0.33) and semantic matches (0.36+)
 const STRONG_LABEL   = 0.50;   // Para score above which result is labelled "strong"
 const MAX_RESULTS    = 20;
 const MIN_PARA_LENGTH = 40;
