@@ -150,3 +150,25 @@ export function hasTermMatch(text: string, query: string): boolean {
   return terms.some((t) => lower.includes(t));
 }
 
+
+/**
+ * Dot product of two unit vectors = cosine similarity.
+ * OpenAI text-embedding-3-small embeddings are L2-normalised, so this is
+ * equivalent to cosine similarity without the division overhead.
+ */
+export function dotProduct(a: number[], b: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += a[i] * b[i];
+  return sum;
+}
+
+/**
+ * Split plain text into paragraphs suitable for embedding.
+ * Filters out very short fragments that don't carry enough meaning.
+ */
+export function splitParagraphs(text: string, minLength = 40): string[] {
+  return text
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((p) => p.length >= minLength);
+}
