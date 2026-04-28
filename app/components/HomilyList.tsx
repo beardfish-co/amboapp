@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadDayName } from "@/lib/readings";
 
@@ -262,10 +262,6 @@ export default function HomilyList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [, bumpNames] = useState(0);
   const loadedForKey = useRef<number | null>(null);
-  // Semantic search state
-  const [semanticIds, setSemanticIds] = useState<string[] | null>(null);
-  const [semanticLoading, setSemanticLoading] = useState(false);
-  const [semanticError, setSemanticError] = useState<string | null>(null);
 
   // suppress unused warning — onSelect kept for API compatibility
   void onSelect;
@@ -326,41 +322,8 @@ export default function HomilyList({
   }, [open, onClose, viewingHomily, confirmDeleteId]);
 
   useEffect(() => {
-    if (!open) { setViewingHomily(null); setSearchQuery(""); setSemanticIds(null); setSemanticError(null); }
+    if (!open) { setViewingHomily(null); setSearchQuery(""); }
   }, [open]);
-
-  // Clear semantic results when query changes
-  useEffect(() => {
-    setSemanticIds(null);
-    setSemanticError(null);
-  }, [searchQuery]);
-
-  const runSemanticSearch = useCallback(async () => {
-    if (!homilies || searchQuery.trim().length < 2) return;
-    setSemanticLoading(true);
-    setSemanticError(null);
-    try {
-      const stubs = homilies.map((h) => ({
-        id: h.id,
-        title: h.title,
-        sundayName: h.sunday_date ? (sundayNameCache.get(h.sunday_date) ?? null) : null,
-        sundayDate: h.sunday_date,
-        snippet: (h.content ?? "").slice(0, 250),
-      }));
-      const res = await fetch("/api/search-homilies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery.trim(), homilies: stubs }),
-      });
-      if (!res.ok) throw new Error("Search failed");
-      const data = await res.json() as { ids: string[] };
-      setSemanticIds(data.ids ?? []);
-    } catch {
-      setSemanticError("Search unavailable — showing text matches");
-    } finally {
-      setSemanticLoading(false);
-    }
-  }, [homilies, searchQuery]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -375,17 +338,11 @@ export default function HomilyList({
     finally { setDeletingId(null); setConfirmDeleteId(null); }
   };
 
-  // Search: semantic results when available, instant text filter otherwise
+  // Basic text search — semantic pgvector search added in task #31
   const filteredHomilies = (() => {
     if (!homilies) return null;
     const q = searchQuery.trim().toLowerCase();
     if (!q) return homilies;
-    // If semantic search returned results, use them (in Claude's ranked order)
-    if (semanticIds !== null) {
-      const idMap = new Map(homilies.map((h) => [h.id, h]));
-      return semanticIds.map((id) => idMap.get(id)).filter((h): h is HomilyRow => !!h);
-    }
-    // Fallback: instant text filter while waiting for semantic
     return homilies.filter((h) => {
       const nameMatch = (h.sunday_date ? (sundayNameCache.get(h.sunday_date) ?? "") : "").toLowerCase().includes(q);
       return (h.title ?? "").toLowerCase().includes(q) || (h.content ?? "").toLowerCase().includes(q) || nameMatch;
@@ -396,7 +353,6 @@ export default function HomilyList({
   const recentHomilies = filteredHomilies?.filter((h) => h.sunday_date && h.sunday_date >= cutoff) ?? [];
   const olderHomilies = filteredHomilies?.filter((h) => !h.sunday_date || h.sunday_date < cutoff) ?? [];
   const isSearching = searchQuery.trim().length > 0;
-  const isSemanticMode = semanticIds !== null && !semanticLoading;
 
   if (!open) return null;
 
@@ -442,42 +398,12 @@ export default function HomilyList({
                   placeholder="When did I preach on mercy?"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && searchQuery.trim().length >= 2) runSemanticSearch(); }}
                   style={{ flex: 1, border: "none", background: "transparent", color: "var(--ambo-text-primary)", fontSize: 13, padding: "10px 0", outline: "none", fontFamily: "inherit" }}
                 />
                 {searchQuery && (
                   <button onClick={() => setSearchQuery("")} style={{ border: "none", background: "none", color: "var(--ambo-text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>&times;</button>
                 )}
               </div>
-              {/* Semantic search action row */}
-              {searchQuery.trim().length >= 2 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <button
-                    onClick={runSemanticSearch}
-                    disabled={semanticLoading}
-                    style={{ flex: 1, border: "none", background: "var(--ambo-accent)", color: "white", fontSize: 12, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: semanticLoading ? "default" : "pointer", fontFamily: "inherit", opacity: semanticLoading ? 0.7 : 1, transition: "opacity 0.15s" }}
-                  >
-                    {semanticLoading ? "Searching…" : isSemanticMode ? "Re-search" : "Search (semantic)"}
-                  </button>
-                  {isSemanticMode && (
-                    <button
-                      onClick={() => { setSemanticIds(null); setSemanticError(null); }}
-                      title="Clear semantic results"
-                      style={{ border: "none", background: "var(--ambo-surface)", color: "var(--ambo-text-muted)", fontSize: 11, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
-                    >
-                      Text only
-                    </button>
-                  )}
-                </div>
-              )}
-              {semanticError && (
-                <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", marginBottom: 4, paddingLeft: 2 }}>{semanticError}</div>
-              )}
-              {isSemanticMode && !semanticError && (
-                <div style={{ fontSize: 11, color: "var(--ambo-accent)", marginBottom: 4, paddingLeft: 2 }}>
-                  {filteredHomilies?.length === 0 ? "No relevant homilies found" : `${filteredHomilies?.length} relevant result${filteredHomilies?.length === 1 ? "" : "s"}`}
-                </div>
-              )}
               <button
                 onClick={onCreate}
                 style={{ width: "100%", border: "1px dashed var(--ambo-border)", background: "transparent", color: "var(--ambo-accent)", fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
