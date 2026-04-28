@@ -125,3 +125,17 @@ export function findExcerpt(text: string, query?: string, maxLength = 280): stri
   const cut = substantial.lastIndexOf(" ", maxLength);
   return substantial.slice(0, cut > 0 ? cut : maxLength) + "…";
 }
+
+/**
+ * Returns true if at least one meaningful query term (length > 2) appears
+ * in the plain-text content. Used as a secondary gate for weak similarity
+ * matches: if the score is below STRONG_THRESHOLD and no term appears in
+ * the text, the result is excluded (no matched chunk → no result).
+ */
+export function hasTermMatch(text: string, query: string): boolean {
+  if (!text || !query) return false;
+  const lower = text.toLowerCase();
+  const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
+  return terms.some((t) => lower.includes(t));
+}
+
