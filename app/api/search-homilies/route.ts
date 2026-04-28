@@ -36,8 +36,10 @@ import { createClient } from "@/lib/supabase/server";
 import { parseSearchQuery } from "@/lib/search-parser";
 import { generateEmbedding, stripHtml, buildFollowupsText, findExcerpt } from "@/lib/embeddings";
 
-const STRONG_THRESHOLD = 0.75;
-const WEAK_THRESHOLD   = 0.45; // below this: not returned
+// Thresholds calibrated from real beta data (full-document vs short-query cosine scores).
+// Passage-level embeddings (planned) will push scores higher; thresholds will rise then.
+const STRONG_THRESHOLD = 0.18;
+const WEAK_THRESHOLD   = 0.10; // below this: not returned
 const MAX_RESULTS      = 20;
 
 interface SearchRow {
