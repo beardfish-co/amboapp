@@ -106,20 +106,31 @@ export function findExcerpt(text: string, query?: string, maxLength = 280): stri
 
   if (query) {
     const terms = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-    let bestPara = "";
-    let bestScore = 0;
-    for (const para of paras) {
-      const lower = para.toLowerCase();
-      const score = terms.filter((t) => lower.includes(t)).length;
-      if (score > bestScore) { bestScore = score; bestPara = para; }
-    }
-    if (bestPara && bestScore > 0) {
-      if (bestPara.length <= maxLength) return bestPara;
-      const cut = bestPara.lastIndexOf(" ", maxLength);
-      return bestPara.slice(0, cut > 0 ? cut : maxLength) + "…";
+    if (terms.length > 0) {
+      let bestPara = "";
+      let bestScore = 0;
+      for (const para of paras) {
+        const lower = para.toLowerCase();
+        const score = terms.filter((t) => lower.includes(t)).length;
+        if (score > bestScore) { bestScore = score; bestPara = para; }
+      }
+      if (bestPara && bestScore > 0) {
+        if (bestPara.length <= maxLength) return bestPara;
+        const cut = bestPara.lastIndexOf(" ", maxLength);
+        return bestPara.slice(0, cut > 0 ? cut : maxLength) + "…";
+      }
+      // Query provided but no terms matched — return empty string.
+      // The caller (extractExcerptWithLayer) decides whether to show a fallback
+      // or exclude the result. We must NOT fall through to the first-paragraph
+      // fallback here, because that is what causes irrelevant opening lines to
+      // appear as excerpts for weak matches (spec §6: show only matched chunks).
+      return "";
     }
   }
 
+  // No query (or zero meaningful terms): return the first substantial paragraph.
+  // This path is taken deliberately when the caller passes query=undefined,
+  // which is the explicit "give me any excerpt" signal for STRONG matches.
   const substantial = paras.find((p) => p.length > 40) ?? paras[0];
   if (substantial.length <= maxLength) return substantial;
   const cut = substantial.lastIndexOf(" ", maxLength);
