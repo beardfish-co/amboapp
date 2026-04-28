@@ -321,26 +321,24 @@ export default function ReadingsDrawer({
               }}>
                 highlight a phrase, or <em>insert</em> the whole passage.
               </p>
-              {!hintSeen && (
-                <button
-                  onClick={dismissHint}
-                  aria-label="Dismiss"
-                  style={{
-                    border: "none",
-                    background: "none",
-                    fontSize: 16,
-                    lineHeight: 1,
-                    color: "var(--ambo-text-muted)",
-                    opacity: 0.5,
-                    cursor: "pointer",
-                    padding: "0 2px",
-                    flexShrink: 0,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  ×
-                </button>
-              )}
+              <button
+                onClick={dismissHint}
+                aria-label="Dismiss"
+                style={{
+                  border: "none",
+                  background: "none",
+                  fontSize: 16,
+                  lineHeight: 1,
+                  color: "var(--ambo-text-muted)",
+                  opacity: 0.5,
+                  cursor: "pointer",
+                  padding: "0 2px",
+                  flexShrink: 0,
+                  fontFamily: "inherit",
+                }}
+              >
+                ×
+              </button>
             </div>
           </div>
         </div>
@@ -388,79 +386,44 @@ export default function ReadingsDrawer({
 
         {/* ── Inline insert pill — floats at the end of the priest's selection ── */}
         {selection && selectionRect && (
-          <div
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleInsertSelection}
             style={{
               position: "fixed",
               top: selectionRect.bottom + 6,
-              left: Math.min(selectionRect.right + 6, (typeof window !== "undefined" ? window.innerWidth : 440) - 110),
+              left: Math.min(selectionRect.right + 6, (typeof window !== "undefined" ? window.innerWidth : 440) - 82),
               zIndex: 110,
-              display: "inline-flex",
-              alignItems: "center",
               border: "1px solid var(--ambo-border)",
               background: "var(--ambo-surface-raised)",
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               boxShadow: "var(--ambo-shadow-sm)",
               borderRadius: "var(--ambo-radius-pill)",
+              fontSize: 12,
+              fontStyle: "italic",
+              fontFamily: "var(--ambo-font-ui)",
+              fontWeight: 500,
+              color: "var(--ambo-text-secondary)",
+              cursor: "pointer",
+              padding: "5px 13px",
+              lineHeight: 1,
               animation: "fadeIn 120ms ease",
-              overflow: "hidden",
+              transition: "background 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--ambo-surface-solid)";
+              el.style.color = "var(--ambo-text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--ambo-surface-raised)";
+              el.style.color = "var(--ambo-text-secondary)";
             }}
           >
-            {/* insert action */}
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleInsertSelection}
-              style={{
-                border: "none",
-                background: "none",
-                fontSize: 12,
-                fontStyle: "italic",
-                fontFamily: "var(--ambo-font-ui)",
-                fontWeight: 500,
-                color: "var(--ambo-text-secondary)",
-                cursor: "pointer",
-                padding: "5px 10px 5px 13px",
-                lineHeight: 1,
-                transition: "color 0.15s",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--ambo-text-primary)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "var(--ambo-text-secondary)"; }}
-            >
-              insert
-            </button>
-            {/* thin divider */}
-            <span style={{
-              width: 1,
-              alignSelf: "stretch",
-              background: "var(--ambo-border)",
-              flexShrink: 0,
-            }} />
-            {/* dismiss × */}
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setSelection(null);
-                setSelectionRect(null);
-                if (typeof window !== "undefined") window.getSelection()?.removeAllRanges();
-              }}
-              aria-label="Clear selection"
-              style={{
-                border: "none",
-                background: "none",
-                fontSize: 14,
-                lineHeight: 1,
-                color: "var(--ambo-text-muted)",
-                cursor: "pointer",
-                padding: "5px 11px 5px 8px",
-                opacity: 0.6,
-                transition: "opacity 0.15s",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.6"; }}
-            >
-              ×
-            </button>
-          </div>
+            insert
+          </button>
         )}
       </aside>
     </>
