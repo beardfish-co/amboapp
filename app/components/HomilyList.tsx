@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadDayName } from "@/lib/readings";
 
@@ -14,6 +14,24 @@ export interface HomilyRow {
 }
 
 type DrawerTab = "my-homilies" | "echo";
+
+interface SearchResult {
+  id: string;
+  title: string | null;
+  sundayDate: string | null;
+  updatedAt: string;
+  score: number;
+  confidence: "strong" | "weak";
+  matchedLayer: "thread" | "followups" | "notes" | "content";
+  excerpt: string;
+}
+
+const LAYER_LABELS: Record<SearchResult["matchedLayer"], string> = {
+  thread: "Discernment thread",
+  followups: "Follow-up answers",
+  notes: "Notes",
+  content: "Homily",
+};
 
 interface HomilyListProps {
   open: boolean;
@@ -262,6 +280,11 @@ export default function HomilyList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [, bumpNames] = useState(0);
   const loadedForKey = useRef<number | null>(null);
+  // Search state
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // suppress unused warning — onSelect kept for API compatibility
   void onSelect;
@@ -308,6 +331,25 @@ export default function HomilyList({
     return () => { cancelled = true; };
   }, [open, homilies]);
 
+  // Backfill: when the drawer opens, silently embed any homilies with no embeddings yet.
+  // We trigger this once per session by tracking which IDs we've already queued.
+  const backfilledRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!open || !homilies) return;
+    const unembedded = homilies
+      .filter((h) => !backfilledRef.current.has(h.id))
+      .slice(0, 10); // batch of 10 at a time to avoid hammering the API
+    if (unembedded.length === 0) return;
+    unembedded.forEach((h) => backfilledRef.current.add(h.id));
+    unembedded.forEach((h) => {
+      fetch("/api/embed-homily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: h.id, layers: ["all"] }),
+      }).catch(() => {});
+    });
+  }, [open, homilies]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -322,8 +364,44 @@ export default function HomilyList({
   }, [open, onClose, viewingHomily, confirmDeleteId]);
 
   useEffect(() => {
-    if (!open) { setViewingHomily(null); setSearchQuery(""); }
+    if (!open) {
+      setViewingHomily(null);
+      setSearchQuery("");
+      setSearchResults(null);
+      setSearchError(null);
+      setHasSearched(false);
+    }
   }, [open]);
+
+  // Clear results when query changes
+  useEffect(() => {
+    setSearchResults(null);
+    setSearchError(null);
+    setHasSearched(false);
+  }, [searchQuery]);
+
+  const runSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (q.length < 2) return;
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const res = await fetch("/api/search-homilies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+      });
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json() as { results: SearchResult[]; totalFound: number };
+      setSearchResults(data.results ?? []);
+      setHasSearched(true);
+    } catch {
+      setSearchError("Search is unavailable right now. Try again in a moment.");
+      setSearchResults(null);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [searchQuery]);
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
@@ -338,20 +416,9 @@ export default function HomilyList({
     finally { setDeletingId(null); setConfirmDeleteId(null); }
   };
 
-  // Basic text search — semantic pgvector search added in task #31
-  const filteredHomilies = (() => {
-    if (!homilies) return null;
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return homilies;
-    return homilies.filter((h) => {
-      const nameMatch = (h.sunday_date ? (sundayNameCache.get(h.sunday_date) ?? "") : "").toLowerCase().includes(q);
-      return (h.title ?? "").toLowerCase().includes(q) || (h.content ?? "").toLowerCase().includes(q) || nameMatch;
-    });
-  })();
-
   const cutoff = fourWeeksAgoIso();
-  const recentHomilies = filteredHomilies?.filter((h) => h.sunday_date && h.sunday_date >= cutoff) ?? [];
-  const olderHomilies = filteredHomilies?.filter((h) => !h.sunday_date || h.sunday_date < cutoff) ?? [];
+  const recentHomilies = homilies?.filter((h) => h.sunday_date && h.sunday_date >= cutoff) ?? [];
+  const olderHomilies = homilies?.filter((h) => !h.sunday_date || h.sunday_date < cutoff) ?? [];
   const isSearching = searchQuery.trim().length > 0;
 
   if (!open) return null;
@@ -398,18 +465,24 @@ export default function HomilyList({
                   placeholder="When did I preach on mercy?"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
                   style={{ flex: 1, border: "none", background: "transparent", color: "var(--ambo-text-primary)", fontSize: 13, padding: "10px 0", outline: "none", fontFamily: "inherit" }}
                 />
-                {searchQuery && (
+                {searchQuery && !searchLoading && (
                   <button onClick={() => setSearchQuery("")} style={{ border: "none", background: "none", color: "var(--ambo-text-muted)", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0, flexShrink: 0 }}>&times;</button>
                 )}
+                {searchLoading && (
+                  <span style={{ color: "var(--ambo-text-muted)", fontSize: 11, flexShrink: 0 }}>Searching…</span>
+                )}
               </div>
-              <button
-                onClick={onCreate}
-                style={{ width: "100%", border: "1px dashed var(--ambo-border)", background: "transparent", color: "var(--ambo-accent)", fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-              >
-                <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New homily
-              </button>
+              {!isSearching && (
+                <button
+                  onClick={onCreate}
+                  style={{ width: "100%", border: "1px dashed var(--ambo-border)", background: "transparent", color: "var(--ambo-accent)", fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> New homily
+                </button>
+              )}
             </div>
 
             {/* List */}
@@ -423,19 +496,75 @@ export default function HomilyList({
               {homilies && homilies.length === 0 && !loadError && (
                 <div style={{ padding: "32px 20px", fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center", lineHeight: 1.6 }}>No homilies yet.<br />Start a new one above.</div>
               )}
-              {filteredHomilies && filteredHomilies.length === 0 && isSearching && (
-                <div style={{ padding: "32px 20px", fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center", lineHeight: 1.6 }}>No homilies found.<br />Try different words.</div>
+
+              {/* Search results */}
+              {isSearching && hasSearched && !searchLoading && (
+                <>
+                  {searchError && (
+                    <div style={{ padding: "20px 12px", fontSize: 13, color: "var(--ambo-text-muted)", lineHeight: 1.6 }}>{searchError}</div>
+                  )}
+                  {!searchError && searchResults !== null && searchResults.length === 0 && (
+                    <div style={{ padding: "28px 16px", fontSize: 13, color: "var(--ambo-text-muted)", lineHeight: 1.65 }}>
+                      I couldn&apos;t find anything in your archive that matches this. You may not have preached on it, or you may have used different language. Try rephrasing if you think it&apos;s there.
+                    </div>
+                  )}
+                  {!searchError && searchResults && searchResults.length > 0 && (
+                    <>
+                      {searchResults.map((r) => {
+                        const homily = homilies?.find((h) => h.id === r.id);
+                        const sundayName = r.sundayDate ? sundayNameCache.get(r.sundayDate) : undefined;
+                        const title = r.title?.trim() || sundayName || "Untitled";
+                        const isWeak = r.confidence === "weak";
+                        return (
+                          <div
+                            key={r.id}
+                            style={{ margin: "2px 4px", borderRadius: 10, border: "1px solid " + (isWeak ? "var(--ambo-border)" : "var(--ambo-accent)"), background: isWeak ? "transparent" : "var(--ambo-accent-faint)", cursor: "pointer", overflow: "hidden" }}
+                            onClick={() => homily && setViewingHomily(homily)}
+                          >
+                            <div style={{ padding: "10px 12px 0" }}>
+                              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ambo-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{title}</div>
+                                {isWeak && <span style={{ fontSize: 10, color: "var(--ambo-text-muted)", flexShrink: 0, fontWeight: 500 }}>Loosely related</span>}
+                              </div>
+                              {r.sundayDate && (
+                                <div style={{ fontSize: 11, color: "var(--ambo-accent)", fontWeight: 500, marginBottom: 6 }}>
+                                  {sundayName ?? ""}{sundayName ? " · " : ""}{friendlyDate(r.sundayDate)}
+                                </div>
+                              )}
+                            </div>
+                            {r.excerpt && (
+                              <div style={{ margin: "0 12px 8px", padding: "8px 10px", background: "var(--ambo-surface)", borderRadius: 6, fontSize: 12, color: "var(--ambo-text-secondary)", lineHeight: 1.6, fontStyle: "italic" }}>
+                                &ldquo;{r.excerpt}&rdquo;
+                              </div>
+                            )}
+                            <div style={{ padding: "0 12px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: isWeak ? "var(--ambo-text-muted)" : "var(--ambo-accent)" }}>
+                                {LAYER_LABELS[r.matchedLayer]}
+                              </span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
+                                style={{ border: "none", background: "none", color: "var(--ambo-text-muted)", cursor: "pointer", padding: "2px 6px", borderRadius: 6, fontSize: 11, fontFamily: "inherit" }}
+                              >Delete</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
               )}
 
-              {!isSearching && recentHomilies.length > 0 && (
-                <><SectionLabel label="Recent" />{recentHomilies.map((h) => <HomilyCard key={h.id} h={h} isActive={h.id === currentId} onOpen={setViewingHomily} onDelete={(id) => setConfirmDeleteId(id)} />)}</>
+              {/* Default archive list */}
+              {!isSearching && (
+                <>
+                  {recentHomilies.length > 0 && (
+                    <><SectionLabel label="Recent" />{recentHomilies.map((h) => <HomilyCard key={h.id} h={h} isActive={h.id === currentId} onOpen={setViewingHomily} onDelete={(id) => setConfirmDeleteId(id)} />)}</>
+                  )}
+                  {olderHomilies.length > 0 && (
+                    <><SectionLabel label={recentHomilies.length > 0 ? "Archive" : "All Homilies"} />{olderHomilies.map((h) => <HomilyCard key={h.id} h={h} isActive={h.id === currentId} onOpen={setViewingHomily} onDelete={(id) => setConfirmDeleteId(id)} />)}</>
+                  )}
+                </>
               )}
-              {!isSearching && olderHomilies.length > 0 && (
-                <><SectionLabel label={recentHomilies.length > 0 ? "Archive" : "All Homilies"} />{olderHomilies.map((h) => <HomilyCard key={h.id} h={h} isActive={h.id === currentId} onOpen={setViewingHomily} onDelete={(id) => setConfirmDeleteId(id)} />)}</>
-              )}
-              {isSearching && filteredHomilies && filteredHomilies.map((h) => (
-                <HomilyCard key={h.id} h={h} isActive={h.id === currentId} onOpen={setViewingHomily} onDelete={(id) => setConfirmDeleteId(id)} />
-              ))}
             </div>
 
             {/* Viewer panel */}

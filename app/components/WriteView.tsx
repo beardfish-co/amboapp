@@ -279,6 +279,16 @@ export default function WriteView({
     } catch {
       // Restore so the online event can retry when connectivity returns
       pendingSaveRef.current = pendingSaveRef.current ?? pending;
+      return;
+    }
+    // Fire-and-forget: re-embed the content layer after a successful save
+    const savedId = pending.id ?? draftIdRef.current;
+    if (savedId && pending.content) {
+      fetch("/api/embed-homily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: savedId, layers: ["content"] }),
+      }).catch(() => { /* ignore — embedding is best-effort */ });
     }
   }, [onCurrentIdChange]);
 

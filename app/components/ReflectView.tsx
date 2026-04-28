@@ -388,6 +388,12 @@ export default function ReflectView({
           .update({ notes: value })
           .eq("id", id)
           .eq("user_id", user.id);
+        // Re-embed notes layer (fire-and-forget)
+        fetch("/api/embed-homily", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, layers: ["notes"] }),
+        }).catch(() => {});
       } catch {
         /* ignore */
       }
@@ -411,6 +417,19 @@ export default function ReflectView({
           .update({ [column]: value })
           .eq("id", id)
           .eq("user_id", user.id);
+        // Re-embed the affected layer (fire-and-forget)
+        const embedLayer = column === "seed"
+          ? "thread"
+          : ["seed_why_now", "seed_eucharist", "seed_response"].includes(column)
+          ? "followups"
+          : null;
+        if (embedLayer) {
+          fetch("/api/embed-homily", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, layers: [embedLayer] }),
+          }).catch(() => {});
+        }
       } catch {
         /* ignore */
       } finally {
