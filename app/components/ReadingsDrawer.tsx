@@ -72,6 +72,7 @@ export default function ReadingsDrawer({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selection, setSelection] = useState<ActiveSelection | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ top: number; bottom: number; right: number } | null>(null);
   // Instruction hint — shown once, can be re-surfaced via "?" icon
   const [hintSeen, setHintSeen] = useState(true);   // default true — read from localStorage on mount
   const [hintVisible, setHintVisible] = useState(false);
@@ -136,19 +137,25 @@ export default function ReadingsDrawer({
       const sel = typeof window !== "undefined" ? window.getSelection() : null;
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
         setSelection(null);
+        setSelectionRect(null);
         return;
       }
       const body = bodyRef.current;
-      if (!body) { setSelection(null); return; }
+      if (!body) { setSelection(null); setSelectionRect(null); return; }
       const range = sel.getRangeAt(0);
-      if (!body.contains(range.startContainer)) { setSelection(null); return; }
+      if (!body.contains(range.startContainer)) { setSelection(null); setSelectionRect(null); return; }
       const text = sel.toString().trim();
-      if (!text) { setSelection(null); return; }
+      if (!text) { setSelection(null); setSelectionRect(null); return; }
       const ref =
         readingRefFromNode(range.startContainer) ??
         readingRefFromNode(range.endContainer) ??
         "";
+      const rects = range.getClientRects();
+      const lastRect = rects[rects.length - 1];
       setSelection({ text, reference: ref });
+      if (lastRect) {
+        setSelectionRect({ top: lastRect.top, bottom: lastRect.bottom, right: lastRect.right });
+      }
     };
 
     document.addEventListener("selectionchange", update);
@@ -161,6 +168,7 @@ export default function ReadingsDrawer({
     if (!selection || !selection.text) return;
     onInsert({ text: selection.text, citation: selection.reference });
     setSelection(null);
+    setSelectionRect(null);
     if (typeof window !== "undefined") window.getSelection()?.removeAllRanges();
   };
 
@@ -290,33 +298,38 @@ export default function ReadingsDrawer({
             borderBottom: "1px solid var(--ambo-border)",
             animation: "fadeIn 200ms ease",
           }}>
-            <p style={{
-              margin: 0,
-              fontSize: 12,
-              fontStyle: "italic",
-              color: "var(--ambo-text-muted)",
-              lineHeight: 1.55,
-            }}>
-              highlight to insert a phrase, or tap <em>insert</em> for the whole passage.
-            </p>
-            {!hintSeen && (
-              <button
-                onClick={dismissHint}
-                style={{
-                  marginTop: 6,
-                  border: "none",
-                  background: "none",
-                  fontSize: 11,
-                  color: "var(--ambo-text-muted)",
-                  opacity: 0.6,
-                  cursor: "pointer",
-                  padding: 0,
-                  fontFamily: "inherit",
-                }}
-              >
-                got it
-              </button>
-            )}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <p style={{
+                margin: 0,
+                fontSize: 12,
+                fontStyle: "italic",
+                color: "var(--ambo-text-muted)",
+                lineHeight: 1.55,
+                flex: 1,
+              }}>
+                highlight a phrase, or <em>insert</em> the whole passage.
+              </p>
+              {!hintSeen && (
+                <button
+                  onClick={dismissHint}
+                  aria-label="Dismiss"
+                  style={{
+                    border: "none",
+                    background: "none",
+                    fontSize: 16,
+                    lineHeight: 1,
+                    color: "var(--ambo-text-muted)",
+                    opacity: 0.5,
+                    cursor: "pointer",
+                    padding: "0 2px",
+                    flexShrink: 0,
+                    fontFamily: "inherit",
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -361,69 +374,31 @@ export default function ReadingsDrawer({
           })}
         </div>
 
-        {/* ── Floating insert-selection bar ── */}
-        {selection && (
-          <div style={{
-            position: "absolute",
-            left: 12,
-            right: 12,
-            bottom: 12,
-            background: "var(--ambo-surface)",
-            backdropFilter: "blur(16px) saturate(1.3)",
-            WebkitBackdropFilter: "blur(16px) saturate(1.3)",
-            border: "1px solid var(--ambo-border)",
-            borderRadius: 14,
-            padding: "10px 14px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            boxShadow: "var(--ambo-shadow-md)",
-            animation: "fadeIn 200ms ease",
-          }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--ambo-text-muted)",
-                opacity: 0.7,
-                marginBottom: 3,
-              }}>
-                selection
-              </div>
-              <div style={{
-                fontSize: 12,
-                color: "var(--ambo-text-secondary)",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                fontStyle: "italic",
-                fontFamily: "var(--ambo-font-reading)",
-              }}>
-                "{selection.text}"
-              </div>
-            </div>
-            <button
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={handleInsertSelection}
-              style={{
-                border: "1px solid var(--ambo-border)",
-                background: "transparent",
-                color: "var(--ambo-text-secondary)",
-                fontSize: 12,
-                fontStyle: "italic",
-                fontFamily: "inherit",
-                padding: "6px 14px",
-                borderRadius: 100,
-                cursor: "pointer",
-                flexShrink: 0,
-                transition: "opacity 0.15s",
-              }}
-            >
-              insert
-            </button>
-          </div>
+        {/* ── Inline insert — floats at the end of the priest's selection ── */}
+        {selection && selectionRect && (
+          <button
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleInsertSelection}
+            style={{
+              position: "fixed",
+              top: selectionRect.bottom + 5,
+              left: Math.min(selectionRect.right + 4, (typeof window !== "undefined" ? window.innerWidth : 440) - 76),
+              zIndex: 110,
+              border: "none",
+              background: "none",
+              fontSize: 12,
+              fontStyle: "italic",
+              fontFamily: "inherit",
+              color: "var(--ambo-text-secondary)",
+              opacity: 0.8,
+              cursor: "pointer",
+              padding: "2px 4px",
+              lineHeight: 1,
+              animation: "fadeIn 120ms ease",
+            }}
+          >
+            insert
+          </button>
         )}
       </aside>
     </>
@@ -525,7 +500,7 @@ function ReadingCard({ reading: r, paragraphs, onInsert }: ReadingCardProps) {
                 fontStyle: "italic",
                 fontFamily: "inherit",
                 color: "var(--ambo-text-muted)",
-                opacity: 0.55,
+                opacity: 0.75,
                 cursor: "pointer",
                 padding: "4px 0",
                 flexShrink: 0,
@@ -533,7 +508,7 @@ function ReadingCard({ reading: r, paragraphs, onInsert }: ReadingCardProps) {
                 transition: "opacity 0.15s",
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.9"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.55"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.75"; }}
             >
               insert
             </button>
