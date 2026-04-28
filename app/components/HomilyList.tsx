@@ -732,7 +732,7 @@ export default function HomilyList({
           zIndex: 90,
           animation: closingDrawer
             ? "fadeOut 540ms ease-in both"
-            : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+            : "fadeIn 780ms ease-out",
         }}
       />
 

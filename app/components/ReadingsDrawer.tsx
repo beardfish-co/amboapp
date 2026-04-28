@@ -192,7 +192,7 @@ export default function ReadingsDrawer({
           zIndex: 90,
           animation: closingDrawer
             ? "fadeOut 540ms ease-in both"
-            : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+            : "fadeIn 780ms ease-out",
         }}
       />
 
@@ -306,7 +306,7 @@ export default function ReadingsDrawer({
           overflow: "hidden",
           maxHeight: hintVisible ? "150px" : "0px",
           opacity: hintVisible ? 1 : 0,
-          transition: "max-height 400ms ease-out, opacity 400ms ease-out",
+          transition: "max-height 780ms ease-out, opacity 780ms ease-out",
         }}>
           {/* Inner wrapper carries padding + border so they're clipped by overflow:hidden above */}
           <div style={{ padding: "10px 20px 12px", borderBottom: "1px solid var(--ambo-border)" }}>
