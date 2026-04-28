@@ -540,14 +540,10 @@ export default function HomilyList({
                                 &ldquo;{r.excerpt}&rdquo;
                               </div>
                             )}
-                            <div style={{ padding: "0 12px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <div style={{ padding: "0 12px 10px" }}>
                               <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: isWeak ? "var(--ambo-text-muted)" : "var(--ambo-accent)" }}>
                                 {LAYER_LABELS[r.matchedLayer]}
                               </span>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(r.id); }}
-                                style={{ border: "none", background: "none", color: "var(--ambo-text-muted)", cursor: "pointer", padding: "2px 6px", borderRadius: 6, fontSize: 11, fontFamily: "inherit" }}
-                              >Delete</button>
                             </div>
                           </div>
                         );
