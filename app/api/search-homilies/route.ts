@@ -35,7 +35,7 @@ const MAX_RESULTS    = 20;
 const MIN_PARA_LEN   = 40;
 
 interface SearchRow {
-  id: string; title: string | null; sunday_date: string | null;
+  id: string; title: string | null; sunday_date: string | null; created_at: string;
   updated_at: string; best_score: number;
   matched_layer: "thread" | "followups" | "notes" | "content";
   seed: string | null; seed_why_now: string | null;
@@ -185,9 +185,9 @@ export async function POST(req: NextRequest) {
   );
 
   const results: Array<{
-    id: string; title: string | null; sundayDate: string | null; updatedAt: string;
-    score: number; confidence: "strong" | "weak";
-    matchedLayer: LayerKey; excerptLayer: LayerKey; excerpt: string;
+    id: string; title: string | null; sunday_date: string | null; created_at: string; updated_at: string; content: string | null;
+    score: number; confidence: "strong" | "loose";
+    layer: LayerKey; excerpt: string;
   }> = [];
 
   for (let i = 0; i < candidates.length; i++) {
@@ -196,10 +196,10 @@ export async function POST(req: NextRequest) {
     console.log(`[search-homilies] "${row.title}" doc=${row.best_score.toFixed(3)} bestPara=${ev.bestScore.toFixed(3)} decision=${ev.diag.decision}`);
     if (ev.excerpt === null) continue;
     results.push({
-      id: row.id, title: row.title, sundayDate: row.sunday_date, updatedAt: row.updated_at,
+      id: row.id, title: row.title, sunday_date: row.sunday_date, updated_at: row.updated_at, created_at: row.created_at, content: row.content,
       score: Math.round(ev.bestScore * 1000) / 1000,
-      confidence: ev.bestScore >= STRONG_LABEL ? "strong" : "weak",
-      matchedLayer: row.matched_layer, excerptLayer: ev.excerptLayer, excerpt: ev.excerpt,
+      confidence: ev.bestScore >= STRONG_LABEL ? "strong" : "loose",
+      layer: ev.excerptLayer, excerpt: ev.excerpt,
     });
   }
 
