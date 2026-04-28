@@ -39,7 +39,7 @@ import { generateEmbedding, stripHtml, buildFollowupsText, findExcerpt } from "@
 // Thresholds calibrated from real beta data (full-document vs short-query cosine scores).
 // Passage-level embeddings (planned) will push scores higher; thresholds will rise then.
 const STRONG_THRESHOLD = 0.18;
-const WEAK_THRESHOLD   = 0.10; // below this: not returned
+const WEAK_THRESHOLD   = 0.14; // below this: not returned — raised to reduce noise matches
 const MAX_RESULTS      = 20;
 
 interface SearchRow {
