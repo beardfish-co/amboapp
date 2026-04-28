@@ -76,6 +76,8 @@ export default function ReadingsDrawer({
   // Instruction hint — shown once, can be re-surfaced via "?" icon
   const [hintSeen, setHintSeen] = useState(true);   // default true — read from localStorage on mount
   const [hintVisible, setHintVisible] = useState(false);
+  const [hintClosing, setHintClosing] = useState(false);
+  const [closingDrawer, setClosingDrawer] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
 
   // Read hint-seen flag from localStorage on mount
@@ -90,13 +92,26 @@ export default function ReadingsDrawer({
   }, []);
 
   const dismissHint = () => {
-    setHintVisible(false);
+    setHintClosing(true);
     setHintSeen(true);
     try { localStorage.setItem(HINT_KEY, "1"); } catch { /* ignore */ }
+    setTimeout(() => { setHintClosing(false); setHintVisible(false); }, 400);
   };
 
   const toggleHint = () => {
-    setHintVisible((v) => !v);
+    if (hintVisible && !hintClosing) {
+      // Fade out
+      setHintClosing(true);
+      setTimeout(() => { setHintClosing(false); setHintVisible(false); }, 400);
+    } else {
+      setHintClosing(false);
+      setHintVisible(true);
+    }
+  };
+
+  const handleCloseDrawer = () => {
+    setClosingDrawer(true);
+    setTimeout(() => { setClosingDrawer(false); onClose(); }, 560);
   };
 
   useEffect(() => {
@@ -124,7 +139,7 @@ export default function ReadingsDrawer({
   // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") handleCloseDrawer(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
@@ -162,7 +177,7 @@ export default function ReadingsDrawer({
     return () => document.removeEventListener("selectionchange", update);
   }, [open]);
 
-  if (!open) return null;
+  if (!open && !closingDrawer) return null;
 
   const handleInsertSelection = () => {
     if (!selection || !selection.text) return;
@@ -176,7 +191,7 @@ export default function ReadingsDrawer({
     <>
       {/* Backdrop — identical to My Homilies drawer */}
       <div
-        onClick={onClose}
+        onClick={handleCloseDrawer}
         style={{
           position: "fixed",
           inset: 0,
@@ -184,7 +199,9 @@ export default function ReadingsDrawer({
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
-          animation: "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closingDrawer
+            ? "fadeOut 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
 
@@ -204,7 +221,9 @@ export default function ReadingsDrawer({
           display: "flex",
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
-          animation: "slideInRight 640ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closingDrawer
+            ? "slideOutRight 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            : "slideInRight 700ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       >
         {/* ── Header ── */}
@@ -272,7 +291,7 @@ export default function ReadingsDrawer({
               </button>
             )}
             <button
-              onClick={onClose}
+              onClick={handleCloseDrawer}
               aria-label="Close"
               style={{
                 border: "none",
@@ -296,8 +315,14 @@ export default function ReadingsDrawer({
           <div style={{
             padding: "10px 20px 12px",
             borderBottom: "1px solid var(--ambo-border)",
-            animation: "fadeIn 200ms ease",
+            animation: hintClosing
+              ? "hintFadeOut 400ms ease-out both"
+              : "hintFadeIn 400ms ease-in both",
           }}>
+            <style>{`
+              @keyframes hintFadeIn  { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes hintFadeOut { from { opacity: 1 } to { opacity: 0 } }
+            `}</style>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
               <p style={{
                 margin: 0,
@@ -374,27 +399,42 @@ export default function ReadingsDrawer({
           })}
         </div>
 
-        {/* ── Inline insert — floats at the end of the priest's selection ── */}
+        {/* ── Inline insert pill — floats at the end of the priest's selection ── */}
         {selection && selectionRect && (
           <button
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleInsertSelection}
             style={{
               position: "fixed",
-              top: selectionRect.bottom + 5,
-              left: Math.min(selectionRect.right + 4, (typeof window !== "undefined" ? window.innerWidth : 440) - 76),
+              top: selectionRect.bottom + 6,
+              left: Math.min(selectionRect.right + 6, (typeof window !== "undefined" ? window.innerWidth : 440) - 82),
               zIndex: 110,
-              border: "none",
-              background: "none",
+              border: "1px solid var(--ambo-border)",
+              background: "var(--ambo-surface-raised)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              boxShadow: "var(--ambo-shadow-sm)",
+              borderRadius: "var(--ambo-radius-pill)",
               fontSize: 12,
               fontStyle: "italic",
-              fontFamily: "inherit",
+              fontFamily: "var(--ambo-font-ui)",
+              fontWeight: 500,
               color: "var(--ambo-text-secondary)",
-              opacity: 0.8,
               cursor: "pointer",
-              padding: "2px 4px",
+              padding: "5px 13px",
               lineHeight: 1,
               animation: "fadeIn 120ms ease",
+              transition: "background 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--ambo-surface-solid)";
+              el.style.color = "var(--ambo-text-primary)";
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "var(--ambo-surface-raised)";
+              el.style.color = "var(--ambo-text-secondary)";
             }}
           >
             insert

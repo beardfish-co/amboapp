@@ -598,12 +598,12 @@ export default function HomilyList({
       if (e.key === "Escape") {
         if (viewingHomily) closeReading();
         else if (confirmDeleteId) setConfirmDeleteId(null);
-        else onClose();
+        else handleCloseDrawer();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, viewingHomily, confirmDeleteId]);
+  }, [open, onClose, handleCloseDrawer, viewingHomily, confirmDeleteId]);
 
   // ── Reset on close ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -713,14 +713,16 @@ export default function HomilyList({
 
       {/* Drawer backdrop */}
       <div
-        onClick={onClose}
+        onClick={handleCloseDrawer}
         style={{
           position: "fixed", inset: 0,
           background: "rgba(15, 20, 30, 0.24)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
-          animation: "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closingDrawer
+            ? "fadeOut 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            : "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
         }}
       />
 
@@ -738,7 +740,9 @@ export default function HomilyList({
           display: "flex",
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
-          animation: "slideInLeft 640ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closingDrawer
+            ? "slideOutLeft 560ms cubic-bezier(0.22, 1, 0.36, 1) both"
+            : "slideInLeft 700ms cubic-bezier(0.22, 1, 0.36, 1)",
           overflow: "hidden",
         } as React.CSSProperties}
       >
@@ -767,7 +771,7 @@ export default function HomilyList({
               ))}
             </nav>
             <button
-              onClick={onClose}
+              onClick={handleCloseDrawer}
               aria-label="Close"
               style={{
                 border: "none", background: "none",

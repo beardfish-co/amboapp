@@ -548,6 +548,22 @@ body {
   to   { transform: translateX(0); }
 }
 
+/* Drawer slide-out to the left / right */
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+/* Generic fade-out (opposite of fadeIn) */
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
 
 /* =============================================================
    Dark mode — midnight candlelight. Deep navy, restrained light.
