@@ -60,17 +60,22 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
 export function stripHtml(html: string | null): string {
   if (!html) return "";
   return html
-    .replace(/<br\s*\/?>/gi, " ")
-    .replace(/<\/?[^>]+>/g, " ")
+    // Block-level elements become newlines so paragraph splitting works
+    .replace(/<\/?(p|div|li|h[1-6]|blockquote|section|article)[^>]*>/gi, "\n")
+    .replace(/<br\s*\/?>\s*/gi, "\n")
+    // Strip remaining inline tags
+    .replace(/<[^>]+>/g, "")
+    // HTML entities
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
     .replace(/&rsquo;|&#x2019;/g, "'")
     .replace(/&lsquo;|&#x2018;/g, "'")
-    .replace(/&rdquo;|&#x201D;/g, "”")
-    .replace(/&ldquo;|&#x201C;/g, "“")
-    .replace(/\s+/g, " ")
+    .replace(/&rdquo;|&#x201D;/g, "\u201d")
+    .replace(/&ldquo;|&#x201C;/g, "\u201c")
+    // Collapse horizontal whitespace but preserve newlines
+    .replace(/[^\S\n]+/g, " ")
     .trim();
 }
 
