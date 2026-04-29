@@ -2,6 +2,21 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+// ── Archive types ──────────────────────────────────────────────────────────
+
+interface ArchiveEntry {
+  id: string;
+  output_type: string;
+  variant: string | null;
+  output_text: string;
+  generated_text: string;
+  homily_id: string | null;
+  created_at: string;
+  updated_at: string;
+  homily_title: string | null;
+  homily_sunday_date: string | null;
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type EchoOutputType =
@@ -81,6 +96,15 @@ const ECHO_TABS: EchoTab[] = [
       "A short prayer drawn from the homily — forty to eighty words — for personal or communal use through the week.",
   },
 ];
+
+// Human-readable labels for output types
+const OUTPUT_TYPE_LABELS: Record<string, string> = {
+  "take-into-the-week": "Take Into the Week",
+  "parish-reflection": "Parish Reflection",
+  "social-post": "Social Post",
+  "small-group-questions": "Small Group Questions",
+  "prayer-prompt": "Prayer Prompt",
+};
 
 /**
  * Demo homily text used when no homilyText prop is provided.
@@ -560,9 +584,10 @@ interface TabButtonProps {
   tab: EchoTab;
   active: boolean;
   onClick: () => void;
+  dimmed?: boolean;
 }
 
-function TabButton({ tab, active, onClick }: TabButtonProps) {
+function TabButton({ tab, active, onClick, dimmed }: TabButtonProps) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -591,10 +616,316 @@ function TabButton({ tab, active, onClick }: TabButtonProps) {
         boxShadow: active ? "var(--ambo-shadow-sm)" : "none",
         lineHeight: 1.3,
         letterSpacing: active ? "-0.01em" : "0",
+        opacity: dimmed ? 0.4 : 1,
+        pointerEvents: dimmed ? "none" : "auto",
       }}
     >
       {tab.label}
     </button>
+  );
+}
+
+// ── Archive entry card ─────────────────────────────────────────────────────
+
+interface ArchiveEntryCardProps {
+  entry: ArchiveEntry;
+  onOpen: (entry: ArchiveEntry) => void;
+}
+
+function ArchiveEntryCard({ entry, onOpen }: ArchiveEntryCardProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const typeLabel = OUTPUT_TYPE_LABELS[entry.output_type] ?? entry.output_type;
+  const variantLabel = entry.variant
+    ? ` · ${entry.variant.charAt(0).toUpperCase() + entry.variant.slice(1).replace(/-/g, " ")}`
+    : "";
+
+  const preview = entry.output_text.slice(0, 120).trim();
+
+  const sourceLabel = entry.homily_title
+    ? `From your "${entry.homily_title}"`
+    : entry.homily_sunday_date
+    ? `From your ${entry.homily_sunday_date}`
+    : "Standalone output";
+
+  const savedDate = new Date(entry.created_at).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return (
+    <button
+      onClick={() => onOpen(entry)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: hovered
+          ? "var(--ambo-surface-solid)"
+          : "var(--ambo-surface)",
+        border: "1px solid var(--ambo-border)",
+        borderRadius: "var(--ambo-radius-sm)",
+        padding: "18px 22px",
+        cursor: "pointer",
+        transition: "all var(--ambo-dur) var(--ambo-ease)",
+        backdropFilter: "var(--ambo-blur)",
+        WebkitBackdropFilter: "var(--ambo-blur)",
+        boxShadow: hovered ? "var(--ambo-shadow-sm)" : "none",
+      }}
+    >
+      {/* Type label */}
+      <div
+        style={{
+          fontFamily: "var(--ambo-font-ui)",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          color: "var(--ambo-text-muted)",
+          marginBottom: 8,
+        }}
+      >
+        {typeLabel}{variantLabel}
+      </div>
+
+      {/* Preview text */}
+      <p
+        style={{
+          fontFamily: "var(--ambo-font-reading)",
+          fontSize: "var(--ambo-size-md)",
+          fontStyle: "italic",
+          color: "var(--ambo-text-primary)",
+          margin: "0 0 10px",
+          lineHeight: "var(--ambo-lh-snug)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {preview}{entry.output_text.length > 120 ? "…" : ""}
+      </p>
+
+      {/* Source + date row */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--ambo-font-ui)",
+            fontSize: "var(--ambo-size-sm)",
+            color: "var(--ambo-text-muted)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {sourceLabel}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--ambo-font-ui)",
+            fontSize: "var(--ambo-size-sm)",
+            color: "var(--ambo-text-muted)",
+            flexShrink: 0,
+          }}
+        >
+          {savedDate}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ── Archive view ───────────────────────────────────────────────────────────
+
+interface ArchiveViewProps {
+  entries: ArchiveEntry[];
+  loading: boolean;
+  error: string | null;
+  filter: "all" | "by-type";
+  onFilterChange: (f: "all" | "by-type") => void;
+  onOpen: (entry: ArchiveEntry) => void;
+}
+
+function ArchiveView({
+  entries,
+  loading,
+  error,
+  filter,
+  onFilterChange,
+  onOpen,
+}: ArchiveViewProps) {
+  const filterPillStyle = (active: boolean): React.CSSProperties => ({
+    border: `1px solid ${active ? "var(--ambo-accent)" : "var(--ambo-border)"}`,
+    background: active ? "var(--ambo-accent-light)" : "transparent",
+    color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+    fontSize: "var(--ambo-size-sm)",
+    fontWeight: active ? 600 : 500,
+    padding: "5px 14px",
+    borderRadius: "var(--ambo-radius-pill)",
+    cursor: "pointer",
+    fontFamily: "var(--ambo-font-ui)",
+    transition: "all var(--ambo-dur) var(--ambo-ease)",
+    lineHeight: 1,
+  });
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        padding: "40px 48px",
+        animation: "fadeIn 400ms ease-out",
+      }}
+    >
+      {/* Eyebrow */}
+      <div
+        style={{
+          fontFamily: "var(--ambo-font-ui)",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase",
+          color: "var(--ambo-text-muted)",
+          marginBottom: 20,
+        }}
+      >
+        your echo archive
+      </div>
+
+      {/* Filter pills */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 28,
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          style={filterPillStyle(filter === "all")}
+          onClick={() => onFilterChange("all")}
+        >
+          All
+        </button>
+        <button
+          style={filterPillStyle(filter === "by-type")}
+          onClick={() => onFilterChange("by-type")}
+        >
+          By type
+        </button>
+        {/* By homily — future enhancement */}
+        <button
+          style={{
+            ...filterPillStyle(false),
+            opacity: 0.4,
+            cursor: "default",
+            pointerEvents: "none",
+          }}
+          disabled
+        >
+          By homily
+        </button>
+      </div>
+
+      {/* Loading state */}
+      {loading && (
+        <p
+          style={{
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: "var(--ambo-size-lg)",
+            fontStyle: "italic",
+            color: "var(--ambo-text-muted)",
+            margin: 0,
+            animation: "echoComposingPulse 2s ease-in-out infinite",
+          }}
+        >
+          Loading archive&hellip;
+        </p>
+      )}
+
+      {/* Error state */}
+      {!loading && error && (
+        <p
+          style={{
+            fontFamily: "var(--ambo-font-ui)",
+            fontSize: "var(--ambo-size-md)",
+            color: "rgba(200,60,60,0.8)",
+            margin: 0,
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      {/* Empty state */}
+      {!loading && !error && entries.length === 0 && (
+        <p
+          style={{
+            fontFamily: "var(--ambo-font-reading)",
+            fontSize: "var(--ambo-size-lg)",
+            fontStyle: "italic",
+            color: "var(--ambo-text-muted)",
+            margin: 0,
+          }}
+        >
+          No outputs saved yet. Generate something and tap Save.
+        </p>
+      )}
+
+      {/* Entry list — All */}
+      {!loading && !error && entries.length > 0 && filter === "all" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {entries.map((entry) => (
+            <ArchiveEntryCard key={entry.id} entry={entry} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+
+      {/* Entry list — By type */}
+      {!loading && !error && entries.length > 0 && filter === "by-type" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          {(["take-into-the-week", "parish-reflection", "social-post", "small-group-questions", "prayer-prompt"] as const).map((type) => {
+            const group = entries.filter((e) => e.output_type === type);
+            if (group.length === 0) return null;
+            return (
+              <div key={type}>
+                <div
+                  style={{
+                    fontFamily: "var(--ambo-font-ui)",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "var(--ambo-text-muted)",
+                    marginBottom: 12,
+                    paddingBottom: 8,
+                    borderBottom: "1px solid var(--ambo-rule-subtle)",
+                  }}
+                >
+                  {OUTPUT_TYPE_LABELS[type]}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {group.map((entry) => (
+                    <ArchiveEntryCard key={entry.id} entry={entry} onOpen={onOpen} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -630,6 +961,13 @@ export default function EchoWorkspace({
     payload?: unknown;
   } | null>(null);
 
+  // ── Archive state ─────────────────────────────────────────────────────────
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archiveFilter, setArchiveFilter] = useState<"all" | "by-type">("all");
+  const [archiveOutputs, setArchiveOutputs] = useState<ArchiveEntry[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
@@ -653,6 +991,31 @@ export default function EchoWorkspace({
     outputText.length > 0 &&
     outputText !== generatedText &&
     saveStatus !== "saved";
+
+  // ── Archive fetch ─────────────────────────────────────────────────────────
+
+  const fetchArchive = useCallback(async () => {
+    setArchiveLoading(true);
+    setArchiveError(null);
+    try {
+      const res = await fetch("/api/echo/archive");
+      if (!res.ok) throw new Error(`Archive fetch failed: ${res.status}`);
+      const { outputs } = await res.json();
+      setArchiveOutputs(outputs ?? []);
+    } catch (err) {
+      console.error("[EchoWorkspace] archive fetch error:", err);
+      setArchiveError("Could not load archive. Please try again.");
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, []);
+
+  // Fetch when archive opens
+  useEffect(() => {
+    if (archiveOpen) {
+      fetchArchive();
+    }
+  }, [archiveOpen, fetchArchive]);
 
   // ── Generation ───────────────────────────────────────────────────────────
 
@@ -740,13 +1103,16 @@ export default function EchoWorkspace({
       setSavedId(id);
       setSaveStatus("saved");
 
+      // Re-fetch archive so it stays current after a save
+      fetchArchive();
+
       // Fade back to idle after 2 seconds
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (err) {
       console.error("[EchoWorkspace] save error:", err);
       setSaveStatus("error");
     }
-  }, [saveStatus, hasOutput, outputText, activeTab, resolvedVariant, generatedText, homilyId]);
+  }, [saveStatus, hasOutput, outputText, activeTab, resolvedVariant, generatedText, homilyId, fetchArchive]);
 
   // ── Copy ─────────────────────────────────────────────────────────────────
 
@@ -958,16 +1324,45 @@ export default function EchoWorkspace({
     }, 780);
   }, [closing, guardIfUnsaved, onClose]);
 
+  // ── Archive open entry ────────────────────────────────────────────────────
+
+  const handleArchiveOpen = useCallback((entry: ArchiveEntry) => {
+    // Load entry back into the editing area
+    setActiveTab(entry.output_type as EchoOutputType);
+    setOutputText(entry.output_text);
+    setGeneratedText(entry.generated_text);
+    setHasOutput(true);
+    setSavedId(entry.id);
+    setSaveStatus("idle");
+    setError(null);
+    setPendingAction(null);
+
+    // Restore variant
+    if (entry.output_type === "parish-reflection" && entry.variant) {
+      setParishVariant(entry.variant as ParishReflectionVariant);
+    } else if (entry.output_type === "social-post" && entry.variant) {
+      setSocialVariant(entry.variant as SocialPostVariant);
+    }
+
+    setArchiveOpen(false);
+  }, []);
+
   // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") {
+        if (archiveOpen) {
+          setArchiveOpen(false);
+        } else {
+          handleClose();
+        }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closing]);
+  }, [open, closing, archiveOpen]);
 
   // Reset to first tab whenever the workspace opens
   useEffect(() => {
@@ -981,6 +1376,7 @@ export default function EchoWorkspace({
       setSaveStatus("idle");
       setCopyStatus("idle");
       setPendingAction(null);
+      setArchiveOpen(false);
     }
   }, [open]);
 
@@ -1046,7 +1442,7 @@ export default function EchoWorkspace({
             flexShrink: 0,
           }}
         >
-          {/* Left: feature name + sunday label */}
+          {/* Left: feature name + sunday label + archive link */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
             <span
               style={{
@@ -1077,6 +1473,38 @@ export default function EchoWorkspace({
             >
               {sundayLabel}
             </span>
+            <span
+              aria-hidden="true"
+              style={{ fontSize: "var(--ambo-size-xs)", color: "var(--ambo-border)" }}
+            >
+              ·
+            </span>
+            {/* Archive affordance */}
+            <button
+              onClick={() => setArchiveOpen((v) => !v)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                fontFamily: "var(--ambo-font-ui)",
+                fontSize: "var(--ambo-size-xs)",
+                fontWeight: archiveOpen ? 600 : 500,
+                color: archiveOpen ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+                transition: "color var(--ambo-dur) var(--ambo-ease)",
+                lineHeight: 1,
+                letterSpacing: "0.02em",
+              }}
+              onMouseEnter={(e) => {
+                if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)";
+              }}
+              onMouseLeave={(e) => {
+                if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)";
+              }}
+              aria-pressed={archiveOpen}
+            >
+              Archive
+            </button>
           </div>
 
           {/* Right: close */}
@@ -1117,7 +1545,7 @@ export default function EchoWorkspace({
           </button>
         </header>
 
-        {/* ── Body: sidebar tabs + output area ───────────────────────────── */}
+        {/* ── Body: sidebar tabs + output area (or archive) ──────────────── */}
         <div
           style={{
             flex: 1,
@@ -1157,6 +1585,7 @@ export default function EchoWorkspace({
                 tab={tab}
                 active={activeTab === tab.id}
                 onClick={() => handleTabClick(tab.id)}
+                dimmed={archiveOpen}
               />
             ))}
 
@@ -1171,191 +1600,202 @@ export default function EchoWorkspace({
             </div>
           </aside>
 
-          {/* ── Main output panel ── */}
-          <main
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflowY: "auto",
-              padding: "40px 48px",
-            }}
-          >
-            {/* Output type heading row */}
-            <div style={{ marginBottom: 24, flexShrink: 0 }}>
-              <div
-                className="ambo-eyebrow ambo-eyebrow--accent"
-                style={{ marginBottom: 8 }}
-              >
-                {activeTabData.label}
-              </div>
-              <div
-                style={{
-                  height: 1,
-                  background: "var(--ambo-rule-subtle)",
-                  width: "100%",
-                }}
-              />
-            </div>
-
-            {/* Unsaved edits guard — shown above variant selectors */}
-            {pendingAction && (
-              <UnsavedGuard
-                onSave={handleGuardSave}
-                onDiscard={handleGuardDiscard}
-                onCancel={handleGuardCancel}
-                saving={saveStatus === "saving"}
-              />
-            )}
-
-            {/* Variant selectors — Parish Reflection */}
-            {activeTab === "parish-reflection" && (
-              <VariantChips
-                variants={PARISH_REFLECTION_VARIANTS}
-                active={parishVariant}
-                onChange={handleParishVariantChange}
-              />
-            )}
-
-            {/* Variant selectors — Social Post */}
-            {activeTab === "social-post" && (
-              <VariantChips
-                variants={SOCIAL_POST_VARIANTS}
-                active={socialVariant}
-                onChange={handleSocialVariantChange}
-              />
-            )}
-
-            {/* Content card */}
-            <div
-              className="glass-card"
+          {/* ── Main content: archive view or output panel ── */}
+          {archiveOpen ? (
+            <ArchiveView
+              entries={archiveOutputs}
+              loading={archiveLoading}
+              error={archiveError}
+              filter={archiveFilter}
+              onFilterChange={setArchiveFilter}
+              onOpen={handleArchiveOpen}
+            />
+          ) : (
+            <main
               style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
-                padding: "32px 36px",
-                minHeight: 360,
-                animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+                overflowY: "auto",
+                padding: "40px 48px",
               }}
             >
-              {/* Error state */}
-              {error && !streaming && (
+              {/* Output type heading row */}
+              <div style={{ marginBottom: 24, flexShrink: 0 }}>
+                <div
+                  className="ambo-eyebrow ambo-eyebrow--accent"
+                  style={{ marginBottom: 8 }}
+                >
+                  {activeTabData.label}
+                </div>
                 <div
                   style={{
-                    padding: "12px 16px",
-                    background: "rgba(200, 60, 60, 0.06)",
-                    border: "1px solid rgba(200, 60, 60, 0.2)",
-                    borderRadius: "var(--ambo-radius-sm)",
-                    marginBottom: 20,
-                    fontSize: "var(--ambo-size-sm)",
-                    color: "var(--ambo-text-secondary)",
-                    fontFamily: "var(--ambo-font-ui)",
+                    height: 1,
+                    background: "var(--ambo-rule-subtle)",
+                    width: "100%",
                   }}
-                >
-                  {error}
-                </div>
-              )}
+                />
+              </div>
 
-              {/* Composing indicator — shown while streaming and no text yet */}
-              {streaming && outputText.length === 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <ComposingIndicator />
-                </div>
-              )}
-
-              {/* Output text area — shown once text starts arriving */}
-              {hasOutput && outputText.length > 0 && (
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                  }}
-                >
-                  {/* Composing indicator above the text while still streaming */}
-                  {streaming && (
-                    <ComposingIndicator />
-                  )}
-
-                  <OutputArea
-                    text={outputText}
-                    onChange={setOutputText}
-                    streaming={streaming}
-                  />
-
-                  {/* Action row + regenerate — shown after streaming completes */}
-                  {!streaming && (
-                    <>
-                      <ActionRow
-                        savedId={savedId}
-                        saveStatus={saveStatus}
-                        copyStatus={copyStatus}
-                        onSave={handleSave}
-                        onCopy={handleCopy}
-                        onDownload={handleDownload}
-                        onEmail={handleEmail}
-                      />
-
-                      <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
-                        <GenerateButton
-                          label={activeTabData.label}
-                          onClick={handleGenerate}
-                          loading={streaming}
-                        />
-                        <span
-                          className="ambo-affordance"
-                          style={{ fontSize: "var(--ambo-size-sm)" }}
-                        >
-                          regenerate · or edit directly above
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Empty state — shown before any generation */}
-              {!hasOutput && !streaming && (
-                <EmptyOutput
-                  tab={activeTabData}
-                  onGenerate={handleGenerate}
-                  loading={streaming}
+              {/* Unsaved edits guard — shown above variant selectors */}
+              {pendingAction && (
+                <UnsavedGuard
+                  onSave={handleGuardSave}
+                  onDiscard={handleGuardDiscard}
+                  onCancel={handleGuardCancel}
+                  saving={saveStatus === "saving"}
                 />
               )}
 
-              {/* Composing-only state: streaming started, no text yet, full-card centering */}
-              {streaming && outputText.length === 0 && !hasOutput && (
-                <div
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ComposingIndicator />
-                </div>
+              {/* Variant selectors — Parish Reflection */}
+              {activeTab === "parish-reflection" && (
+                <VariantChips
+                  variants={PARISH_REFLECTION_VARIANTS}
+                  active={parishVariant}
+                  onChange={handleParishVariantChange}
+                />
               )}
-            </div>
 
-            {/* Footer */}
-            <div
-              style={{
-                marginTop: 20,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {!homilyText && (
-                <p className="ambo-meta ambo-meta--italic" style={{ textAlign: "center" }}>
-                  {/* TODO: remove this note once homily picker is wired in */}
-                  Using demo homily text — select a homily to generate from your own words.
-                </p>
+              {/* Variant selectors — Social Post */}
+              {activeTab === "social-post" && (
+                <VariantChips
+                  variants={SOCIAL_POST_VARIANTS}
+                  active={socialVariant}
+                  onChange={handleSocialVariantChange}
+                />
               )}
-            </div>
-          </main>
+
+              {/* Content card */}
+              <div
+                className="glass-card"
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "32px 36px",
+                  minHeight: 360,
+                  animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              >
+                {/* Error state */}
+                {error && !streaming && (
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      background: "rgba(200, 60, 60, 0.06)",
+                      border: "1px solid rgba(200, 60, 60, 0.2)",
+                      borderRadius: "var(--ambo-radius-sm)",
+                      marginBottom: 20,
+                      fontSize: "var(--ambo-size-sm)",
+                      color: "var(--ambo-text-secondary)",
+                      fontFamily: "var(--ambo-font-ui)",
+                    }}
+                  >
+                    {error}
+                  </div>
+                )}
+
+                {/* Composing indicator — shown while streaming and no text yet */}
+                {streaming && outputText.length === 0 && (
+                  <div style={{ marginBottom: 20 }}>
+                    <ComposingIndicator />
+                  </div>
+                )}
+
+                {/* Output text area — shown once text starts arriving */}
+                {hasOutput && outputText.length > 0 && (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
+                    }}
+                  >
+                    {/* Composing indicator above the text while still streaming */}
+                    {streaming && (
+                      <ComposingIndicator />
+                    )}
+
+                    <OutputArea
+                      text={outputText}
+                      onChange={setOutputText}
+                      streaming={streaming}
+                    />
+
+                    {/* Action row + regenerate — shown after streaming completes */}
+                    {!streaming && (
+                      <>
+                        <ActionRow
+                          savedId={savedId}
+                          saveStatus={saveStatus}
+                          copyStatus={copyStatus}
+                          onSave={handleSave}
+                          onCopy={handleCopy}
+                          onDownload={handleDownload}
+                          onEmail={handleEmail}
+                        />
+
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
+                          <GenerateButton
+                            label={activeTabData.label}
+                            onClick={handleGenerate}
+                            loading={streaming}
+                          />
+                          <span
+                            className="ambo-affordance"
+                            style={{ fontSize: "var(--ambo-size-sm)" }}
+                          >
+                            regenerate · or edit directly above
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Empty state — shown before any generation */}
+                {!hasOutput && !streaming && (
+                  <EmptyOutput
+                    tab={activeTabData}
+                    onGenerate={handleGenerate}
+                    loading={streaming}
+                  />
+                )}
+
+                {/* Composing-only state: streaming started, no text yet, full-card centering */}
+                {streaming && outputText.length === 0 && !hasOutput && (
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <ComposingIndicator />
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div
+                style={{
+                  marginTop: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {!homilyText && (
+                  <p className="ambo-meta ambo-meta--italic" style={{ textAlign: "center" }}>
+                    {/* TODO: remove this note once homily picker is wired in */}
+                    Using demo homily text — select a homily to generate from your own words.
+                  </p>
+                )}
+              </div>
+            </main>
+          )}
         </div>
       </div>
     </>
