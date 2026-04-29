@@ -456,7 +456,7 @@ function ActionRow({
         display: "flex",
         alignItems: "center",
         gap: 8,
-        marginTop: 32,
+        marginTop: 0,
         flexWrap: "wrap",
       }}
     >
@@ -469,6 +469,9 @@ function ActionRow({
           disabled={saveStatus === "saving"}
           style={{ ...ghostPill, opacity: saveStatus === "saving" ? 0.5 : 1 }}
         >
+          <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+            <path d="M5 3h10a1 1 0 0 1 1 1v13l-6-3-6 3V4a1 1 0 0 1 1-1z"/>
+          </svg>
           {saveStatus === "saving" ? "saving…" : savedId ? "save again" : "save"}
         </button>
       )}
@@ -481,6 +484,10 @@ function ActionRow({
           onClick={onCopy}
           style={ghostPill}
         >
+          <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+            <rect x="7" y="7" width="10" height="10" rx="1"/>
+            <path d="M3 13V4a1 1 0 0 1 1-1h9"/>
+          </svg>
           copy
         </button>
       )}
@@ -490,6 +497,10 @@ function ActionRow({
         onClick={onDownload}
         style={ghostPill}
       >
+        <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+          <path d="M10 3v10M6 9l4 4 4-4"/>
+          <path d="M3 15h14v2H3z"/>
+        </svg>
         download
       </button>
 
@@ -498,6 +509,10 @@ function ActionRow({
         onClick={onEmail}
         style={ghostPill}
       >
+        <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+          <rect x="2" y="4" width="16" height="12" rx="1"/>
+          <path d="M2 7l8 5 8-5"/>
+        </svg>
         email
       </button>
 
@@ -1570,33 +1585,18 @@ export default function EchoWorkspace({
             </button>
           ))}
 
-          {/* Archive affordance — separated by left border */}
+          {/* Archive pill — pill style, set apart by larger gap (no divider line) */}
           <button
             onClick={() => setArchiveOpen((v) => !v)}
             aria-pressed={archiveOpen}
-            style={{
-              marginLeft: 16,
-              background: "none",
-              border: "none",
-              borderLeft: "1px solid var(--ambo-border)",
-              padding: "7px 0 7px 16px",
-              cursor: "pointer",
-              fontFamily: "var(--ambo-font-ui)",
-              fontSize: "var(--ambo-size-sm)",
-              fontWeight: archiveOpen ? 600 : 400,
-              color: archiveOpen ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
-              transition: "color var(--ambo-dur) var(--ambo-ease)",
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-            }}
-            onMouseEnter={(e) => {
-              if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)";
-            }}
-            onMouseLeave={(e) => {
-              if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)";
-            }}
+            style={{ ...echoPillStyle(archiveOpen), marginLeft: 24 }}
           >
-            archive ↗
+            <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
+              <rect x="2" y="3" width="16" height="4" rx="1"/>
+              <path d="M4 7v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/>
+              <path d="M8 11h4"/>
+            </svg>
+            archive
           </button>
         </div>
 
@@ -1609,7 +1609,7 @@ export default function EchoWorkspace({
             overflowY: "auto",
             display: "flex",
             flexDirection: "column",
-            padding: "0 32px 8px",
+            padding: "0 32px 0",
           }}
         >
           {archiveOpen ? (
@@ -1682,6 +1682,7 @@ export default function EchoWorkspace({
                 flex: 1,
                 minHeight: 0,
                 marginTop: 16,
+                marginBottom: 8,
                 background: "var(--ambo-surface-solid)",
                 borderRadius: "var(--ambo-radius)",
                 boxShadow: "var(--ambo-shadow-md)",
@@ -1786,7 +1787,7 @@ export default function EchoWorkspace({
           <div
             style={{
               flexShrink: 0,
-              padding: "8px 32px 20px",
+              padding: "8px 32px 16px",
               background: "transparent",
               opacity: hasOutput ? 1 : 0.35,
               transition: "opacity 0.6s ease",
