@@ -97,6 +97,24 @@ const ECHO_TABS: EchoTab[] = [
   },
 ];
 
+// ── Small icons for each Echo output type ─────────────────────────────────
+function EchoTabIcon({ id }: { id: EchoOutputType }) {
+  const s = { width: 12, height: 12, display: "block" as const, flexShrink: 0 };
+  switch (id) {
+    case "take-into-the-week":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>;
+    case "parish-reflection":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h7l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v4h4M7 11h6M7 14h4"/></svg>;
+    case "social-post":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="15" cy="5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 9l6-3M7 11l6 3"/></svg>;
+    case "small-group-questions":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3V14z"/></svg>;
+    case "prayer-prompt":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3v14M4 8h12"/></svg>;
+    default: return null;
+  }
+}
+
 // Per-output-type textarea minimum height (px)
 function outputMinHeight(type: EchoOutputType): number {
   switch (type) {
@@ -156,31 +174,27 @@ interface VariantChipsProps<T extends string> {
   onChange: (v: T) => void;
 }
 
-function VariantChips<T extends string>({ variants, active, onChange }: VariantChipsProps<T>) {
+function VariantChips<T extends string>({ variants, active, onChange, echoPillStyle }: VariantChipsProps<T> & { echoPillStyle: (a: boolean) => React.CSSProperties }) {
   return (
-    <nav
-      className="mode-pill"
-      style={{ flexWrap: "wrap", marginBottom: 24 }}
-    >
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
       {variants.map((v) => {
         const isActive = v.id === active;
         return (
           <button
             key={v.id}
             onClick={() => onChange(v.id)}
-            className={isActive ? "mode-pill-btn active" : "mode-pill-btn"}
-            style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+            style={echoPillStyle(isActive)}
           >
             {v.label}
             {v.hint && (
-              <span style={{ fontSize: "var(--ambo-size-xs)", opacity: 0.7, fontWeight: 400 }}>
+              <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 400 }}>
                 {v.hint}
               </span>
             )}
           </button>
         );
       })}
-    </nav>
+    </div>
   );
 }
 
@@ -365,7 +379,6 @@ function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaPr
       style={{
         width: "100%",
         minHeight,
-        flex: 1,
         resize: "none",
         fontFamily: "var(--ambo-font-reading)",
         fontSize: "var(--ambo-size-lg)",
@@ -374,7 +387,7 @@ function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaPr
         background: "transparent",
         border: "none",
         outline: "none",
-        padding: "24px 0",
+        padding: "8px 0",
         margin: 0,
         boxSizing: "border-box",
         caretColor: "var(--ambo-accent)",
@@ -409,10 +422,23 @@ function ActionRow({
   onDownload,
   onEmail,
 }: ActionRowProps) {
-  // Action pills: mode-pill-btn class for hover behaviour; explicit border keeps pill shape visible
-  // (action pills are standalone, not inside a .mode-pill container rail)
-  const actionPillStyle: React.CSSProperties = {
+  const ghostPill: React.CSSProperties = {
+    fontFamily: "var(--ambo-font-ui)",
+    fontSize: 13,
+    fontWeight: 500,
+    padding: "8px 16px",
+    borderRadius: "var(--ambo-radius-pill)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    transition: "all 150ms var(--ambo-ease)",
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+    lineHeight: 1,
     border: "1px solid var(--ambo-border)",
+    background: "transparent",
+    color: "var(--ambo-text-secondary)",
   };
 
   const feedbackStyle: React.CSSProperties = {
@@ -441,8 +467,7 @@ function ActionRow({
         <button
           onClick={onSave}
           disabled={saveStatus === "saving"}
-          className="mode-pill-btn"
-          style={{ ...actionPillStyle, opacity: saveStatus === "saving" ? 0.5 : 1 }}
+          style={{ ...ghostPill, opacity: saveStatus === "saving" ? 0.5 : 1 }}
         >
           {saveStatus === "saving" ? "saving…" : savedId ? "save again" : "save"}
         </button>
@@ -454,8 +479,7 @@ function ActionRow({
       ) : (
         <button
           onClick={onCopy}
-          className="mode-pill-btn"
-          style={{...actionPillStyle}}
+          style={ghostPill}
         >
           copy
         </button>
@@ -464,8 +488,7 @@ function ActionRow({
       {/* Download */}
       <button
         onClick={onDownload}
-        className="mode-pill-btn"
-        style={{...actionPillStyle}}
+        style={ghostPill}
       >
         download
       </button>
@@ -473,8 +496,7 @@ function ActionRow({
       {/* Email */}
       <button
         onClick={onEmail}
-        className="mode-pill-btn"
-        style={{...actionPillStyle}}
+        style={ghostPill}
       >
         email
       </button>
@@ -905,8 +927,6 @@ export default function EchoWorkspace({
   const [generatedText, setGeneratedText] = useState("");
   const [hasOutput, setHasOutput] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Key incremented each generation so the action-row fade animation restarts
-  const [actionFadeKey, setActionFadeKey] = useState(0);
   // Variant state for tabs that support it
   const [parishVariant, setParishVariant] = useState<ParishReflectionVariant>("standard");
   const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
@@ -994,8 +1014,6 @@ export default function EchoWorkspace({
     setSavedId(null);
     setSaveStatus("idle");
     setError(null);
-    setActionFadeKey((k) => k + 1);
-
     let accumulated = "";
 
     try {
@@ -1392,9 +1410,30 @@ export default function EchoWorkspace({
 
   if (!open) return null;
 
-  // Echo pill className factory — matches mode-pill-btn treatment exactly
-  const outputPillClass = (isActive: boolean) =>
-    isActive ? "mode-pill-btn active" : "mode-pill-btn";
+  // ── Echo pill style — matches PillButton ghost/active exactly ───────────
+  const echoPillBase: React.CSSProperties = {
+    fontFamily: "var(--ambo-font-ui)",
+    fontSize: 13,
+    fontWeight: 500,
+    padding: "8px 16px",
+    borderRadius: "var(--ambo-radius-pill)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    transition: "all 150ms var(--ambo-ease)",
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+    lineHeight: 1,
+    border: "none",
+    background: "none",
+  };
+  const echoPillStyle = (isActive: boolean): React.CSSProperties => ({
+    ...echoPillBase,
+    border: isActive ? "1px solid var(--ambo-accent)" : "1px solid var(--ambo-border)",
+    background: isActive ? "var(--ambo-accent-light)" : "transparent",
+    color: isActive ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+  });
 
   return (
     <>
@@ -1519,18 +1558,17 @@ export default function EchoWorkspace({
             flexShrink: 0,
           }}
         >
-          <nav className="mode-pill" style={{ flexWrap: "wrap", gap: 2 }}>
           {ECHO_TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
               aria-pressed={tabSelected && activeTab === tab.id}
-              className={outputPillClass(tabSelected && activeTab === tab.id)}
+              style={echoPillStyle(tabSelected && activeTab === tab.id)}
             >
+              <EchoTabIcon id={tab.id} />
               {tab.label}
             </button>
           ))}
-          </nav>
 
           {/* Archive affordance — separated by left border */}
           <button
@@ -1605,6 +1643,7 @@ export default function EchoWorkspace({
                     variants={PARISH_REFLECTION_VARIANTS}
                     active={parishVariant}
                     onChange={handleParishVariantChange}
+                    echoPillStyle={echoPillStyle}
                   />
                 </div>
               )}
@@ -1615,6 +1654,7 @@ export default function EchoWorkspace({
                     variants={SOCIAL_POST_VARIANTS}
                     active={socialVariant}
                     onChange={handleSocialVariantChange}
+                    echoPillStyle={echoPillStyle}
                   />
                 </div>
               )}
@@ -1636,88 +1676,97 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* ── White card — permanent place, always present ─────────── */}
+              {/* ── White card — stable, fixed, always present ─────────── */}
+              {/* Content scrolls inside; card itself never moves or resizes    */}
               <div style={{
-                display: "flex",
-                flexDirection: "column",
                 flex: 1,
                 minHeight: 0,
                 marginTop: 16,
-                marginBottom: 0,
                 background: "var(--ambo-surface-solid)",
                 borderRadius: "var(--ambo-radius)",
                 boxShadow: "var(--ambo-shadow-md)",
-                padding: "4px 28px 20px",
+                overflow: "hidden",
+                position: "relative",
               }}>
+                <div
+                  className="echo-scroll"
+                  style={{
+                    height: "100%",
+                    overflowY: "auto",
+                    padding: "16px 28px 24px",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {/* No tab selected — workspace empty state, centred in card */}
+                  {!tabSelected && <NoSelectionState />}
 
-                {/* No tab selected — workspace empty state, centred in card */}
-                {!tabSelected && <NoSelectionState />}
+                  {tabSelected && (
+                    <>
+                      {/* Composing indicator — streaming, no text yet */}
+                      {streaming && outputText.length === 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <ComposingIndicator />
+                        </div>
+                      )}
 
-                {tabSelected && (
-                  <>
-                    {/* Composing indicator — streaming, no text yet */}
-                    {streaming && outputText.length === 0 && (
-                      <div style={{ marginTop: 20 }}>
-                        <ComposingIndicator />
-                      </div>
-                    )}
+                      {/* Output text area */}
+                      {hasOutput && outputText.length > 0 && (
+                        <>
+                          {streaming && (
+                            <div style={{ marginTop: 16 }}>
+                              <ComposingIndicator />
+                            </div>
+                          )}
 
-                    {/* Output text area */}
-                    {hasOutput && outputText.length > 0 && (
-                      <>
-                        {streaming && (
-                          <div style={{ marginTop: 20 }}>
-                            <ComposingIndicator />
-                          </div>
-                        )}
+                          <OutputArea
+                            text={outputText}
+                            onChange={setOutputText}
+                            streaming={streaming}
+                            minHeight={outputMinHeight(activeTab)}
+                          />
 
-                        <OutputArea
-                          text={outputText}
-                          onChange={setOutputText}
-                          streaming={streaming}
-                          minHeight={outputMinHeight(activeTab)}
+                          {!streaming && (
+                            <button
+                              onClick={handleRegenerate}
+                              style={{
+                                background: "none",
+                                border: "none",
+                                padding: 0,
+                                cursor: "pointer",
+                                fontFamily: "var(--ambo-font-ui)",
+                                fontSize: "var(--ambo-size-sm)",
+                                color: "var(--ambo-text-muted)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                marginTop: 12,
+                                marginBottom: 4,
+                                transition: "color var(--ambo-dur) var(--ambo-ease)",
+                                alignSelf: "flex-start",
+                              }}
+                              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+                              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+                              aria-label="Regenerate output"
+                            >
+                              <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
+                              try again
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {/* Empty state — tab selected, no generation yet */}
+                      {!hasOutput && !streaming && (
+                        <EmptyOutput
+                          tab={activeTabData}
+                          onGenerate={handleGenerate}
+                          loading={streaming}
                         />
-
-                        {!streaming && (
-                          <button
-                            onClick={handleRegenerate}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              cursor: "pointer",
-                              fontFamily: "var(--ambo-font-ui)",
-                              fontSize: "var(--ambo-size-sm)",
-                              color: "var(--ambo-text-muted)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 5,
-                              marginTop: 16,
-                              marginBottom: 8,
-                              transition: "color var(--ambo-dur) var(--ambo-ease)",
-                              alignSelf: "flex-start",
-                            }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
-                            aria-label="Regenerate output"
-                          >
-                            <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
-                            try again
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {/* Empty state — tab selected, no generation yet */}
-                    {!hasOutput && !streaming && (
-                      <EmptyOutput
-                        tab={activeTabData}
-                        onGenerate={handleGenerate}
-                        loading={streaming}
-                      />
-                    )}
-                  </>
-                )}
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {!homilyText && (
@@ -1732,15 +1781,15 @@ export default function EchoWorkspace({
           )}
         </div>
 
-        {/* ── Anchored action footer — fades in with the streaming output ── */}
-        {hasOutput && !archiveOpen && (
+        {/* ── Action footer — permanent structure, always present ── */}
+        {!archiveOpen && (
           <div
-            key={actionFadeKey}
             style={{
               flexShrink: 0,
               padding: "8px 32px 20px",
               background: "transparent",
-              animation: "echoActionFadeIn 3.5s ease-out both",
+              opacity: hasOutput ? 1 : 0.35,
+              transition: "opacity 0.6s ease",
             }}
           >
             <ActionRow
