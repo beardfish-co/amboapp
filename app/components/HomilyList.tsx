@@ -35,7 +35,7 @@ interface HomilyListProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
-  onOpenEcho: (sundayLabel: string) => void;
+  onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
   refreshKey?: number;
 }
 
@@ -137,7 +137,7 @@ interface ArchiveCardProps {
   layer?: "content" | "thread" | "notes" | "followups";
   confidence?: "strong" | "loose";
   // Echo trigger — omit when Sunday date is absent
-  onOpenEcho?: (sundayLabel: string) => void;
+  onOpenEcho?: (sundayLabel: string, homilyText: string, homilyId: string) => void;
 }
 
 function ArchiveCard({
@@ -262,7 +262,7 @@ function ArchiveCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenEcho(subtitle);
+                onOpenEcho(subtitle, content ?? "", id);
               }}
               aria-label="Open Echo for this homily"
               style={{
@@ -327,7 +327,7 @@ interface ReadingViewProps {
   closing: boolean;
   onClose: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
-  onOpenEcho?: (sundayLabel: string) => void;
+  onOpenEcho?: (sundayLabel: string, homilyText: string, homilyId: string) => void;
 }
 
 function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: ReadingViewProps) {
@@ -387,6 +387,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
       >
         {/* Glass panel — stops propagation, rounded corners, contained */}
         <div
+          id="ambo-reading-print"
           onClick={(e) => e.stopPropagation()}
           style={{
             width: "min(760px, 100%)",
@@ -430,7 +431,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {onOpenEcho && subtitle && (
                 <button
-                  onClick={() => { onClose(); onOpenEcho(subtitle); }}
+                  onClick={() => { onClose(); onOpenEcho(subtitle, homily.content ?? "", homily.id); }}
                   style={{
                     border: "1px solid rgba(74, 111, 165, 0.35)",
                     background: "transparent",
@@ -446,6 +447,26 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
                   Echo
                 </button>
               )}
+              <button
+                onClick={() => {
+                  // Print just the homily content area
+                  window.print();
+                }}
+                style={{
+                  border: "none",
+                  background: "none",
+                  color: "var(--ambo-text-muted)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  opacity: 0.7,
+                  padding: 0,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+              >
+                Print
+              </button>
               <button
                 onClick={() => { onClose(); onOpenInWrite(homilyRow); }}
                 style={{
@@ -791,10 +812,10 @@ export default function HomilyList({
             setClosingReading(false);
             onOpenInWrite(h);
           }}
-          onOpenEcho={(label) => {
+          onOpenEcho={(label, text, hId) => {
             setViewingHomily(null);
             setClosingReading(false);
-            onOpenEcho(label);
+            onOpenEcho(label, text, hId);
           }}
         />
       )}

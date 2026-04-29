@@ -93,6 +93,8 @@ export default function AmboApp() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [echoOpen, setEchoOpen] = useState(false);
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
+  const [echoHomilyText, setEchoHomilyText] = useState("");
+  const [echoHomilyId, setEchoHomilyId] = useState<string | undefined>(undefined);
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const [idHydrated, setIdHydrated] = useState(false);
 
@@ -277,8 +279,10 @@ export default function AmboApp() {
     setListRefreshKey((k) => k + 1);
   }, []);
 
-  const handleOpenEcho = useCallback((sundayLabel: string) => {
+  const handleOpenEcho = useCallback((sundayLabel: string, homilyText: string, homilyId: string) => {
     setEchoSundayLabel(sundayLabel);
+    setEchoHomilyText(homilyText);
+    setEchoHomilyId(homilyId || undefined);
     setDrawerOpen(false);
     setEchoOpen(true);
   }, []);
@@ -540,6 +544,8 @@ export default function AmboApp() {
         open={echoOpen}
         onClose={() => setEchoOpen(false)}
         sundayLabel={echoSundayLabel}
+        homilyText={echoHomilyText}
+        homilyId={echoHomilyId}
       />
 
       {/* Onboarding tour */}
