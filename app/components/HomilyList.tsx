@@ -1019,6 +1019,7 @@ export default function HomilyList({
                         confidence={r.confidence}
                         onOpen={() => setViewingHomily(r)}
                         onDelete={(id) => setConfirmDeleteId(id)}
+                        onOpenEcho={onOpenEcho}
                       />
                     ))}
                   </>

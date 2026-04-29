@@ -172,18 +172,8 @@ function VariantChips<T extends string>({ variants, active, onChange }: VariantC
           <button
             key={v.id}
             onClick={() => onChange(v.id)}
+            className={isActive ? "mode-pill-btn active" : "mode-pill-btn"}
             style={{
-              border: "1px solid var(--ambo-border)",
-              background: isActive ? "var(--ambo-surface-solid)" : "transparent",
-              boxShadow: isActive ? "0 1px 4px rgba(58, 89, 132, 0.10)" : "none",
-              color: isActive ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
-              fontSize: "var(--ambo-size-sm)",
-              fontWeight: isActive ? 600 : 500,
-              padding: "6px 14px",
-              borderRadius: "var(--ambo-radius-pill)",
-              cursor: "pointer",
-              fontFamily: "var(--ambo-font-ui)",
-              transition: "all var(--ambo-dur) var(--ambo-ease)",
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
@@ -434,21 +424,7 @@ function ActionRow({
   onDownload,
   onEmail,
 }: ActionRowProps) {
-  const pillStyle: React.CSSProperties = {
-    border: "1px solid var(--ambo-border)",
-    background: "transparent",
-    color: "var(--ambo-text-secondary)",
-    fontSize: "var(--ambo-size-sm)",
-    fontWeight: 500,
-    padding: "7px 16px",
-    borderRadius: "var(--ambo-radius-pill)",
-    cursor: "pointer",
-    fontFamily: "var(--ambo-font-ui)",
-    transition: "all var(--ambo-dur) var(--ambo-ease)",
-    lineHeight: 1,
-    display: "inline-flex",
-    alignItems: "center",
-  };
+  // Action pills use the same mode-pill-btn CSS class as all other workspace pills
 
   const feedbackStyle: React.CSSProperties = {
     fontFamily: "var(--ambo-font-reading)",
@@ -476,22 +452,8 @@ function ActionRow({
         <button
           onClick={onSave}
           disabled={saveStatus === "saving"}
-          style={{
-            ...pillStyle,
-            opacity: saveStatus === "saving" ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.borderColor = "var(--ambo-accent)";
-            btn.style.color = "var(--ambo-accent)";
-            btn.style.background = "var(--ambo-accent-light)";
-          }}
-          onMouseLeave={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.borderColor = "var(--ambo-border)";
-            btn.style.color = "var(--ambo-text-secondary)";
-            btn.style.background = "transparent";
-          }}
+          className="mode-pill-btn"
+          style={{ opacity: saveStatus === "saving" ? 0.5 : 1 }}
         >
           {saveStatus === "saving" ? "saving…" : savedId ? "save again" : "save"}
         </button>
@@ -503,19 +465,7 @@ function ActionRow({
       ) : (
         <button
           onClick={onCopy}
-          style={pillStyle}
-          onMouseEnter={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.borderColor = "var(--ambo-accent)";
-            btn.style.color = "var(--ambo-accent)";
-            btn.style.background = "var(--ambo-accent-light)";
-          }}
-          onMouseLeave={(e) => {
-            const btn = e.currentTarget as HTMLButtonElement;
-            btn.style.borderColor = "var(--ambo-border)";
-            btn.style.color = "var(--ambo-text-secondary)";
-            btn.style.background = "transparent";
-          }}
+          className="mode-pill-btn"
         >
           copy
         </button>
@@ -524,19 +474,7 @@ function ActionRow({
       {/* Download */}
       <button
         onClick={onDownload}
-        style={pillStyle}
-        onMouseEnter={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement;
-          btn.style.borderColor = "var(--ambo-accent)";
-          btn.style.color = "var(--ambo-accent)";
-          btn.style.background = "var(--ambo-accent-light)";
-        }}
-        onMouseLeave={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement;
-          btn.style.borderColor = "var(--ambo-border)";
-          btn.style.color = "var(--ambo-text-secondary)";
-          btn.style.background = "transparent";
-        }}
+        className="mode-pill-btn"
       >
         download
       </button>
@@ -544,19 +482,7 @@ function ActionRow({
       {/* Email */}
       <button
         onClick={onEmail}
-        style={pillStyle}
-        onMouseEnter={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement;
-          btn.style.borderColor = "var(--ambo-accent)";
-          btn.style.color = "var(--ambo-accent)";
-          btn.style.background = "var(--ambo-accent-light)";
-        }}
-        onMouseLeave={(e) => {
-          const btn = e.currentTarget as HTMLButtonElement;
-          btn.style.borderColor = "var(--ambo-border)";
-          btn.style.color = "var(--ambo-text-secondary)";
-          btn.style.background = "transparent";
-        }}
+        className="mode-pill-btn"
       >
         email
       </button>
@@ -1474,22 +1400,9 @@ export default function EchoWorkspace({
 
   if (!open) return null;
 
-  // Pill style factory for output type pills
-  const outputPillStyle = (isActive: boolean): React.CSSProperties => ({
-    border: "1px solid var(--ambo-border)",
-    background: isActive ? "var(--ambo-surface-solid)" : "transparent",
-    boxShadow: isActive ? "0 1px 4px rgba(58, 89, 132, 0.10)" : "none",
-    color: isActive ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
-    fontSize: "var(--ambo-size-sm)",
-    fontWeight: isActive ? 600 : 500,
-    padding: "7px 16px",
-    borderRadius: "var(--ambo-radius-pill)",
-    cursor: "pointer",
-    fontFamily: "var(--ambo-font-ui)",
-    transition: "all var(--ambo-dur) var(--ambo-ease)",
-    lineHeight: 1,
-    whiteSpace: "nowrap" as const,
-  });
+  // Echo pill className factory — matches mode-pill-btn treatment exactly
+  const outputPillClass = (isActive: boolean) =>
+    isActive ? "mode-pill-btn active" : "mode-pill-btn";
 
   return (
     <>
@@ -1572,8 +1485,8 @@ export default function EchoWorkspace({
               fontFamily: "var(--ambo-font-reading)",
               fontStyle: "italic",
               fontSize: "var(--ambo-size-md)",
-              fontWeight: 600,
-              color: "var(--ambo-text-primary)",
+              fontWeight: 500,
+              color: "var(--ambo-text-secondary)",
               margin: 0,
               lineHeight: 1.4,
             }}
@@ -1619,7 +1532,7 @@ export default function EchoWorkspace({
               key={tab.id}
               onClick={() => handleTabClick(tab.id)}
               aria-pressed={tabSelected && activeTab === tab.id}
-              style={outputPillStyle(tabSelected && activeTab === tab.id)}
+              className={outputPillClass(tabSelected && activeTab === tab.id)}
             >
               {tab.label}
             </button>
@@ -1751,12 +1664,22 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* Output text area — shown once text starts arriving */}
+              {/* Output text area — white card, inset within workspace */}
               {hasOutput && outputText.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  minHeight: 0,
+                  margin: "20px 0 8px",
+                  background: "var(--ambo-surface-solid)",
+                  borderRadius: "var(--ambo-radius)",
+                  boxShadow: "var(--ambo-shadow-md)",
+                  padding: "4px 28px 20px",
+                }}>
                   {/* Composing indicator above the text while still streaming */}
                   {streaming && (
-                    <div style={{ marginTop: 24 }}>
+                    <div style={{ marginTop: 20 }}>
                       <ComposingIndicator />
                     </div>
                   )}
