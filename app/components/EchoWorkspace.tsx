@@ -1617,8 +1617,6 @@ export default function EchoWorkspace({
             aria-pressed={archiveOpen}
             style={{
               marginLeft: 16,
-              paddingLeft: 16,
-              borderLeft: "1px solid var(--ambo-border)",
               background: "none",
               border: "none",
               borderLeft: "1px solid var(--ambo-border)",
