@@ -1285,7 +1285,7 @@ export default function EchoWorkspace({
         setTimeout(() => {
           setClosing(false);
           onClose();
-        }, 780);
+        }, 750);
       } else if (action.type === "regenerate") {
         setOutputText("");
         setGeneratedText("");
@@ -1407,7 +1407,7 @@ export default function EchoWorkspace({
     setTimeout(() => {
       setClosing(false);
       onClose();
-    }, 780);
+    }, 750);
   }, [closing, guardIfUnsaved, onClose]);
 
   // ── Archive open entry ────────────────────────────────────────────────────
@@ -1488,12 +1488,14 @@ export default function EchoWorkspace({
 
   return (
     <>
-      {/* Keyframes injected once alongside the workspace */}
+      {/* Keyframes + scrollbar suppression */}
       <style>{`
         @keyframes echoComposingPulse {
           0%, 100% { opacity: 0.45; }
           50%       { opacity: 0.85; }
         }
+        .echo-scroll::-webkit-scrollbar { display: none; }
+        .echo-scroll { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>
 
       {/* Scrim — same treatment as reading view */}
@@ -1508,8 +1510,8 @@ export default function EchoWorkspace({
           WebkitBackdropFilter: "blur(8px)",
           zIndex: 110,
           animation: closing
-            ? "fadeOut 780ms ease-in both"
-            : "fadeIn 900ms ease-out both",
+            ? "fadeOut 750ms ease-in both"
+            : "fadeIn 1000ms ease-out both",
         }}
       />
 
@@ -1540,8 +1542,8 @@ export default function EchoWorkspace({
           marginRight: "auto",
           overflow: "hidden",
           animation: closing
-            ? "slideOutRight 780ms ease-in both"
-            : "slideInRight 900ms ease-out both",
+            ? "slideOutRight 750ms ease-in both"
+            : "slideInRight 1000ms ease-out both",
         }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -1655,11 +1657,14 @@ export default function EchoWorkspace({
 
         {/* ── Body: archive view or output panel ─────────────────────────── */}
         <div
+          className="echo-scroll"
           style={{
             flex: 1,
             minHeight: 0,
             overflowY: "auto",
-            padding: "0 32px 32px",
+            display: "flex",
+            flexDirection: "column",
+            padding: "0 32px 24px",
           }}
         >
           {archiveOpen ? (
@@ -1676,7 +1681,7 @@ export default function EchoWorkspace({
             <NoSelectionState />
           ) : (
             /* Output panel */
-            <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
               {/* Unsaved edits guard */}
               {pendingAction && (
                 <div style={{ paddingTop: 24 }}>
@@ -1738,7 +1743,7 @@ export default function EchoWorkspace({
 
               {/* Output text area — shown once text starts arriving */}
               {hasOutput && outputText.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
                   {/* Composing indicator above the text while still streaming */}
                   {streaming && (
                     <div style={{ marginTop: 24 }}>
@@ -1811,9 +1816,8 @@ export default function EchoWorkspace({
           <div
             style={{
               flexShrink: 0,
-              borderTop: "1px solid var(--ambo-border)",
-              padding: "16px 32px",
-              background: "var(--ambo-surface-reading)",
+              padding: "16px 32px 24px",
+              background: "transparent",
             }}
           >
             <ActionRow
