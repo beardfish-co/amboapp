@@ -381,6 +381,12 @@ function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaPr
       style={{
         width: "100%",
         minHeight,
+        /* Text container fills card height — do not remove flex: 1.
+           Without it the textarea occupies only minHeight px, leaving empty
+           whitespace below. The echo-scroll parent is a flex column with
+           height: 100%, so flex: 1 here expands the textarea to fill the
+           available card interior. See AMBO Echo workspace spec. */
+        flex: 1,
         resize: "none",
         fontFamily: "var(--ambo-font-reading)",
         fontSize: "var(--ambo-size-lg)",
