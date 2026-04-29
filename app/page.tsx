@@ -9,6 +9,7 @@ import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList, { HomilyRow } from "./components/HomilyList";
+import EchoWorkspace from "./components/EchoWorkspace";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -90,6 +91,8 @@ export default function AmboApp() {
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [echoOpen, setEchoOpen] = useState(false);
+  const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const [idHydrated, setIdHydrated] = useState(false);
 
@@ -272,6 +275,12 @@ export default function AmboApp() {
 
   const handleSaved = useCallback(() => {
     setListRefreshKey((k) => k + 1);
+  }, []);
+
+  const handleOpenEcho = useCallback((sundayLabel: string) => {
+    setEchoSundayLabel(sundayLabel);
+    setDrawerOpen(false);
+    setEchoOpen(true);
   }, []);
 
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -521,9 +530,17 @@ export default function AmboApp() {
         onSelect={handleSelectHomily}
         onCreate={handleCreateHomily}
         onOpenInWrite={handleOpenInWrite}
+        onOpenEcho={handleOpenEcho}
         refreshKey={listRefreshKey}
       />
       </ErrorBoundary>
+
+      {/* Echo workspace */}
+      <EchoWorkspace
+        open={echoOpen}
+        onClose={() => setEchoOpen(false)}
+        sundayLabel={echoSundayLabel}
+      />
 
       {/* Onboarding tour */}
       <OnboardingTour mode={mode} setMode={setMode} />

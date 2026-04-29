@@ -35,6 +35,7 @@ interface HomilyListProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
+  onOpenEcho: (sundayLabel: string) => void;
   refreshKey?: number;
 }
 
@@ -135,12 +136,14 @@ interface ArchiveCardProps {
   excerpt?: string;
   layer?: "content" | "thread" | "notes" | "followups";
   confidence?: "strong" | "loose";
+  // Echo trigger — omit when Sunday date is absent
+  onOpenEcho?: (sundayLabel: string) => void;
 }
 
 function ArchiveCard({
   id, title, sunday_date, updated_at, content,
   onOpen, onDelete,
-  excerpt, layer, confidence,
+  excerpt, layer, confidence, onOpenEcho,
 }: ArchiveCardProps) {
   const sundayName = sunday_date ? sundayNameCache.get(sunday_date) : undefined;
   const displayTitle = (title && title.trim()) || sundayName || "Untitled";
@@ -254,17 +257,46 @@ function ArchiveCard({
             </>
           )}
         </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(id); }}
-          aria-label="Delete homily"
-          style={{
-            border: "none", background: "none", color: "var(--ambo-text-muted)",
-            cursor: "pointer", padding: "2px 6px", borderRadius: 6,
-            fontSize: 11, fontFamily: "inherit", opacity: 0.7, flexShrink: 0,
-          }}
-        >
-          Delete
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {onOpenEcho && subtitle && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenEcho(subtitle);
+              }}
+              aria-label="Open Echo for this homily"
+              style={{
+                border: "1px solid rgba(74, 111, 165, 0.3)",
+                background: "transparent",
+                color: "var(--ambo-accent)",
+                cursor: "pointer",
+                padding: "2px 8px",
+                borderRadius: 100,
+                fontSize: 11,
+                fontFamily: "inherit",
+                fontWeight: 500,
+                opacity: 0.8,
+                flexShrink: 0,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+            >
+              Echo
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(id); }}
+            aria-label="Delete homily"
+            style={{
+              border: "none", background: "none", color: "var(--ambo-text-muted)",
+              cursor: "pointer", padding: "2px 6px", borderRadius: 6,
+              fontSize: 11, fontFamily: "inherit", opacity: 0.7, flexShrink: 0,
+            }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -295,9 +327,10 @@ interface ReadingViewProps {
   closing: boolean;
   onClose: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
+  onOpenEcho?: (sundayLabel: string) => void;
 }
 
-function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewProps) {
+function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: ReadingViewProps) {
   const sundayName = homily.sunday_date
     ? sundayNameCache.get(homily.sunday_date)
     : undefined;
@@ -394,21 +427,41 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewPro
             >
               ‹
             </button>
-            <button
-              onClick={() => { onClose(); onOpenInWrite(homilyRow); }}
-              style={{
-                border: "none",
-                background: "none",
-                color: "var(--ambo-accent)",
-                cursor: "pointer",
-                fontSize: 13,
-                fontFamily: "inherit",
-                opacity: 0.8,
-                padding: 0,
-              }}
-            >
-              Edit
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {onOpenEcho && subtitle && (
+                <button
+                  onClick={() => { onClose(); onOpenEcho(subtitle); }}
+                  style={{
+                    border: "1px solid rgba(74, 111, 165, 0.35)",
+                    background: "transparent",
+                    color: "var(--ambo-accent)",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    fontFamily: "inherit",
+                    padding: "5px 14px",
+                    borderRadius: 100,
+                  }}
+                >
+                  Echo
+                </button>
+              )}
+              <button
+                onClick={() => { onClose(); onOpenInWrite(homilyRow); }}
+                style={{
+                  border: "none",
+                  background: "none",
+                  color: "var(--ambo-accent)",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontFamily: "inherit",
+                  opacity: 0.8,
+                  padding: 0,
+                }}
+              >
+                Edit
+              </button>
+            </div>
           </div>
 
           {/* Title */}
@@ -476,7 +529,10 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite }: ReadingViewPro
 }
 
 // ── Echo panel ─────────────────────────────────────────────────────────────
-function EchoPanel() {
+interface EchoPanelProps {
+  onSwitchToHomilies: () => void;
+}
+function EchoPanel({ onSwitchToHomilies }: EchoPanelProps) {
   return (
     <div style={{
       flex: 1,
@@ -506,11 +562,26 @@ function EchoPanel() {
         </div>
         <div style={{
           fontSize: 13, color: "var(--ambo-text-secondary)",
-          lineHeight: 1.65, maxWidth: 260,
+          lineHeight: 1.65, maxWidth: 260, marginBottom: 20,
         }}>
-          Take a completed homily and carry it forward — bulletin notes,
-          parish reflections, and more. Coming soon.
+          Carry a homily forward — bulletin notes, parish reflections, social posts, and more.
         </div>
+        <button
+          onClick={onSwitchToHomilies}
+          style={{
+            border: "1px solid rgba(74, 111, 165, 0.35)",
+            background: "transparent",
+            color: "var(--ambo-accent)",
+            fontSize: 13,
+            fontWeight: 500,
+            padding: "10px 20px",
+            borderRadius: 100,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          Choose a homily
+        </button>
       </div>
     </div>
   );
@@ -524,6 +595,7 @@ export default function HomilyList({
   onSelect,
   onCreate,
   onOpenInWrite,
+  onOpenEcho,
   refreshKey = 0,
 }: HomilyListProps) {
   const [tab, setTab] = useState<DrawerTab>("my-homilies");
@@ -718,6 +790,11 @@ export default function HomilyList({
             setViewingHomily(null);
             setClosingReading(false);
             onOpenInWrite(h);
+          }}
+          onOpenEcho={(label) => {
+            setViewingHomily(null);
+            setClosingReading(false);
+            onOpenEcho(label);
           }}
         />
       )}
@@ -963,6 +1040,7 @@ export default function HomilyList({
                       content={h.content}
                       onOpen={() => setViewingHomily(h)}
                       onDelete={(id) => setConfirmDeleteId(id)}
+                      onOpenEcho={onOpenEcho}
                     />
                   ))}
                 </>
@@ -982,6 +1060,7 @@ export default function HomilyList({
                       content={h.content}
                       onOpen={() => setViewingHomily(h)}
                       onDelete={(id) => setConfirmDeleteId(id)}
+                      onOpenEcho={onOpenEcho}
                     />
                   ))}
                 </>
@@ -989,7 +1068,7 @@ export default function HomilyList({
             </div>
           </div>
         ) : (
-          <EchoPanel />
+          <EchoPanel onSwitchToHomilies={() => setTab("my-homilies")} />
         )}
       </aside>
 
