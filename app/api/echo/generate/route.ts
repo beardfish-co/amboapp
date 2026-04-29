@@ -156,9 +156,9 @@ Output only the Small Group Questions. Do not include any other text.`;
 function getPrayerPromptPrompt(): string {
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Prayer Prompt — a short prayer drawn from the homily, 40–80 words, for personal or communal use through the week.
 
-Voice: Prayerful. Simple. True to the homily's spirit. The prayer a parishioner might pray quietly before bed or in the morning.
+Voice: Devotional, reverent, prayerful. This must sound like a prayer, not a reflection about prayer and not instruction on how to pray. Address God directly — Father, Lord Jesus, or Holy Spirit — consistent with the homily's own theological emphasis. The words should feel natural on the lips of a parishioner in a quiet moment.
 
-Structure: A single, complete prayer. May be addressed to the Father, to Christ, or to the Holy Spirit — consistent with the homily's own address. No multiple parts, no sections.
+Structure: A single, complete prayer. One movement — not multiple parts or sections. No preamble, no pastoral instruction, no explanation of what to do. Simply pray.
 
 Universal constraints — all of the following apply without exception:
 

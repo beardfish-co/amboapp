@@ -97,6 +97,17 @@ const ECHO_TABS: EchoTab[] = [
   },
 ];
 
+// Per-output-type textarea minimum height (px)
+function outputMinHeight(type: EchoOutputType): number {
+  switch (type) {
+    case "take-into-the-week": return 160;
+    case "parish-reflection":  return 300;
+    case "social-post":        return 160;
+    case "small-group-questions": return 260;
+    case "prayer-prompt":      return 140;
+  }
+}
+
 // Human-readable labels for output types
 const OUTPUT_TYPE_LABELS: Record<string, string> = {
   "take-into-the-week": "Take Into the Week",
@@ -314,9 +325,10 @@ interface OutputAreaProps {
   text: string;
   onChange: (text: string) => void;
   streaming: boolean;
+  minHeight?: number;
 }
 
-function OutputArea({ text, onChange, streaming }: OutputAreaProps) {
+function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom while streaming
@@ -334,7 +346,7 @@ function OutputArea({ text, onChange, streaming }: OutputAreaProps) {
       readOnly={streaming}
       style={{
         width: "100%",
-        minHeight: 280,
+        minHeight,
         flex: 1,
         resize: "vertical",
         fontFamily: "var(--ambo-font-reading)",
@@ -1721,6 +1733,7 @@ export default function EchoWorkspace({
                       text={outputText}
                       onChange={setOutputText}
                       streaming={streaming}
+                      minHeight={outputMinHeight(activeTab)}
                     />
 
                     {/* Action row + regenerate — shown after streaming completes */}
@@ -1763,19 +1776,7 @@ export default function EchoWorkspace({
                   />
                 )}
 
-                {/* Composing-only state: streaming started, no text yet, full-card centering */}
-                {streaming && outputText.length === 0 && !hasOutput && (
-                  <div
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <ComposingIndicator />
-                  </div>
-                )}
+
               </div>
 
               {/* Footer */}
