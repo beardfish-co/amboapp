@@ -158,13 +158,9 @@ interface VariantChipsProps<T extends string> {
 
 function VariantChips<T extends string>({ variants, active, onChange }: VariantChipsProps<T>) {
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 8,
-        flexWrap: "wrap",
-        marginBottom: 24,
-      }}
+    <nav
+      className="mode-pill"
+      style={{ flexWrap: "wrap", marginBottom: 24 }}
     >
       {variants.map((v) => {
         const isActive = v.id === active;
@@ -173,29 +169,18 @@ function VariantChips<T extends string>({ variants, active, onChange }: VariantC
             key={v.id}
             onClick={() => onChange(v.id)}
             className={isActive ? "mode-pill-btn active" : "mode-pill-btn"}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              lineHeight: 1,
-            }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
           >
             {v.label}
             {v.hint && (
-              <span
-                style={{
-                  fontSize: "var(--ambo-size-xs)",
-                  opacity: 0.7,
-                  fontWeight: 400,
-                }}
-              >
+              <span style={{ fontSize: "var(--ambo-size-xs)", opacity: 0.7, fontWeight: 400 }}>
                 {v.hint}
               </span>
             )}
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
@@ -424,7 +409,11 @@ function ActionRow({
   onDownload,
   onEmail,
 }: ActionRowProps) {
-  // Action pills use the same mode-pill-btn CSS class as all other workspace pills
+  // Action pills: mode-pill-btn class for hover behaviour; explicit border keeps pill shape visible
+  // (action pills are standalone, not inside a .mode-pill container rail)
+  const actionPillStyle: React.CSSProperties = {
+    border: "1px solid var(--ambo-border)",
+  };
 
   const feedbackStyle: React.CSSProperties = {
     fontFamily: "var(--ambo-font-reading)",
@@ -453,7 +442,7 @@ function ActionRow({
           onClick={onSave}
           disabled={saveStatus === "saving"}
           className="mode-pill-btn"
-          style={{ opacity: saveStatus === "saving" ? 0.5 : 1 }}
+          style={{ ...actionPillStyle, opacity: saveStatus === "saving" ? 0.5 : 1 }}
         >
           {saveStatus === "saving" ? "saving…" : savedId ? "save again" : "save"}
         </button>
@@ -466,6 +455,7 @@ function ActionRow({
         <button
           onClick={onCopy}
           className="mode-pill-btn"
+          style={{...actionPillStyle}}
         >
           copy
         </button>
@@ -475,6 +465,7 @@ function ActionRow({
       <button
         onClick={onDownload}
         className="mode-pill-btn"
+        style={{...actionPillStyle}}
       >
         download
       </button>
@@ -483,6 +474,7 @@ function ActionRow({
       <button
         onClick={onEmail}
         className="mode-pill-btn"
+        style={{...actionPillStyle}}
       >
         email
       </button>
@@ -1522,11 +1514,12 @@ export default function EchoWorkspace({
             padding: "16px 32px 0",
             display: "flex",
             alignItems: "center",
-            gap: 8,
             flexWrap: "wrap",
+            gap: 8,
             flexShrink: 0,
           }}
         >
+          <nav className="mode-pill" style={{ flexWrap: "wrap", gap: 2 }}>
           {ECHO_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -1537,6 +1530,7 @@ export default function EchoWorkspace({
               {tab.label}
             </button>
           ))}
+          </nav>
 
           {/* Archive affordance — separated by left border */}
           <button
@@ -1568,17 +1562,7 @@ export default function EchoWorkspace({
           </button>
         </div>
 
-        {/* ── Thin rule beneath pills ─────────────────────────────────────── */}
-        <div
-          style={{
-            margin: "16px 32px 0",
-            height: 1,
-            background: "var(--ambo-rule-subtle)",
-            flexShrink: 0,
-          }}
-        />
-
-        {/* ── Body: archive view or output panel ─────────────────────────── */}
+        {/* ── Body: archive view or content panel ─────────────────────────── */}
         <div
           className="echo-scroll"
           style={{
@@ -1587,7 +1571,7 @@ export default function EchoWorkspace({
             overflowY: "auto",
             display: "flex",
             flexDirection: "column",
-            padding: "0 32px 24px",
+            padding: "0 32px 8px",
           }}
         >
           {archiveOpen ? (
@@ -1599,15 +1583,13 @@ export default function EchoWorkspace({
               onFilterChange={setArchiveFilter}
               onOpen={handleArchiveOpen}
             />
-          ) : !tabSelected ? (
-            /* No-selection state: show Echo title + tagline */
-            <NoSelectionState />
           ) : (
-            /* Output panel */
+            /* Content panel — white card always present */
             <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-              {/* Unsaved edits guard */}
-              {pendingAction && (
-                <div style={{ paddingTop: 24 }}>
+
+              {/* Chrome on grey surface: guard, variant chips, error */}
+              {tabSelected && pendingAction && (
+                <div style={{ paddingTop: 20 }}>
                   <UnsavedGuard
                     onSave={handleGuardSave}
                     onDiscard={handleGuardDiscard}
@@ -1617,9 +1599,8 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* Variant selectors — Parish Reflection */}
-              {activeTab === "parish-reflection" && (
-                <div style={{ paddingTop: 20 }}>
+              {tabSelected && activeTab === "parish-reflection" && (
+                <div style={{ paddingTop: 16 }}>
                   <VariantChips
                     variants={PARISH_REFLECTION_VARIANTS}
                     active={parishVariant}
@@ -1628,9 +1609,8 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* Variant selectors — Social Post */}
-              {activeTab === "social-post" && (
-                <div style={{ paddingTop: 20 }}>
+              {tabSelected && activeTab === "social-post" && (
+                <div style={{ paddingTop: 16 }}>
                   <VariantChips
                     variants={SOCIAL_POST_VARIANTS}
                     active={socialVariant}
@@ -1639,11 +1619,10 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* Error state */}
-              {error && !streaming && (
+              {tabSelected && error && !streaming && (
                 <div
                   style={{
-                    marginTop: 24,
+                    marginTop: 16,
                     padding: "12px 16px",
                     background: "rgba(200, 60, 60, 0.06)",
                     border: "1px solid rgba(200, 60, 60, 0.2)",
@@ -1657,86 +1636,95 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {/* Composing indicator — shown while streaming and no text yet */}
-              {streaming && outputText.length === 0 && (
-                <div style={{ marginTop: 32 }}>
-                  <ComposingIndicator />
-                </div>
-              )}
+              {/* ── White card — permanent place, always present ─────────── */}
+              <div style={{
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                minHeight: 0,
+                marginTop: 16,
+                marginBottom: 0,
+                background: "var(--ambo-surface-solid)",
+                borderRadius: "var(--ambo-radius)",
+                boxShadow: "var(--ambo-shadow-md)",
+                padding: "4px 28px 20px",
+              }}>
 
-              {/* Output text area — white card, inset within workspace */}
-              {hasOutput && outputText.length > 0 && (
-                <div style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  flex: 1,
-                  minHeight: 0,
-                  margin: "20px 0 8px",
-                  background: "var(--ambo-surface-solid)",
-                  borderRadius: "var(--ambo-radius)",
-                  boxShadow: "var(--ambo-shadow-md)",
-                  padding: "4px 28px 20px",
-                }}>
-                  {/* Composing indicator above the text while still streaming */}
-                  {streaming && (
-                    <div style={{ marginTop: 20 }}>
-                      <ComposingIndicator />
-                    </div>
-                  )}
+                {/* No tab selected — workspace empty state, centred in card */}
+                {!tabSelected && <NoSelectionState />}
 
-                  <OutputArea
-                    text={outputText}
-                    onChange={setOutputText}
-                    streaming={streaming}
-                    minHeight={outputMinHeight(activeTab)}
-                  />
+                {tabSelected && (
+                  <>
+                    {/* Composing indicator — streaming, no text yet */}
+                    {streaming && outputText.length === 0 && (
+                      <div style={{ marginTop: 20 }}>
+                        <ComposingIndicator />
+                      </div>
+                    )}
 
-                  {/* try again lives here — just below the output textarea, inside the scroll area */}
-                  {!streaming && (
-                    <button
-                      onClick={handleRegenerate}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        fontFamily: "var(--ambo-font-ui)",
-                        fontSize: "var(--ambo-size-sm)",
-                        color: "var(--ambo-text-muted)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 5,
-                        marginTop: 16,
-                        marginBottom: 8,
-                        transition: "color var(--ambo-dur) var(--ambo-ease)",
-                        alignSelf: "flex-start",
-                      }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
-                      aria-label="Regenerate output"
-                    >
-                      <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
-                      try again
-                    </button>
-                  )}
-                </div>
-              )}
+                    {/* Output text area */}
+                    {hasOutput && outputText.length > 0 && (
+                      <>
+                        {streaming && (
+                          <div style={{ marginTop: 20 }}>
+                            <ComposingIndicator />
+                          </div>
+                        )}
 
-              {/* Empty state — shown before any generation */}
-              {!hasOutput && !streaming && (
-                <EmptyOutput
-                  tab={activeTabData}
-                  onGenerate={handleGenerate}
-                  loading={streaming}
-                />
-              )}
+                        <OutputArea
+                          text={outputText}
+                          onChange={setOutputText}
+                          streaming={streaming}
+                          minHeight={outputMinHeight(activeTab)}
+                        />
+
+                        {!streaming && (
+                          <button
+                            onClick={handleRegenerate}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontFamily: "var(--ambo-font-ui)",
+                              fontSize: "var(--ambo-size-sm)",
+                              color: "var(--ambo-text-muted)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              marginTop: 16,
+                              marginBottom: 8,
+                              transition: "color var(--ambo-dur) var(--ambo-ease)",
+                              alignSelf: "flex-start",
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+                            aria-label="Regenerate output"
+                          >
+                            <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
+                            try again
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {/* Empty state — tab selected, no generation yet */}
+                    {!hasOutput && !streaming && (
+                      <EmptyOutput
+                        tab={activeTabData}
+                        onGenerate={handleGenerate}
+                        loading={streaming}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
 
               {!homilyText && (
                 <p
                   className="ambo-meta"
-                  style={{ textAlign: "left", marginTop: 24, fontStyle: "italic" }}
+                  style={{ textAlign: "left", marginTop: 12, fontStyle: "italic" }}
                 >
-                  {/* TODO: remove this note once homily picker is wired in */}
                   Using demo homily text — select a homily to generate from your own words.
                 </p>
               )}
@@ -1750,7 +1738,7 @@ export default function EchoWorkspace({
             key={actionFadeKey}
             style={{
               flexShrink: 0,
-              padding: "16px 32px 24px",
+              padding: "8px 32px 20px",
               background: "transparent",
               animation: "echoActionFadeIn 3.5s ease-out both",
             }}
