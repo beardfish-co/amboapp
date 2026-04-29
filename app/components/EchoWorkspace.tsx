@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,12 @@ interface EchoWorkspaceProps {
   sundayLabel: string;
   open: boolean;
   onClose: () => void;
+  /**
+   * The priest's homily text, used as the source for Echo generation.
+   * TODO: wire this from the homily picker when that feature is implemented.
+   * For now a demo placeholder is used if this prop is absent.
+   */
+  homilyText?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -74,44 +80,34 @@ const ECHO_TABS: EchoTab[] = [
   },
 ];
 
-// ── Skeleton / loading state ───────────────────────────────────────────────
+/**
+ * Demo homily text used when no homilyText prop is provided.
+ * TODO: replace with the real homily when the homily picker is wired in.
+ */
+const DEMO_HOMILY_TEXT = `Brothers and sisters, today's Gospel brings us face to face with a question that echoes through every human heart: "Do you love me?" Three times the Lord asks Peter, and three times Peter answers — not with the polished confidence of before the passion, but with the vulnerability of a man who knows his own weakness. "Lord, you know everything; you know that I love you."
 
-function OutputSkeleton() {
+There is something profound happening here. Jesus does not ask Peter to prove himself, to demonstrate his worthiness, to make up for his threefold denial with some great act of penance. He simply asks Peter to stand in the truth of his love — however imperfect, however fragile — and then to act from that love. "Feed my sheep."
+
+This is the shape of Christian mission. It does not begin with our accomplishments or our certainty. It begins with our response to the Lord's question. And the answer he is looking for is not perfection — it is honesty. The Church is built not on Peter's heroism but on Peter's love, and on Christ's faithfulness to that love even when Peter could not be faithful to himself.
+
+As we leave Mass today, the Lord asks us the same question. Not "Have you been perfect?" Not "Have you never failed?" But simply: do you love me? And if we can say yes — however quietly, however tentatively — then the next word follows: go, and feed.`;
+
+// ── Composing state ────────────────────────────────────────────────────────
+
+function ComposingIndicator() {
   return (
-    <div
+    <p
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        animation: "fadeIn 400ms ease",
+        fontFamily: "var(--ambo-font-reading)",
+        fontSize: "var(--ambo-size-lg)",
+        fontStyle: "italic",
+        color: "var(--ambo-text-muted)",
+        margin: 0,
+        animation: "echoComposingPulse 2s ease-in-out infinite",
       }}
-      aria-label="Generating output…"
-      role="status"
     >
-      {[100, 88, 95, 72, 80].map((w, i) => (
-        <div
-          key={i}
-          style={{
-            height: 14,
-            width: `${w}%`,
-            borderRadius: 6,
-            background: "var(--ambo-border)",
-            opacity: 0.6,
-            animation: `echoSkeletonPulse 1.6s ease-in-out ${i * 160}ms infinite`,
-          }}
-        />
-      ))}
-      <div
-        style={{
-          height: 14,
-          width: "60%",
-          borderRadius: 6,
-          background: "var(--ambo-border)",
-          opacity: 0.6,
-          animation: "echoSkeletonPulse 1.6s ease-in-out 800ms infinite",
-        }}
-      />
-    </div>
+      Composing&hellip;
+    </p>
   );
 }
 
@@ -175,13 +171,51 @@ function VariantChips<T extends string>({ variants, active, onChange }: VariantC
   );
 }
 
+// ── Generate button ────────────────────────────────────────────────────────
+
+interface GenerateButtonProps {
+  label: string;
+  onClick: () => void;
+  loading: boolean;
+}
+
+function GenerateButton({ label, onClick, loading }: GenerateButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      style={{
+        border: "1px solid var(--ambo-accent)",
+        background: "var(--ambo-accent-light)",
+        color: "var(--ambo-accent)",
+        fontSize: "var(--ambo-size-md)",
+        fontWeight: 500,
+        padding: "11px 28px",
+        borderRadius: "var(--ambo-radius-pill)",
+        cursor: loading ? "default" : "pointer",
+        fontFamily: "var(--ambo-font-ui)",
+        opacity: loading ? 0.6 : 1,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        transition: "all var(--ambo-dur) var(--ambo-ease)",
+      }}
+    >
+      <span style={{ fontSize: 14 }}>✦</span>
+      Generate {label}
+    </button>
+  );
+}
+
 // ── Empty / placeholder state ──────────────────────────────────────────────
 
 interface EmptyOutputProps {
   tab: EchoTab;
+  onGenerate: () => void;
+  loading: boolean;
 }
 
-function EmptyOutput({ tab }: EmptyOutputProps) {
+function EmptyOutput({ tab, onGenerate, loading }: EmptyOutputProps) {
   return (
     <div
       style={{
@@ -242,38 +276,59 @@ function EmptyOutput({ tab }: EmptyOutputProps) {
           {tab.description}
         </p>
 
-        {/* Generate button — disabled / non-functional in this shell */}
-        <button
-          disabled
-          title="Coming soon — Echo generation will be available shortly"
-          style={{
-            border: "1px solid var(--ambo-border)",
-            background: "transparent",
-            color: "var(--ambo-text-muted)",
-            fontSize: "var(--ambo-size-md)",
-            fontWeight: 500,
-            padding: "11px 28px",
-            borderRadius: "var(--ambo-radius-pill)",
-            cursor: "not-allowed",
-            fontFamily: "var(--ambo-font-ui)",
-            opacity: 0.55,
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 14 }}>✦</span>
-          Generate {tab.label}
-        </button>
-
-        <p
-          className="ambo-affordance"
-          style={{ marginTop: 16 }}
-        >
-          generation coming soon
-        </p>
+        <GenerateButton label={tab.label} onClick={onGenerate} loading={loading} />
       </div>
     </div>
+  );
+}
+
+// ── Output text area ───────────────────────────────────────────────────────
+
+interface OutputAreaProps {
+  text: string;
+  onChange: (text: string) => void;
+  streaming: boolean;
+}
+
+function OutputArea({ text, onChange, streaming }: OutputAreaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-scroll to bottom while streaming
+  useEffect(() => {
+    if (streaming && textareaRef.current) {
+      textareaRef.current.scrollTop = textareaRef.current.scrollHeight;
+    }
+  }, [text, streaming]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={text}
+      onChange={(e) => onChange(e.target.value)}
+      readOnly={streaming}
+      style={{
+        width: "100%",
+        minHeight: 280,
+        flex: 1,
+        resize: "vertical",
+        fontFamily: "var(--ambo-font-reading)",
+        fontSize: "var(--ambo-size-xl)",
+        lineHeight: "var(--ambo-lh-reading, 1.7)",
+        color: "var(--ambo-text-primary)",
+        background: "transparent",
+        border: "none",
+        outline: "none",
+        padding: 0,
+        margin: 0,
+        boxSizing: "border-box",
+        caretColor: "var(--ambo-accent)",
+        fontFeatureSettings: '"kern", "liga", "onum"',
+        // Subtle cursor hint that the text is editable after streaming
+        cursor: streaming ? "default" : "text",
+      }}
+      aria-label="Generated output — editable"
+      spellCheck
+    />
   );
 }
 
@@ -327,10 +382,13 @@ export default function EchoWorkspace({
   sundayLabel,
   open,
   onClose,
+  homilyText,
 }: EchoWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<EchoOutputType>("take-into-the-week");
-  // loading is scaffolded for future wiring — not active in this shell
-  const [loading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const [outputText, setOutputText] = useState("");
+  const [hasOutput, setHasOutput] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   // Variant state for tabs that support it
   const [parishVariant, setParishVariant] = useState<ParishReflectionVariant>("standard");
   const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
@@ -340,7 +398,77 @@ export default function EchoWorkspace({
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
-  // Initiate close: play exit animation then unmount
+  // Resolve the homily text to use — prop or demo placeholder.
+  const resolvedHomilyText = homilyText && homilyText.trim().length > 0
+    ? homilyText
+    : DEMO_HOMILY_TEXT;
+
+  // Resolve the variant for the current tab.
+  const resolvedVariant =
+    activeTab === "parish-reflection"
+      ? parishVariant
+      : activeTab === "social-post"
+      ? socialVariant
+      : undefined;
+
+  // ── Generation ───────────────────────────────────────────────────────────
+
+  const handleGenerate = useCallback(async () => {
+    if (streaming) return;
+
+    setStreaming(true);
+    setHasOutput(true);
+    setOutputText("");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/echo/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homilyText: resolvedHomilyText,
+          outputType: activeTab,
+          variant: resolvedVariant,
+        }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error ?? `Server error ${res.status}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          setOutputText((prev) => prev + chunk);
+        }
+      }
+    } catch (err) {
+      console.error("[EchoWorkspace] generation error:", err);
+      setError(err instanceof Error ? err.message : "Generation failed. Please try again.");
+      setHasOutput(false);
+    } finally {
+      setStreaming(false);
+    }
+  }, [streaming, resolvedHomilyText, activeTab, resolvedVariant]);
+
+  // Reset output when tab changes
+  useEffect(() => {
+    setOutputText("");
+    setHasOutput(false);
+    setError(null);
+  }, [activeTab]);
+
+  // ── Close logic ──────────────────────────────────────────────────────────
+
   const handleClose = () => {
     if (closing) return;
     setClosing(true);
@@ -363,18 +491,23 @@ export default function EchoWorkspace({
 
   // Reset to first tab whenever the workspace opens
   useEffect(() => {
-    if (open) setActiveTab("take-into-the-week");
+    if (open) {
+      setActiveTab("take-into-the-week");
+      setOutputText("");
+      setHasOutput(false);
+      setError(null);
+    }
   }, [open]);
 
   if (!open) return null;
 
   return (
     <>
-      {/* Skeleton keyframe — injected once alongside the workspace */}
+      {/* Keyframes injected once alongside the workspace */}
       <style>{`
-        @keyframes echoSkeletonPulse {
-          0%, 100% { opacity: 0.35; }
-          50%       { opacity: 0.65; }
+        @keyframes echoComposingPulse {
+          0%, 100% { opacity: 0.45; }
+          50%       { opacity: 0.85; }
         }
       `}</style>
 
@@ -585,7 +718,13 @@ export default function EchoWorkspace({
               <VariantChips
                 variants={PARISH_REFLECTION_VARIANTS}
                 active={parishVariant}
-                onChange={setParishVariant}
+                onChange={(v) => {
+                  setParishVariant(v);
+                  // Reset output when variant changes
+                  setOutputText("");
+                  setHasOutput(false);
+                  setError(null);
+                }}
               />
             )}
 
@@ -594,7 +733,12 @@ export default function EchoWorkspace({
               <VariantChips
                 variants={SOCIAL_POST_VARIANTS}
                 active={socialVariant}
-                onChange={setSocialVariant}
+                onChange={(v) => {
+                  setSocialVariant(v);
+                  setOutputText("");
+                  setHasOutput(false);
+                  setError(null);
+                }}
               />
             )}
 
@@ -610,10 +754,92 @@ export default function EchoWorkspace({
                 animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
             >
-              {loading ? (
-                <OutputSkeleton />
-              ) : (
-                <EmptyOutput tab={activeTabData} />
+              {/* Error state */}
+              {error && !streaming && (
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    background: "rgba(200, 60, 60, 0.06)",
+                    border: "1px solid rgba(200, 60, 60, 0.2)",
+                    borderRadius: "var(--ambo-radius-sm)",
+                    marginBottom: 20,
+                    fontSize: "var(--ambo-size-sm)",
+                    color: "var(--ambo-text-secondary)",
+                    fontFamily: "var(--ambo-font-ui)",
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              {/* Composing indicator — shown while streaming and no text yet */}
+              {streaming && outputText.length === 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <ComposingIndicator />
+                </div>
+              )}
+
+              {/* Output text area — shown once text starts arriving */}
+              {hasOutput && outputText.length > 0 && (
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                  }}
+                >
+                  {/* Composing indicator above the text while still streaming */}
+                  {streaming && (
+                    <ComposingIndicator />
+                  )}
+
+                  <OutputArea
+                    text={outputText}
+                    onChange={setOutputText}
+                    streaming={streaming}
+                  />
+
+                  {/* Regenerate button — shown after streaming completes */}
+                  {!streaming && (
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
+                      <GenerateButton
+                        label={activeTabData.label}
+                        onClick={handleGenerate}
+                        loading={streaming}
+                      />
+                      <span
+                        className="ambo-affordance"
+                        style={{ fontSize: "var(--ambo-size-sm)" }}
+                      >
+                        regenerate · or edit directly above
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state — shown before any generation */}
+              {!hasOutput && !streaming && (
+                <EmptyOutput
+                  tab={activeTabData}
+                  onGenerate={handleGenerate}
+                  loading={streaming}
+                />
+              )}
+
+              {/* Composing-only state: streaming started, no text yet, full-card centering */}
+              {streaming && outputText.length === 0 && !hasOutput && (
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ComposingIndicator />
+                </div>
               )}
             </div>
 
@@ -626,9 +852,12 @@ export default function EchoWorkspace({
                 justifyContent: "center",
               }}
             >
-              <p className="ambo-meta ambo-meta--italic" style={{ textAlign: "center" }}>
-                Echo generation coming soon.
-              </p>
+              {!homilyText && (
+                <p className="ambo-meta ambo-meta--italic" style={{ textAlign: "center" }}>
+                  {/* TODO: remove this note once homily picker is wired in */}
+                  Using demo homily text — select a homily to generate from your own words.
+                </p>
+              )}
             </div>
           </main>
         </div>
