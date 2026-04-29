@@ -811,28 +811,64 @@ export default function EchoWorkspace({
 
   // ── Download ──────────────────────────────────────────────────────────────
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!outputText) return;
 
-    // Slugify the sundayLabel for the filename
-    const slug = sundayLabel
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "");
+    // Human-readable type labels for filename and attribution
+    const typeLabels: Record<EchoOutputType, string> = {
+      "take-into-the-week":    "Take Into the Week",
+      "parish-reflection":     "Parish Reflection",
+      "social-post":           "Social Post",
+      "small-group-questions": "Small Group Questions",
+      "prayer-prompt":         "Prayer Prompt",
+    };
+    const typeLabel = typeLabels[activeTab];
 
-    // Build output-type segment
-    const typeSlug = activeTab;
+    // Liturgical day (drop "· Year X" suffix for the filename)
+    const shortLabel = sundayLabel.split("·")[0].trim();
 
-    const filename = `echo-${typeSlug}-${slug}.txt`;
-    const blob = new Blob([outputText], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Date string for filename and attribution
+    const dateStr = new Date().toLocaleDateString("en-AU", {
+      day: "numeric", month: "long", year: "numeric",
+    });
+
+    // Attribution line inside the document
+    // sundayLabel is e.g. "Fifth Sunday of Easter · Year C"
+    const attribution = `From a homily preached on the ${sundayLabel.replace(" ·", ",")}, ${dateStr}`;
+
+    // Readable filename
+    const filename = `Echo - ${typeLabel} - ${shortLabel} - ${dateStr}.docx`;
+
+    try {
+      const res = await fetch("/api/echo/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: outputText, outputType: activeTab, attribution }),
+      });
+      if (!res.ok) throw new Error(`Download API returned ${res.status}`);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[EchoWorkspace] download error:", err);
+      // Fallback: plain text
+      const blob = new Blob([outputText], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename.replace(".docx", ".txt");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }, [outputText, sundayLabel, activeTab]);
 
   // ── Email ─────────────────────────────────────────────────────────────────
