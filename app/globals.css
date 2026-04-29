@@ -14,7 +14,6 @@
   --ambo-surface-raised:   rgba(255, 255, 255, 0.85);
   /* Header uses the page bg colour (not white) so it blends with the surface */
   --ambo-header-bg:        rgba(238, 242, 247, 0.88);
-  --ambo-surface-reading:  rgba(238, 242, 247, 0.94); /* reading view modal — theme-aware */
 
   --ambo-accent:           #4A6FA5;
   --ambo-accent-light:     rgba(74, 111, 165, 0.12);
@@ -303,7 +302,7 @@ body {
    Applied by the ProseMirror drag plugin; PM owns this class, never reverts it. */
 .ambo-drag-source {
   opacity: 0.28;
-  transition: opacity 200ms ease;
+  transition: opacity 120ms ease;
 }
 
 /* Widget decoration — animated gap that appears between blocks to show the
@@ -312,12 +311,12 @@ body {
 .ambo-drag-gap {
   height: 0;
   overflow: hidden;
-  transition: height 380ms ease-in-out;
+  transition: height 150ms ease;
   pointer-events: none;
 }
 
 .ambo-drag-gap--open {
-  height: 96px;
+  height: 56px;
 }
 
 /* Quote delete button — hover-revealed × in the top-right corner of any
@@ -380,9 +379,23 @@ body {
   transform: scale(1.01);
 }
 
-/* On touch/coarse-pointer devices the hover handle is hidden — the
-   left-margin drag rail (40px) is the only drag affordance. */
+/* On touch/coarse-pointer devices the hover handle never appears, so
+   the left-margin drag rail (40px) is the only drag affordance. A
+   subtle left border on the scroller hints at its existence. */
 @media (hover: none) and (pointer: coarse) {
+  .ambo-rich-editor-wrap .ambo-rich-editor-scroller::before {
+    content: "";
+    position: absolute;
+    left: -20px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--ambo-border);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  /* Hide mouse-only handle on touch devices */
   .ambo-rich-editor-wrap .ambo-drag-handle {
     display: none;
   }
@@ -549,17 +562,13 @@ body {
   to   { transform: translateX(0); }
 }
 
-/* Drawer slide-out to the left / right */
-@keyframes slideOutLeft {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-100%); }
-}
+/* Drawer slide-out to the right */
 @keyframes slideOutRight {
   from { transform: translateX(0); }
   to   { transform: translateX(100%); }
 }
 
-/* Generic fade-out (opposite of fadeIn) */
+/* Fade out — backdrop dismiss */
 @keyframes fadeOut {
   from { opacity: 1; }
   to   { opacity: 0; }
@@ -580,7 +589,6 @@ body {
     --ambo-surface-solid:    #1C2A3D;
     --ambo-surface-raised:   rgba(255, 255, 255, 0.09);
     --ambo-header-bg:        rgba(15, 24, 36, 0.88);
-    --ambo-surface-reading:  rgba(15, 24, 36, 0.94);
 
     --ambo-accent:           #6B93C8;
     --ambo-accent-light:     rgba(107, 147, 200, 0.15);
@@ -608,7 +616,6 @@ body {
   --ambo-surface-solid:    #1C2A3D;
   --ambo-surface-raised:   rgba(255, 255, 255, 0.09);
   --ambo-header-bg:        rgba(15, 24, 36, 0.88);
-  --ambo-surface-reading:  rgba(15, 24, 36, 0.94);
 
   --ambo-accent:           #6B93C8;
   --ambo-accent-light:     rgba(107, 147, 200, 0.15);

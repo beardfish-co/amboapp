@@ -5,11 +5,26 @@ import { useEffect, useState } from "react";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type EchoOutputType =
+  | "take-into-the-week"
   | "parish-reflection"
-  | "bulletin-blurb"
   | "social-post"
-  | "childrens-homily"
-  | "rcia-notes";
+  | "small-group-questions"
+  | "prayer-prompt";
+
+// Parish Reflection length variants
+type ParishReflectionVariant = "short" | "standard" | "longer";
+const PARISH_REFLECTION_VARIANTS: { id: ParishReflectionVariant; label: string; hint: string }[] = [
+  { id: "short",    label: "Short",    hint: "~80 words" },
+  { id: "standard", label: "Standard", hint: "~175 words" },
+  { id: "longer",   label: "Longer",   hint: "~350 words" },
+];
+
+// Social Post timing variants
+type SocialPostVariant = "before-sunday" | "after-sunday";
+const SOCIAL_POST_VARIANTS: { id: SocialPostVariant; label: string }[] = [
+  { id: "before-sunday", label: "Before Sunday" },
+  { id: "after-sunday",  label: "After Sunday" },
+];
 
 interface EchoTab {
   id: EchoOutputType;
@@ -28,34 +43,34 @@ interface EchoWorkspaceProps {
 
 const ECHO_TABS: EchoTab[] = [
   {
+    id: "take-into-the-week",
+    label: "Take Into the Week",
+    description:
+      "A spoken reflection for the end of Mass — a single, quiet note the congregation can carry home. Around fifty to eighty words.",
+  },
+  {
     id: "parish-reflection",
     label: "Parish Reflection",
     description:
-      "A contemplative reflection drawn from the homily for parishioners to take home and pray with through the week.",
-  },
-  {
-    id: "bulletin-blurb",
-    label: "Bulletin Blurb",
-    description:
-      "A brief, warm paragraph for the Sunday bulletin — suitable for print, readable in under thirty seconds.",
+      "For newsletters and bulletins. A contemplative reflection drawn from the homily — available in Short, Standard, and Longer lengths.",
   },
   {
     id: "social-post",
     label: "Social Post",
     description:
-      "A short post for Facebook or the parish website, striking a single note from the homily that will travel well.",
+      "For Facebook, Instagram, or the parish website. One resonant note from the homily, shaped for social sharing — before or after Sunday.",
   },
   {
-    id: "childrens-homily",
-    label: "Children's Homily",
+    id: "small-group-questions",
+    label: "Small Group Questions",
     description:
-      "The same Gospel truth, told simply — for children's Liturgy of the Word or a family conversation on the way home.",
+      "Three to five discussion questions for faith-sharing groups, drawing the homily into lived conversation.",
   },
   {
-    id: "rcia-notes",
-    label: "RCIA Notes",
+    id: "prayer-prompt",
+    label: "Prayer Prompt",
     description:
-      "Talking points and questions for the RCIA team, connecting the Sunday readings to the catechumenate journey.",
+      "A short prayer drawn from the homily — forty to eighty words — for personal or communal use through the week.",
   },
 ];
 
@@ -96,6 +111,66 @@ function OutputSkeleton() {
           animation: "echoSkeletonPulse 1.6s ease-in-out 800ms infinite",
         }}
       />
+    </div>
+  );
+}
+
+// ── Variant chip selector ──────────────────────────────────────────────────
+
+interface VariantChipsProps<T extends string> {
+  variants: { id: T; label: string; hint?: string }[];
+  active: T;
+  onChange: (v: T) => void;
+}
+
+function VariantChips<T extends string>({ variants, active, onChange }: VariantChipsProps<T>) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        flexWrap: "wrap",
+        marginBottom: 24,
+      }}
+    >
+      {variants.map((v) => {
+        const isActive = v.id === active;
+        return (
+          <button
+            key={v.id}
+            onClick={() => onChange(v.id)}
+            style={{
+              border: `1px solid ${isActive ? "var(--ambo-accent)" : "var(--ambo-border)"}`,
+              background: isActive ? "var(--ambo-accent-light)" : "transparent",
+              color: isActive ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+              fontSize: "var(--ambo-size-sm)",
+              fontWeight: isActive ? 600 : 500,
+              padding: "6px 14px",
+              borderRadius: "var(--ambo-radius-pill)",
+              cursor: "pointer",
+              fontFamily: "var(--ambo-font-ui)",
+              transition: "all var(--ambo-dur) var(--ambo-ease)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              lineHeight: 1,
+            }}
+          >
+            {v.label}
+            {v.hint && (
+              <span
+                style={{
+                  fontSize: "var(--ambo-size-xs)",
+                  opacity: 0.7,
+                  fontWeight: 400,
+                }}
+              >
+                {v.hint}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -253,26 +328,42 @@ export default function EchoWorkspace({
   open,
   onClose,
 }: EchoWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<EchoOutputType>("parish-reflection");
+  const [activeTab, setActiveTab] = useState<EchoOutputType>("take-into-the-week");
   // loading is scaffolded for future wiring — not active in this shell
   const [loading] = useState(false);
+  // Variant state for tabs that support it
+  const [parishVariant, setParishVariant] = useState<ParishReflectionVariant>("standard");
+  const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
+  // Closing state — true while the exit animation plays (540ms)
+  const [closing, setClosing] = useState(false);
 
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
+
+  // Initiate close: play exit animation then unmount
+  const handleClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => {
+      setClosing(false);
+      onClose();
+    }, 540);
+  };
 
   // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closing]);
 
   // Reset to first tab whenever the workspace opens
   useEffect(() => {
-    if (open) setActiveTab("parish-reflection");
+    if (open) setActiveTab("take-into-the-week");
   }, [open]);
 
   if (!open) return null;
@@ -289,7 +380,7 @@ export default function EchoWorkspace({
 
       {/* Full-screen backdrop */}
       <div
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
         style={{
           position: "fixed",
@@ -298,7 +389,9 @@ export default function EchoWorkspace({
           backdropFilter: "blur(6px)",
           WebkitBackdropFilter: "blur(6px)",
           zIndex: 110,
-          animation: "fadeIn 460ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closing
+            ? "fadeOut 540ms ease-in both"
+            : "fadeIn 780ms ease-out both",
         }}
       />
 
@@ -314,7 +407,9 @@ export default function EchoWorkspace({
           display: "flex",
           flexDirection: "column",
           background: "var(--ambo-bg)",
-          animation: "slideInRight 640ms cubic-bezier(0.22, 1, 0.36, 1)",
+          animation: closing
+            ? "slideOutRight 540ms ease-in both"
+            : "slideInRight 780ms ease-out both",
         }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -368,7 +463,7 @@ export default function EchoWorkspace({
 
           {/* Right: close */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close Echo workspace"
             style={{
               border: "1px solid var(--ambo-border)",
@@ -469,7 +564,7 @@ export default function EchoWorkspace({
             }}
           >
             {/* Output type heading row */}
-            <div style={{ marginBottom: 32, flexShrink: 0 }}>
+            <div style={{ marginBottom: 24, flexShrink: 0 }}>
               <div
                 className="ambo-eyebrow ambo-eyebrow--accent"
                 style={{ marginBottom: 8 }}
@@ -484,6 +579,24 @@ export default function EchoWorkspace({
                 }}
               />
             </div>
+
+            {/* Variant selectors — Parish Reflection */}
+            {activeTab === "parish-reflection" && (
+              <VariantChips
+                variants={PARISH_REFLECTION_VARIANTS}
+                active={parishVariant}
+                onChange={setParishVariant}
+              />
+            )}
+
+            {/* Variant selectors — Social Post */}
+            {activeTab === "social-post" && (
+              <VariantChips
+                variants={SOCIAL_POST_VARIANTS}
+                active={socialVariant}
+                onChange={setSocialVariant}
+              />
+            )}
 
             {/* Content card */}
             <div
