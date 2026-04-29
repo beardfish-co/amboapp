@@ -43,6 +43,8 @@ interface EchoWorkspaceProps {
    * For now a demo placeholder is used if this prop is absent.
    */
   homilyText?: string;
+  /** UUID of the source homily, passed through to the save API when present */
+  homilyId?: string;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -332,6 +334,226 @@ function OutputArea({ text, onChange, streaming }: OutputAreaProps) {
   );
 }
 
+// ── Action row ─────────────────────────────────────────────────────────────
+
+interface ActionRowProps {
+  savedId: string | null;
+  saveStatus: "idle" | "saving" | "saved" | "error";
+  copyStatus: "idle" | "copied";
+  onSave: () => void;
+  onCopy: () => void;
+  onDownload: () => void;
+  onEmail: () => void;
+}
+
+function ActionRow({
+  savedId,
+  saveStatus,
+  copyStatus,
+  onSave,
+  onCopy,
+  onDownload,
+  onEmail,
+}: ActionRowProps) {
+  const linkStyle: React.CSSProperties = {
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontFamily: "var(--ambo-font-ui)",
+    fontSize: "var(--ambo-size-sm)",
+    color: "var(--ambo-text-muted)",
+    transition: "color var(--ambo-dur) var(--ambo-ease)",
+    lineHeight: 1,
+  };
+
+  const separatorStyle: React.CSSProperties = {
+    color: "var(--ambo-border)",
+    userSelect: "none" as const,
+    fontSize: "var(--ambo-size-sm)",
+    lineHeight: 1,
+  };
+
+  const feedbackStyle: React.CSSProperties = {
+    fontFamily: "var(--ambo-font-reading)",
+    fontSize: "var(--ambo-size-sm)",
+    fontStyle: "italic",
+    color: "var(--ambo-text-muted)",
+    animation: "fadeIn 200ms ease-out both",
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        paddingTop: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      {/* Save */}
+      {saveStatus === "saved" ? (
+        <span style={feedbackStyle}>Saved</span>
+      ) : (
+        <button
+          onClick={onSave}
+          disabled={saveStatus === "saving"}
+          style={{
+            ...linkStyle,
+            opacity: saveStatus === "saving" ? 0.5 : 1,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+        >
+          {saveStatus === "saving" ? "Saving…" : savedId ? "Save again" : "Save"}
+        </button>
+      )}
+
+      <span aria-hidden="true" style={separatorStyle}>·</span>
+
+      {/* Copy */}
+      {copyStatus === "copied" ? (
+        <span style={feedbackStyle}>Copied</span>
+      ) : (
+        <button
+          onClick={onCopy}
+          style={linkStyle}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+        >
+          Copy
+        </button>
+      )}
+
+      <span aria-hidden="true" style={separatorStyle}>·</span>
+
+      {/* Download */}
+      <button
+        onClick={onDownload}
+        style={linkStyle}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+      >
+        Download
+      </button>
+
+      <span aria-hidden="true" style={separatorStyle}>·</span>
+
+      {/* Email */}
+      <button
+        onClick={onEmail}
+        style={linkStyle}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+      >
+        Email
+      </button>
+
+      {/* Save error */}
+      {saveStatus === "error" && (
+        <span
+          style={{
+            ...feedbackStyle,
+            color: "rgba(200,60,60,0.8)",
+            marginLeft: 4,
+          }}
+        >
+          Save failed — try again
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Unsaved edits guard ────────────────────────────────────────────────────
+
+interface UnsavedGuardProps {
+  onSave: () => void;
+  onDiscard: () => void;
+  onCancel: () => void;
+  saving: boolean;
+}
+
+function UnsavedGuard({ onSave, onDiscard, onCancel, saving }: UnsavedGuardProps) {
+  const pillStyle: React.CSSProperties = {
+    background: "none",
+    border: "1px solid var(--ambo-border)",
+    borderRadius: "var(--ambo-radius-pill)",
+    padding: "5px 14px",
+    fontSize: "var(--ambo-size-sm)",
+    fontFamily: "var(--ambo-font-ui)",
+    fontWeight: 500,
+    color: "var(--ambo-text-secondary)",
+    cursor: "pointer",
+    transition: "all var(--ambo-dur) var(--ambo-ease)",
+    lineHeight: 1,
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "12px 16px",
+        background: "var(--ambo-surface)",
+        border: "1px solid var(--ambo-border)",
+        borderRadius: "var(--ambo-radius-sm)",
+        flexWrap: "wrap",
+        animation: "fadeIn 200ms ease-out both",
+        marginBottom: 16,
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "var(--ambo-font-reading)",
+          fontSize: "var(--ambo-size-md)",
+          fontStyle: "italic",
+          color: "var(--ambo-text-secondary)",
+          flexShrink: 0,
+        }}
+      >
+        You have unsaved edits.
+      </span>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button
+          onClick={onSave}
+          disabled={saving}
+          style={{
+            ...pillStyle,
+            opacity: saving ? 0.5 : 1,
+            color: "var(--ambo-accent)",
+            borderColor: "var(--ambo-accent)",
+            background: "var(--ambo-accent-light)",
+          }}
+        >
+          {saving ? "Saving…" : "Save"}
+        </button>
+
+        <button
+          onClick={onDiscard}
+          style={pillStyle}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-primary)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)"; }}
+        >
+          Discard
+        </button>
+
+        <button
+          onClick={onCancel}
+          style={pillStyle}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-primary)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)"; }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Tab button ─────────────────────────────────────────────────────────────
 
 interface TabButtonProps {
@@ -383,10 +605,14 @@ export default function EchoWorkspace({
   open,
   onClose,
   homilyText,
+  homilyId,
 }: EchoWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<EchoOutputType>("take-into-the-week");
   const [streaming, setStreaming] = useState(false);
+  // outputText: what's in the textarea (editable by priest)
   const [outputText, setOutputText] = useState("");
+  // generatedText: the original AI output, set once when streaming completes
+  const [generatedText, setGeneratedText] = useState("");
   const [hasOutput, setHasOutput] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Variant state for tabs that support it
@@ -394,6 +620,15 @@ export default function EchoWorkspace({
   const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
   // Closing state — true while the exit animation plays (780ms)
   const [closing, setClosing] = useState(false);
+  // Action row state
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
+  // Unsaved edits guard: what action was interrupted
+  const [pendingAction, setPendingAction] = useState<{
+    type: "tab-switch" | "variant-switch" | "close";
+    payload?: unknown;
+  } | null>(null);
 
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
@@ -411,6 +646,14 @@ export default function EchoWorkspace({
       ? socialVariant
       : undefined;
 
+  // Whether the priest has made edits that differ from the last saved/generated state.
+  const hasUnsavedEdits =
+    hasOutput &&
+    !streaming &&
+    outputText.length > 0 &&
+    outputText !== generatedText &&
+    saveStatus !== "saved";
+
   // ── Generation ───────────────────────────────────────────────────────────
 
   const handleGenerate = useCallback(async () => {
@@ -419,7 +662,12 @@ export default function EchoWorkspace({
     setStreaming(true);
     setHasOutput(true);
     setOutputText("");
+    setGeneratedText("");
+    setSavedId(null);
+    setSaveStatus("idle");
     setError(null);
+
+    let accumulated = "";
 
     try {
       const res = await fetch("/api/echo/generate", {
@@ -448,9 +696,13 @@ export default function EchoWorkspace({
         done = readerDone;
         if (value) {
           const chunk = decoder.decode(value, { stream: !done });
+          accumulated += chunk;
           setOutputText((prev) => prev + chunk);
         }
       }
+
+      // Lock in the generated text once streaming completes
+      setGeneratedText(accumulated);
     } catch (err) {
       console.error("[EchoWorkspace] generation error:", err);
       setError(err instanceof Error ? err.message : "Generation failed. Please try again.");
@@ -460,23 +712,251 @@ export default function EchoWorkspace({
     }
   }, [streaming, resolvedHomilyText, activeTab, resolvedVariant]);
 
-  // Reset output when tab changes
-  useEffect(() => {
-    setOutputText("");
-    setHasOutput(false);
-    setError(null);
-  }, [activeTab]);
+  // ── Save ─────────────────────────────────────────────────────────────────
+
+  const handleSave = useCallback(async () => {
+    if (saveStatus === "saving" || !hasOutput || outputText.trim().length === 0) return;
+
+    setSaveStatus("saving");
+
+    try {
+      const res = await fetch("/api/echo/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outputType: activeTab,
+          variant: resolvedVariant ?? null,
+          generatedText: generatedText || outputText, // fallback if generatedText wasn't set
+          outputText,
+          homilyId: homilyId ?? undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Save failed: ${res.status}`);
+      }
+
+      const { id } = await res.json();
+      setSavedId(id);
+      setSaveStatus("saved");
+
+      // Fade back to idle after 2 seconds
+      setTimeout(() => setSaveStatus("idle"), 2000);
+    } catch (err) {
+      console.error("[EchoWorkspace] save error:", err);
+      setSaveStatus("error");
+    }
+  }, [saveStatus, hasOutput, outputText, activeTab, resolvedVariant, generatedText, homilyId]);
+
+  // ── Copy ─────────────────────────────────────────────────────────────────
+
+  const handleCopy = useCallback(async () => {
+    if (!outputText) return;
+    try {
+      await navigator.clipboard.writeText(outputText);
+      setCopyStatus("copied");
+      setTimeout(() => setCopyStatus("idle"), 1500);
+    } catch (err) {
+      console.error("[EchoWorkspace] clipboard error:", err);
+    }
+  }, [outputText]);
+
+  // ── Download ──────────────────────────────────────────────────────────────
+
+  const handleDownload = useCallback(() => {
+    if (!outputText) return;
+
+    // Slugify the sundayLabel for the filename
+    const slug = sundayLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    // Build output-type segment
+    const typeSlug = activeTab;
+
+    const filename = `echo-${typeSlug}-${slug}.txt`;
+    const blob = new Blob([outputText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [outputText, sundayLabel, activeTab]);
+
+  // ── Email ─────────────────────────────────────────────────────────────────
+
+  const handleEmail = useCallback(() => {
+    if (!outputText) return;
+
+    // Build a human-readable subject line from the output type + sunday label
+    const typeLabels: Record<EchoOutputType, string> = {
+      "take-into-the-week": "Take Into the Week",
+      "parish-reflection": "Parish Reflection",
+      "social-post": "Social Post",
+      "small-group-questions": "Small Group Questions",
+      "prayer-prompt": "Prayer Prompt",
+    };
+    const subject = `${typeLabels[activeTab]} — ${sundayLabel}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(outputText)}`;
+  }, [outputText, activeTab, sundayLabel]);
+
+  // ── Guard helpers ─────────────────────────────────────────────────────────
+
+  /**
+   * Returns true if we should show the guard and have set pendingAction.
+   * Returns false if there are no unsaved edits (caller can proceed immediately).
+   */
+  const guardIfUnsaved = useCallback(
+    (action: { type: "tab-switch" | "variant-switch" | "close"; payload?: unknown }): boolean => {
+      if (hasUnsavedEdits) {
+        setPendingAction(action);
+        return true;
+      }
+      return false;
+    },
+    [hasUnsavedEdits],
+  );
+
+  /** Execute the pending action after Save or Discard */
+  const executePendingAction = useCallback(
+    (action: typeof pendingAction) => {
+      if (!action) return;
+      setPendingAction(null);
+
+      if (action.type === "tab-switch") {
+        const tabId = action.payload as EchoOutputType;
+        setActiveTab(tabId);
+        setOutputText("");
+        setGeneratedText("");
+        setHasOutput(false);
+        setError(null);
+        setSavedId(null);
+        setSaveStatus("idle");
+      } else if (action.type === "variant-switch") {
+        const { tab, variant } = action.payload as {
+          tab: "parish-reflection" | "social-post";
+          variant: string;
+        };
+        if (tab === "parish-reflection") {
+          setParishVariant(variant as ParishReflectionVariant);
+        } else {
+          setSocialVariant(variant as SocialPostVariant);
+        }
+        setOutputText("");
+        setGeneratedText("");
+        setHasOutput(false);
+        setError(null);
+        setSavedId(null);
+        setSaveStatus("idle");
+      } else if (action.type === "close") {
+        if (closing) return;
+        setClosing(true);
+        setTimeout(() => {
+          setClosing(false);
+          onClose();
+        }, 780);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [closing, onClose],
+  );
+
+  const handleGuardSave = useCallback(async () => {
+    await handleSave();
+    // After save completes, execute the pending action
+    // (saveStatus will update async, so we capture the action first)
+    const action = pendingAction;
+    executePendingAction(action);
+  }, [handleSave, pendingAction, executePendingAction]);
+
+  const handleGuardDiscard = useCallback(() => {
+    const action = pendingAction;
+    // Reset edits to the generated text
+    setOutputText(generatedText);
+    setSaveStatus("idle");
+    executePendingAction(action);
+  }, [pendingAction, generatedText, executePendingAction]);
+
+  const handleGuardCancel = useCallback(() => {
+    setPendingAction(null);
+  }, []);
+
+  // ── Tab switch ────────────────────────────────────────────────────────────
+
+  const handleTabClick = useCallback(
+    (tabId: EchoOutputType) => {
+      if (tabId === activeTab) return;
+      if (guardIfUnsaved({ type: "tab-switch", payload: tabId })) return;
+      setActiveTab(tabId);
+      setOutputText("");
+      setGeneratedText("");
+      setHasOutput(false);
+      setError(null);
+      setSavedId(null);
+      setSaveStatus("idle");
+    },
+    [activeTab, guardIfUnsaved],
+  );
+
+  // ── Variant switch ────────────────────────────────────────────────────────
+
+  const handleParishVariantChange = useCallback(
+    (v: ParishReflectionVariant) => {
+      if (v === parishVariant) return;
+      if (
+        guardIfUnsaved({
+          type: "variant-switch",
+          payload: { tab: "parish-reflection", variant: v },
+        })
+      )
+        return;
+      setParishVariant(v);
+      setOutputText("");
+      setGeneratedText("");
+      setHasOutput(false);
+      setError(null);
+      setSavedId(null);
+      setSaveStatus("idle");
+    },
+    [parishVariant, guardIfUnsaved],
+  );
+
+  const handleSocialVariantChange = useCallback(
+    (v: SocialPostVariant) => {
+      if (v === socialVariant) return;
+      if (
+        guardIfUnsaved({
+          type: "variant-switch",
+          payload: { tab: "social-post", variant: v },
+        })
+      )
+        return;
+      setSocialVariant(v);
+      setOutputText("");
+      setGeneratedText("");
+      setHasOutput(false);
+      setError(null);
+      setSavedId(null);
+      setSaveStatus("idle");
+    },
+    [socialVariant, guardIfUnsaved],
+  );
 
   // ── Close logic ──────────────────────────────────────────────────────────
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (closing) return;
+    if (guardIfUnsaved({ type: "close" })) return;
     setClosing(true);
     setTimeout(() => {
       setClosing(false);
       onClose();
     }, 780);
-  };
+  }, [closing, guardIfUnsaved, onClose]);
 
   // Close on Escape
   useEffect(() => {
@@ -494,8 +974,13 @@ export default function EchoWorkspace({
     if (open) {
       setActiveTab("take-into-the-week");
       setOutputText("");
+      setGeneratedText("");
       setHasOutput(false);
       setError(null);
+      setSavedId(null);
+      setSaveStatus("idle");
+      setCopyStatus("idle");
+      setPendingAction(null);
     }
   }, [open]);
 
@@ -671,7 +1156,7 @@ export default function EchoWorkspace({
                 key={tab.id}
                 tab={tab}
                 active={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
               />
             ))}
 
@@ -713,18 +1198,22 @@ export default function EchoWorkspace({
               />
             </div>
 
+            {/* Unsaved edits guard — shown above variant selectors */}
+            {pendingAction && (
+              <UnsavedGuard
+                onSave={handleGuardSave}
+                onDiscard={handleGuardDiscard}
+                onCancel={handleGuardCancel}
+                saving={saveStatus === "saving"}
+              />
+            )}
+
             {/* Variant selectors — Parish Reflection */}
             {activeTab === "parish-reflection" && (
               <VariantChips
                 variants={PARISH_REFLECTION_VARIANTS}
                 active={parishVariant}
-                onChange={(v) => {
-                  setParishVariant(v);
-                  // Reset output when variant changes
-                  setOutputText("");
-                  setHasOutput(false);
-                  setError(null);
-                }}
+                onChange={handleParishVariantChange}
               />
             )}
 
@@ -733,12 +1222,7 @@ export default function EchoWorkspace({
               <VariantChips
                 variants={SOCIAL_POST_VARIANTS}
                 active={socialVariant}
-                onChange={(v) => {
-                  setSocialVariant(v);
-                  setOutputText("");
-                  setHasOutput(false);
-                  setError(null);
-                }}
+                onChange={handleSocialVariantChange}
               />
             )}
 
@@ -800,21 +1284,33 @@ export default function EchoWorkspace({
                     streaming={streaming}
                   />
 
-                  {/* Regenerate button — shown after streaming completes */}
+                  {/* Action row + regenerate — shown after streaming completes */}
                   {!streaming && (
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
-                      <GenerateButton
-                        label={activeTabData.label}
-                        onClick={handleGenerate}
-                        loading={streaming}
+                    <>
+                      <ActionRow
+                        savedId={savedId}
+                        saveStatus={saveStatus}
+                        copyStatus={copyStatus}
+                        onSave={handleSave}
+                        onCopy={handleCopy}
+                        onDownload={handleDownload}
+                        onEmail={handleEmail}
                       />
-                      <span
-                        className="ambo-affordance"
-                        style={{ fontSize: "var(--ambo-size-sm)" }}
-                      >
-                        regenerate · or edit directly above
-                      </span>
-                    </div>
+
+                      <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
+                        <GenerateButton
+                          label={activeTabData.label}
+                          onClick={handleGenerate}
+                          loading={streaming}
+                        />
+                        <span
+                          className="ambo-affordance"
+                          style={{ fontSize: "var(--ambo-size-sm)" }}
+                        >
+                          regenerate · or edit directly above
+                        </span>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
