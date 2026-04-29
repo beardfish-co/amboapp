@@ -987,6 +987,8 @@ export default function EchoWorkspace({
   const [generatedText, setGeneratedText] = useState("");
   const [hasOutput, setHasOutput] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Key incremented each generation so the action-row fade animation restarts
+  const [actionFadeKey, setActionFadeKey] = useState(0);
   // Variant state for tabs that support it
   const [parishVariant, setParishVariant] = useState<ParishReflectionVariant>("standard");
   const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
@@ -1074,6 +1076,7 @@ export default function EchoWorkspace({
     setSavedId(null);
     setSaveStatus("idle");
     setError(null);
+    setActionFadeKey((k) => k + 1);
 
     let accumulated = "";
 
@@ -1496,6 +1499,10 @@ export default function EchoWorkspace({
           0%, 100% { opacity: 0.45; }
           50%       { opacity: 0.85; }
         }
+        @keyframes echoActionFadeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
+        }
         .echo-scroll::-webkit-scrollbar { display: none; }
         .echo-scroll { scrollbar-width: none; -ms-overflow-style: none; }
       `}</style>
@@ -1565,8 +1572,8 @@ export default function EchoWorkspace({
               fontFamily: "var(--ambo-font-reading)",
               fontStyle: "italic",
               fontSize: "var(--ambo-size-md)",
-              fontWeight: 500,
-              color: "var(--ambo-text-secondary)",
+              fontWeight: 600,
+              color: "var(--ambo-text-primary)",
               margin: 0,
               lineHeight: 1.4,
             }}
@@ -1814,14 +1821,15 @@ export default function EchoWorkspace({
           )}
         </div>
 
-        {/* ── Anchored action footer — always at panel bottom ─────────────── */}
-        {hasOutput && !streaming && !archiveOpen && (
+        {/* ── Anchored action footer — fades in with the streaming output ── */}
+        {hasOutput && !archiveOpen && (
           <div
+            key={actionFadeKey}
             style={{
               flexShrink: 0,
               padding: "16px 32px 24px",
               background: "transparent",
-              animation: "fadeIn 1000ms ease-out both",
+              animation: "echoActionFadeIn 3.5s ease-out both",
             }}
           >
             <ActionRow
