@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // ── Archive types ──────────────────────────────────────────────────────────
 
-interface ArchiveEntry {
+export interface ArchiveEntry {
   id: string;
   output_type: string;
   variant: string | null;
