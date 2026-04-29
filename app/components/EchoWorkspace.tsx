@@ -60,6 +60,8 @@ interface EchoWorkspaceProps {
   homilyText?: string;
   /** UUID of the source homily, passed through to the save API when present */
   homilyId?: string;
+  /** Pre-load a saved Echo output into the workspace (from Archive in drawer) */
+  initialEntry?: ArchiveEntry;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
