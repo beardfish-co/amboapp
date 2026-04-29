@@ -334,7 +334,7 @@ export default function EchoWorkspace({
   // Variant state for tabs that support it
   const [parishVariant, setParishVariant] = useState<ParishReflectionVariant>("standard");
   const [socialVariant, setSocialVariant] = useState<SocialPostVariant>("before-sunday");
-  // Closing state — true while the exit animation plays (540ms)
+  // Closing state — true while the exit animation plays (780ms)
   const [closing, setClosing] = useState(false);
 
   const activeTabData =
@@ -347,7 +347,7 @@ export default function EchoWorkspace({
     setTimeout(() => {
       setClosing(false);
       onClose();
-    }, 540);
+    }, 780);
   };
 
   // Close on Escape
@@ -390,8 +390,8 @@ export default function EchoWorkspace({
           WebkitBackdropFilter: "blur(6px)",
           zIndex: 110,
           animation: closing
-            ? "fadeOut 540ms ease-in both"
-            : "fadeIn 780ms ease-out both",
+            ? "fadeOut 780ms ease-in both"
+            : "fadeIn 900ms ease-out both",
         }}
       />
 
@@ -408,8 +408,8 @@ export default function EchoWorkspace({
           flexDirection: "column",
           background: "var(--ambo-bg)",
           animation: closing
-            ? "slideOutRight 540ms ease-in both"
-            : "slideInRight 780ms ease-out both",
+            ? "slideOutRight 780ms ease-in both"
+            : "slideInRight 900ms ease-out both",
         }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
