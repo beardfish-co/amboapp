@@ -969,7 +969,7 @@ export default function EchoWorkspace({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied">("idle");
   // Unsaved edits guard: what action was interrupted
   const [pendingAction, setPendingAction] = useState<{
-    type: "tab-switch" | "variant-switch" | "close";
+    type: "tab-switch" | "variant-switch" | "close" | "regenerate";
     payload?: unknown;
   } | null>(null);
 
@@ -1207,7 +1207,7 @@ export default function EchoWorkspace({
    * Returns false if there are no unsaved edits (caller can proceed immediately).
    */
   const guardIfUnsaved = useCallback(
-    (action: { type: "tab-switch" | "variant-switch" | "close"; payload?: unknown }): boolean => {
+    (action: { type: "tab-switch" | "variant-switch" | "close" | "regenerate"; payload?: unknown }): boolean => {
       if (hasUnsavedEdits) {
         setPendingAction(action);
         return true;
@@ -1257,6 +1257,12 @@ export default function EchoWorkspace({
           setClosing(false);
           onClose();
         }, 780);
+      } else if (action.type === "regenerate") {
+        setOutputText("");
+        setGeneratedText("");
+        setSavedId(null);
+        setSaveStatus("idle");
+        handleGenerate();
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1282,6 +1288,20 @@ export default function EchoWorkspace({
   const handleGuardCancel = useCallback(() => {
     setPendingAction(null);
   }, []);
+
+  // ── Regenerate ────────────────────────────────────────────────────────────
+
+  const handleRegenerate = useCallback(() => {
+    // If the priest has unsaved edits, ask before wiping the textarea.
+    if (guardIfUnsaved({ type: "regenerate" })) return;
+    // No unsaved edits (or output was just generated / already saved):
+    // clear state and regenerate immediately.
+    setOutputText("");
+    setGeneratedText("");
+    setSavedId(null);
+    setSaveStatus("idle");
+    handleGenerate();
+  }, [guardIfUnsaved, handleGenerate]);
 
   // ── Tab switch ────────────────────────────────────────────────────────────
 
@@ -1773,18 +1793,29 @@ export default function EchoWorkspace({
                           onEmail={handleEmail}
                         />
 
-                        <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8 }}>
-                          <GenerateButton
-                            label={activeTabData.label}
-                            onClick={handleGenerate}
-                            loading={streaming}
-                          />
-                          <span
-                            className="ambo-affordance"
-                            style={{ fontSize: "var(--ambo-size-sm)" }}
+                        <div style={{ display: "flex", alignItems: "center", paddingTop: 4 }}>
+                          <button
+                            onClick={handleRegenerate}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              cursor: "pointer",
+                              fontFamily: "var(--ambo-font-ui)",
+                              fontSize: "var(--ambo-size-sm)",
+                              color: "var(--ambo-text-muted)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              transition: "color var(--ambo-dur) var(--ambo-ease)",
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+                            aria-label="Regenerate output"
                           >
-                            regenerate · or edit directly above
-                          </span>
+                            <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
+                            Try again
+                          </button>
                         </div>
                       </>
                     )}
