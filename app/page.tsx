@@ -9,7 +9,7 @@ import ReflectView from "./components/ReflectView";
 import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList, { HomilyRow } from "./components/HomilyList";
-import EchoWorkspace from "./components/EchoWorkspace";
+import EchoWorkspace, { ArchiveEntry } from "./components/EchoWorkspace";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -95,6 +95,7 @@ export default function AmboApp() {
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [echoHomilyText, setEchoHomilyText] = useState("");
   const [echoHomilyId, setEchoHomilyId] = useState<string | undefined>(undefined);
+  const [echoInitialEntry, setEchoInitialEntry] = useState<ArchiveEntry | undefined>(undefined);
   const [listRefreshKey, setListRefreshKey] = useState(0);
   const [idHydrated, setIdHydrated] = useState(false);
 
@@ -283,7 +284,17 @@ export default function AmboApp() {
     setEchoSundayLabel(sundayLabel);
     setEchoHomilyText(homilyText);
     setEchoHomilyId(homilyId || undefined);
+    setEchoInitialEntry(undefined);
     setDrawerOpen(false);
+    setEchoOpen(true);
+  }, []);
+
+  const handleOpenEchoFromArchive = useCallback((entry: ArchiveEntry) => {
+    const label = entry.homily_title ?? entry.homily_sunday_date ?? "your homily";
+    setEchoInitialEntry(entry);
+    setEchoSundayLabel(label);
+    setEchoHomilyText("");
+    setEchoHomilyId(entry.homily_id ?? undefined);
     setEchoOpen(true);
   }, []);
 
@@ -535,6 +546,7 @@ export default function AmboApp() {
         onCreate={handleCreateHomily}
         onOpenInWrite={handleOpenInWrite}
         onOpenEcho={handleOpenEcho}
+        onOpenEchoEntry={handleOpenEchoFromArchive}
         refreshKey={listRefreshKey}
       />
       </ErrorBoundary>
@@ -542,10 +554,11 @@ export default function AmboApp() {
       {/* Echo workspace */}
       <EchoWorkspace
         open={echoOpen}
-        onClose={() => setEchoOpen(false)}
+        onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
         sundayLabel={echoSundayLabel}
         homilyText={echoHomilyText}
         homilyId={echoHomilyId}
+        initialEntry={echoInitialEntry}
       />
 
       {/* Onboarding tour */}

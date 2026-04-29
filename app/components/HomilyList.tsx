@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadDayName } from "@/lib/readings";
 
@@ -36,6 +36,7 @@ interface HomilyListProps {
   onCreate: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
   onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
+  onOpenEchoEntry: (entry: ArchiveEntry) => void;
   refreshKey?: number;
 }
 
@@ -550,60 +551,232 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
 }
 
 // ── Echo panel ─────────────────────────────────────────────────────────────
-interface EchoPanelProps {
-  onSwitchToHomilies: () => void;
+
+// Mirror of ArchiveEntry from EchoWorkspace (avoid cross-import)
+interface ArchiveEntry {
+  id: string;
+  output_type: string;
+  variant: string | null;
+  output_text: string;
+  generated_text: string;
+  homily_id: string | null;
+  created_at: string;
+  updated_at: string;
+  homily_title: string | null;
+  homily_sunday_date: string | null;
 }
-function EchoPanel({ onSwitchToHomilies }: EchoPanelProps) {
+
+const ECHO_TYPE_LABELS: Record<string, string> = {
+  "take-into-the-week":    "Take Into the Week",
+  "parish-reflection":     "Parish Reflection",
+  "social-post":           "Social Post",
+  "small-group-questions": "Small Group Questions",
+  "prayer-prompt":         "Prayer Prompt",
+};
+
+function EchoArchiveCard({
+  entry,
+  onOpen,
+}: {
+  entry: ArchiveEntry;
+  onOpen: (entry: ArchiveEntry) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const typeLabel = ECHO_TYPE_LABELS[entry.output_type] ?? entry.output_type;
+  const variantLabel = entry.variant
+    ? ` · ${entry.variant.charAt(0).toUpperCase() + entry.variant.slice(1).replace(/-/g, " ")}`
+    : "";
+  const preview = (entry.output_text ?? entry.generated_text ?? "").slice(0, 110).trim();
+  const sourceLabel = entry.homily_title
+    ? entry.homily_title
+    : entry.homily_sunday_date
+    ? entry.homily_sunday_date
+    : "Standalone";
+  const savedDate = new Date(entry.created_at).toLocaleDateString(undefined, {
+    month: "short", day: "numeric",
+  });
+
   return (
-    <div style={{
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "40px 32px",
-      textAlign: "center",
-      gap: 16,
-    }}>
+    <button
+      onClick={() => onOpen(entry)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        background: hovered ? "var(--ambo-surface-raised)" : "var(--ambo-surface)",
+        border: "1px solid var(--ambo-border)",
+        borderRadius: "var(--ambo-radius-sm)",
+        padding: "14px 16px",
+        cursor: "pointer",
+        transition: "all var(--ambo-dur) var(--ambo-ease)",
+      }}
+    >
       <div style={{
-        width: 48, height: 48, borderRadius: "50%",
-        background: "var(--ambo-surface)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 22,
+        fontFamily: "var(--ambo-font-ui)",
+        fontSize: 10, fontWeight: 700,
+        letterSpacing: "0.1em", textTransform: "uppercase",
+        color: "var(--ambo-text-muted)", marginBottom: 6,
       }}>
-        ✦
+        {typeLabel}{variantLabel}
       </div>
-      <div>
-        <div style={{
-          fontFamily: "var(--ambo-font-reading)",
-          fontSize: 17, fontStyle: "italic",
-          color: "var(--ambo-text-primary)", marginBottom: 8,
-        }}>
-          Echo
-        </div>
-        <div style={{
-          fontSize: 13, color: "var(--ambo-text-secondary)",
-          lineHeight: 1.65, maxWidth: 260, marginBottom: 20,
-        }}>
-          Carry a homily forward — bulletin notes, parish reflections, social posts, and more.
-        </div>
-        <button
-          onClick={onSwitchToHomilies}
-          style={{
-            border: "1px solid rgba(74, 111, 165, 0.35)",
-            background: "transparent",
-            color: "var(--ambo-accent)",
-            fontSize: 13,
-            fontWeight: 500,
-            padding: "10px 20px",
-            borderRadius: 100,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          Choose a homily
+      <p style={{
+        fontFamily: "var(--ambo-font-reading)",
+        fontSize: 13, fontStyle: "italic",
+        color: "var(--ambo-text-primary)",
+        margin: "0 0 8px", lineHeight: 1.5,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {preview}{(entry.output_text ?? "").length > 110 ? "…" : ""}
+      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {sourceLabel}
+        </span>
+        <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)", flexShrink: 0 }}>
+          {savedDate}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+type EchoSubTab = "generate" | "archive";
+
+interface EchoPanelProps {
+  homilies: HomilyRow[] | null;
+  onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
+  onOpenEchoEntry: (entry: ArchiveEntry) => void;
+}
+
+function EchoPanel({ homilies, onOpenEcho, onOpenEchoEntry }: EchoPanelProps) {
+  const [subTab, setSubTab] = useState<EchoSubTab>("generate");
+  const [archiveEntries, setArchiveEntries] = useState<ArchiveEntry[] | null>(null);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  // Fetch archive on demand
+  useEffect(() => {
+    if (subTab !== "archive" || archiveEntries !== null) return;
+    setArchiveLoading(true);
+    setArchiveError(null);
+    fetch("/api/echo/archive")
+      .then((r) => r.json())
+      .then(({ outputs }) => setArchiveEntries(outputs ?? []))
+      .catch(() => setArchiveError("Could not load archive. Please try again."))
+      .finally(() => setArchiveLoading(false));
+  }, [subTab, archiveEntries]);
+
+  const subPillStyle = (active: boolean): React.CSSProperties => ({
+    fontFamily: "var(--ambo-font-ui)",
+    fontSize: 12,
+    fontWeight: 500,
+    padding: "6px 14px",
+    borderRadius: "var(--ambo-radius-pill)",
+    cursor: "pointer",
+    border: active ? "1px solid var(--ambo-accent)" : "1px solid var(--ambo-border)",
+    background: active ? "var(--ambo-accent-light)" : "transparent",
+    color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+    transition: "all 150ms ease",
+    lineHeight: 1,
+    whiteSpace: "nowrap" as const,
+  });
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+      {/* Sub-tab pills */}
+      <div style={{ padding: "12px 20px 10px", display: "flex", gap: 6, flexShrink: 0 }}>
+        <button onClick={() => setSubTab("generate")} style={subPillStyle(subTab === "generate")}>
+          Generate
+        </button>
+        <button onClick={() => setSubTab("archive")} style={subPillStyle(subTab === "archive")}>
+          Archive
         </button>
       </div>
+
+      {/* ── Generate: homily list ── */}
+      {subTab === "generate" && (
+        <div className="echo-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 20px 24px" }}>
+          {!homilies && (
+            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "16px 0 0" }}>
+              Loading homilies…
+            </p>
+          )}
+          {homilies && homilies.length === 0 && (
+            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "16px 0 0", lineHeight: 1.6 }}>
+              No homilies yet. Write and save a homily first, then come back to Echo it.
+            </p>
+          )}
+          {homilies && homilies.length > 0 && (
+            <div>
+              {homilies.map((h) => {
+                const sundayName = h.sunday_date ? sundayNameCache.get(h.sunday_date) : undefined;
+                const label = h.sunday_date
+                  ? `${sundayName ?? "Sunday"} · ${lectionaryYear(h.sunday_date)}`
+                  : (h.title ?? "Untitled homily");
+                return (
+                  <button
+                    key={h.id}
+                    onClick={() => onOpenEcho(label, h.content ?? "", h.id)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      width: "100%",
+                      textAlign: "left",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: "1px solid var(--ambo-border)",
+                      padding: "12px 0",
+                      cursor: "pointer",
+                      gap: 2,
+                    }}
+                  >
+                    <span style={{ fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic", color: "var(--ambo-text-primary)" }}>
+                      {label}
+                    </span>
+                    {h.sunday_date && (
+                      <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)" }}>
+                        {friendlyDate(h.sunday_date)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Archive: saved Echo outputs ── */}
+      {subTab === "archive" && (
+        <div className="echo-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 20px 24px" }}>
+          {archiveLoading && (
+            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "8px 0 0" }}>
+              Loading archive…
+            </p>
+          )}
+          {!archiveLoading && archiveError && (
+            <p style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 13, color: "rgba(200,60,60,0.8)", margin: "8px 0 0" }}>
+              {archiveError}
+            </p>
+          )}
+          {!archiveLoading && !archiveError && archiveEntries && archiveEntries.length === 0 && (
+            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "8px 0 0", lineHeight: 1.6 }}>
+              No saved Echo outputs yet. Generate something and tap Save.
+            </p>
+          )}
+          {!archiveLoading && !archiveError && archiveEntries && archiveEntries.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {archiveEntries.map((entry) => (
+                <EchoArchiveCard key={entry.id} entry={entry} onOpen={onOpenEchoEntry} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -617,6 +790,7 @@ export default function HomilyList({
   onCreate,
   onOpenInWrite,
   onOpenEcho,
+  onOpenEchoEntry,
   refreshKey = 0,
 }: HomilyListProps) {
   const [tab, setTab] = useState<DrawerTab>("my-homilies");
@@ -1090,7 +1264,11 @@ export default function HomilyList({
             </div>
           </div>
         ) : (
-          <EchoPanel onSwitchToHomilies={() => setTab("my-homilies")} />
+          <EchoPanel
+            homilies={homilies}
+            onOpenEcho={onOpenEcho}
+            onOpenEchoEntry={onOpenEchoEntry}
+          />
         )}
       </aside>
 

@@ -620,310 +620,6 @@ function UnsavedGuard({ onSave, onDiscard, onCancel, saving }: UnsavedGuardProps
   );
 }
 
-// ── Archive entry card ─────────────────────────────────────────────────────
-
-interface ArchiveEntryCardProps {
-  entry: ArchiveEntry;
-  onOpen: (entry: ArchiveEntry) => void;
-}
-
-function ArchiveEntryCard({ entry, onOpen }: ArchiveEntryCardProps) {
-  const [hovered, setHovered] = useState(false);
-
-  const typeLabel = OUTPUT_TYPE_LABELS[entry.output_type] ?? entry.output_type;
-  const variantLabel = entry.variant
-    ? ` · ${entry.variant.charAt(0).toUpperCase() + entry.variant.slice(1).replace(/-/g, " ")}`
-    : "";
-
-  const preview = entry.output_text.slice(0, 120).trim();
-
-  const sourceLabel = entry.homily_title
-    ? `From your "${entry.homily_title}"`
-    : entry.homily_sunday_date
-    ? `From your ${entry.homily_sunday_date}`
-    : "Standalone output";
-
-  const savedDate = new Date(entry.created_at).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-
-  return (
-    <button
-      onClick={() => onOpen(entry)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        background: hovered
-          ? "var(--ambo-surface-solid)"
-          : "var(--ambo-surface)",
-        border: "1px solid var(--ambo-border)",
-        borderRadius: "var(--ambo-radius-sm)",
-        padding: "18px 22px",
-        cursor: "pointer",
-        transition: "all var(--ambo-dur) var(--ambo-ease)",
-        backdropFilter: "var(--ambo-blur)",
-        WebkitBackdropFilter: "var(--ambo-blur)",
-        boxShadow: hovered ? "var(--ambo-shadow-sm)" : "none",
-      }}
-    >
-      {/* Type label */}
-      <div
-        style={{
-          fontFamily: "var(--ambo-font-ui)",
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: "var(--ambo-text-muted)",
-          marginBottom: 8,
-        }}
-      >
-        {typeLabel}{variantLabel}
-      </div>
-
-      {/* Preview text */}
-      <p
-        style={{
-          fontFamily: "var(--ambo-font-reading)",
-          fontSize: "var(--ambo-size-md)",
-          fontStyle: "italic",
-          color: "var(--ambo-text-primary)",
-          margin: "0 0 10px",
-          lineHeight: "var(--ambo-lh-snug)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {preview}{entry.output_text.length > 120 ? "…" : ""}
-      </p>
-
-      {/* Source + date row */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--ambo-font-ui)",
-            fontSize: "var(--ambo-size-sm)",
-            color: "var(--ambo-text-muted)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {sourceLabel}
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--ambo-font-ui)",
-            fontSize: "var(--ambo-size-sm)",
-            color: "var(--ambo-text-muted)",
-            flexShrink: 0,
-          }}
-        >
-          {savedDate}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-// ── Archive view ───────────────────────────────────────────────────────────
-
-interface ArchiveViewProps {
-  entries: ArchiveEntry[];
-  loading: boolean;
-  error: string | null;
-  filter: "all" | "by-type";
-  onFilterChange: (f: "all" | "by-type") => void;
-  onOpen: (entry: ArchiveEntry) => void;
-}
-
-function ArchiveView({
-  entries,
-  loading,
-  error,
-  filter,
-  onFilterChange,
-  onOpen,
-}: ArchiveViewProps) {
-  const filterPillStyle = (active: boolean): React.CSSProperties => ({
-    border: `1px solid ${active ? "var(--ambo-accent)" : "var(--ambo-border)"}`,
-    background: active ? "var(--ambo-accent-light)" : "transparent",
-    color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
-    fontSize: "var(--ambo-size-sm)",
-    fontWeight: active ? 600 : 500,
-    padding: "5px 14px",
-    borderRadius: "var(--ambo-radius-pill)",
-    cursor: "pointer",
-    fontFamily: "var(--ambo-font-ui)",
-    transition: "all var(--ambo-dur) var(--ambo-ease)",
-    lineHeight: 1,
-  });
-
-  return (
-    <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        overflowY: "auto",
-        padding: "32px 0 40px",
-        animation: "fadeIn 400ms ease-out",
-      }}
-    >
-      {/* Eyebrow */}
-      <div
-        style={{
-          fontFamily: "var(--ambo-font-ui)",
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "var(--ambo-text-muted)",
-          marginBottom: 20,
-        }}
-      >
-        your echo archive
-      </div>
-
-      {/* Filter pills */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 28,
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          style={filterPillStyle(filter === "all")}
-          onClick={() => onFilterChange("all")}
-        >
-          All
-        </button>
-        <button
-          style={filterPillStyle(filter === "by-type")}
-          onClick={() => onFilterChange("by-type")}
-        >
-          By type
-        </button>
-        {/* By homily — future enhancement */}
-        <button
-          style={{
-            ...filterPillStyle(false),
-            opacity: 0.4,
-            cursor: "default",
-            pointerEvents: "none",
-          }}
-          disabled
-        >
-          By homily
-        </button>
-      </div>
-
-      {/* Loading state */}
-      {loading && (
-        <p
-          style={{
-            fontFamily: "var(--ambo-font-reading)",
-            fontSize: "var(--ambo-size-lg)",
-            fontStyle: "italic",
-            color: "var(--ambo-text-muted)",
-            margin: 0,
-            animation: "echoComposingPulse 2s ease-in-out infinite",
-          }}
-        >
-          Loading archive&hellip;
-        </p>
-      )}
-
-      {/* Error state */}
-      {!loading && error && (
-        <p
-          style={{
-            fontFamily: "var(--ambo-font-ui)",
-            fontSize: "var(--ambo-size-md)",
-            color: "rgba(200,60,60,0.8)",
-            margin: 0,
-          }}
-        >
-          {error}
-        </p>
-      )}
-
-      {/* Empty state */}
-      {!loading && !error && entries.length === 0 && (
-        <p
-          style={{
-            fontFamily: "var(--ambo-font-reading)",
-            fontSize: "var(--ambo-size-lg)",
-            fontStyle: "italic",
-            color: "var(--ambo-text-muted)",
-            margin: 0,
-          }}
-        >
-          No outputs saved yet. Generate something and tap Save.
-        </p>
-      )}
-
-      {/* Entry list — All */}
-      {!loading && !error && entries.length > 0 && filter === "all" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {entries.map((entry) => (
-            <ArchiveEntryCard key={entry.id} entry={entry} onOpen={onOpen} />
-          ))}
-        </div>
-      )}
-
-      {/* Entry list — By type */}
-      {!loading && !error && entries.length > 0 && filter === "by-type" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-          {(["take-into-the-week", "parish-reflection", "social-post", "small-group-questions", "prayer-prompt"] as const).map((type) => {
-            const group = entries.filter((e) => e.output_type === type);
-            if (group.length === 0) return null;
-            return (
-              <div key={type}>
-                <div
-                  style={{
-                    fontFamily: "var(--ambo-font-ui)",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    color: "var(--ambo-text-muted)",
-                    marginBottom: 12,
-                    paddingBottom: 8,
-                    borderBottom: "1px solid var(--ambo-rule-subtle)",
-                  }}
-                >
-                  {OUTPUT_TYPE_LABELS[type]}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {group.map((entry) => (
-                    <ArchiveEntryCard key={entry.id} entry={entry} onOpen={onOpen} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function EchoWorkspace({
@@ -932,6 +628,7 @@ export default function EchoWorkspace({
   onClose,
   homilyText,
   homilyId,
+  initialEntry,
 }: EchoWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<EchoOutputType>("take-into-the-week");
   const [tabSelected, setTabSelected] = useState(false);
@@ -956,13 +653,6 @@ export default function EchoWorkspace({
     type: "tab-switch" | "variant-switch" | "close" | "regenerate";
     payload?: unknown;
   } | null>(null);
-
-  // ── Archive state ─────────────────────────────────────────────────────────
-  const [archiveOpen, setArchiveOpen] = useState(false);
-  const [archiveFilter, setArchiveFilter] = useState<"all" | "by-type">("all");
-  const [archiveOutputs, setArchiveOutputs] = useState<ArchiveEntry[]>([]);
-  const [archiveLoading, setArchiveLoading] = useState(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
 
   // Ref: when true, the next render after a variant state update will auto-regenerate.
   // Set when the priest switches variants while output already exists.
@@ -991,31 +681,6 @@ export default function EchoWorkspace({
     outputText.length > 0 &&
     outputText !== generatedText &&
     saveStatus !== "saved";
-
-  // ── Archive fetch ─────────────────────────────────────────────────────────
-
-  const fetchArchive = useCallback(async () => {
-    setArchiveLoading(true);
-    setArchiveError(null);
-    try {
-      const res = await fetch("/api/echo/archive");
-      if (!res.ok) throw new Error(`Archive fetch failed: ${res.status}`);
-      const { outputs } = await res.json();
-      setArchiveOutputs(outputs ?? []);
-    } catch (err) {
-      console.error("[EchoWorkspace] archive fetch error:", err);
-      setArchiveError("Could not load archive. Please try again.");
-    } finally {
-      setArchiveLoading(false);
-    }
-  }, []);
-
-  // Fetch when archive opens
-  useEffect(() => {
-    if (archiveOpen) {
-      fetchArchive();
-    }
-  }, [archiveOpen, fetchArchive]);
 
   // ── Generation ───────────────────────────────────────────────────────────
 
@@ -1116,16 +781,13 @@ export default function EchoWorkspace({
       setSavedId(id);
       setSaveStatus("saved");
 
-      // Re-fetch archive so it stays current after a save
-      fetchArchive();
-
       // Fade back to idle after 2 seconds
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (err) {
       console.error("[EchoWorkspace] save error:", err);
       setSaveStatus("error");
     }
-  }, [saveStatus, hasOutput, outputText, activeTab, resolvedVariant, generatedText, homilyId, fetchArchive]);
+  }, [saveStatus, hasOutput, outputText, activeTab, resolvedVariant, generatedText, homilyId]);
 
   // ── Copy ─────────────────────────────────────────────────────────────────
 
@@ -1365,62 +1027,47 @@ export default function EchoWorkspace({
     }, 750);
   }, [closing, guardIfUnsaved, onClose]);
 
-  // ── Archive open entry ────────────────────────────────────────────────────
-
-  const handleArchiveOpen = useCallback((entry: ArchiveEntry) => {
-    // Load entry back into the editing area
-    setActiveTab(entry.output_type as EchoOutputType);
-    setTabSelected(true);
-    setOutputText(entry.output_text);
-    setGeneratedText(entry.generated_text);
-    setHasOutput(true);
-    setSavedId(entry.id);
-    setSaveStatus("idle");
-    setError(null);
-    setPendingAction(null);
-
-    // Restore variant
-    if (entry.output_type === "parish-reflection" && entry.variant) {
-      setParishVariant(entry.variant as ParishReflectionVariant);
-    } else if (entry.output_type === "social-post" && entry.variant) {
-      setSocialVariant(entry.variant as SocialPostVariant);
-    }
-
-    setArchiveOpen(false);
-  }, []);
-
   // Close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (archiveOpen) {
-          setArchiveOpen(false);
-        } else {
-          handleClose();
-        }
-      }
+      if (e.key === "Escape") handleClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closing, archiveOpen]);
+  }, [open, closing]);
 
-  // Reset to first tab whenever the workspace opens
+  // Reset on open; if an initialEntry is provided, pre-load it
   useEffect(() => {
     if (open) {
-      setActiveTab("take-into-the-week");
-      setTabSelected(false);
-      setOutputText("");
-      setGeneratedText("");
-      setHasOutput(false);
+      if (initialEntry) {
+        setActiveTab(initialEntry.output_type as EchoOutputType);
+        setTabSelected(true);
+        setOutputText(initialEntry.output_text ?? initialEntry.generated_text ?? "");
+        setGeneratedText(initialEntry.output_text ?? initialEntry.generated_text ?? "");
+        setHasOutput(true);
+        setSavedId(initialEntry.id);
+        if (initialEntry.output_type === "parish-reflection" && initialEntry.variant) {
+          setParishVariant(initialEntry.variant as ParishReflectionVariant);
+        }
+        if (initialEntry.output_type === "social-post" && initialEntry.variant) {
+          setSocialVariant(initialEntry.variant as SocialPostVariant);
+        }
+      } else {
+        setActiveTab("take-into-the-week");
+        setTabSelected(false);
+        setOutputText("");
+        setGeneratedText("");
+        setHasOutput(false);
+      }
       setError(null);
-      setSavedId(null);
+      setSavedId(initialEntry?.id ?? null);
       setSaveStatus("idle");
       setCopyStatus("idle");
       setPendingAction(null);
-      setArchiveOpen(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -1585,45 +1232,21 @@ export default function EchoWorkspace({
             </button>
           ))}
 
-          {/* Archive pill — pill style, set apart by larger gap (no divider line) */}
-          <button
-            onClick={() => setArchiveOpen((v) => !v)}
-            aria-pressed={archiveOpen}
-            style={{ ...echoPillStyle(archiveOpen), marginLeft: 24 }}
-          >
-            <svg width={12} height={12} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }}>
-              <rect x="2" y="3" width="16" height="4" rx="1"/>
-              <path d="M4 7v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/>
-              <path d="M8 11h4"/>
-            </svg>
-            archive
-          </button>
         </div>
 
-        {/* ── Body: archive view or content panel ─────────────────────────── */}
+        {/* ── Body ────────────────────────────────────────────────────────────── */}
         <div
-          className="echo-scroll"
           style={{
             flex: 1,
             minHeight: 0,
-            overflowY: "auto",
+            overflow: "visible",
             display: "flex",
             flexDirection: "column",
             padding: "0 32px 0",
           }}
         >
-          {archiveOpen ? (
-            <ArchiveView
-              entries={archiveOutputs}
-              loading={archiveLoading}
-              error={archiveError}
-              filter={archiveFilter}
-              onFilterChange={setArchiveFilter}
-              onOpen={handleArchiveOpen}
-            />
-          ) : (
-            /* Content panel — white card always present */
-            <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          {/* Content panel — white card always present */}
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
 
               {/* Chrome on grey surface: guard, variant chips, error */}
               {tabSelected && pendingAction && (
@@ -1778,13 +1401,11 @@ export default function EchoWorkspace({
                   Using demo homily text — select a homily to generate from your own words.
                 </p>
               )}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── Action footer — permanent structure, always present ── */}
-        {!archiveOpen && (
-          <div
+        <div
             style={{
               flexShrink: 0,
               padding: "8px 32px 16px",
@@ -1802,8 +1423,7 @@ export default function EchoWorkspace({
               onDownload={handleDownload}
               onEmail={handleEmail}
             />
-          </div>
-        )}
+        </div>
       </div>
     </>
   );
