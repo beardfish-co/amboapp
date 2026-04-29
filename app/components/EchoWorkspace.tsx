@@ -178,7 +178,7 @@ interface VariantChipsProps<T extends string> {
 
 function VariantChips<T extends string>({ variants, active, onChange, echoPillStyle }: VariantChipsProps<T> & { echoPillStyle: (a: boolean) => React.CSSProperties }) {
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {variants.map((v) => {
         const isActive = v.id === active;
         return (
@@ -683,6 +683,11 @@ export default function EchoWorkspace({
     outputText.length > 0 &&
     outputText !== generatedText &&
     saveStatus !== "saved";
+
+  // Whether the current tab has variant chips (used to animate the chip row in/out)
+  const showVariants =
+    tabSelected &&
+    (activeTab === "parish-reflection" || activeTab === "social-post");
 
   // ── Generation ───────────────────────────────────────────────────────────
 
@@ -1262,25 +1267,40 @@ export default function EchoWorkspace({
                 </div>
               )}
 
-              {tabSelected && activeTab === "parish-reflection" && (
-                <div style={{ paddingTop: 16 }}>
-                  <VariantChips
-                    variants={PARISH_REFLECTION_VARIANTS}
-                    active={parishVariant}
-                    onChange={handleParishVariantChange}
-                    echoPillStyle={echoPillStyle}
-                  />
-                </div>
-              )}
-
-              {tabSelected && activeTab === "social-post" && (
-                <div style={{ paddingTop: 16 }}>
-                  <VariantChips
-                    variants={SOCIAL_POST_VARIANTS}
-                    active={socialVariant}
-                    onChange={handleSocialVariantChange}
-                    echoPillStyle={echoPillStyle}
-                  />
+              {/* Variant chips — animated in/out via grid-template-rows trick.
+                   Height eases open/closed; opacity fades in sync.
+                   The card beneath responds naturally as available space changes. */}
+              {tabSelected && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateRows: showVariants ? "1fr" : "0fr",
+                    opacity: showVariants ? 1 : 0,
+                    transition:
+                      "grid-template-rows 420ms var(--ambo-ease), opacity 280ms var(--ambo-ease)",
+                  }}
+                >
+                  {/* overflow:hidden on the grid child is what makes 0fr actually clip */}
+                  <div style={{ overflow: "hidden" }}>
+                    <div style={{ paddingTop: 16 }}>
+                      {activeTab === "parish-reflection" && (
+                        <VariantChips
+                          variants={PARISH_REFLECTION_VARIANTS}
+                          active={parishVariant}
+                          onChange={handleParishVariantChange}
+                          echoPillStyle={echoPillStyle}
+                        />
+                      )}
+                      {activeTab === "social-post" && (
+                        <VariantChips
+                          variants={SOCIAL_POST_VARIANTS}
+                          active={socialVariant}
+                          onChange={handleSocialVariantChange}
+                          echoPillStyle={echoPillStyle}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
