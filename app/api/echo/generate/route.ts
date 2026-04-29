@@ -42,6 +42,16 @@ function isValidOutputType(s: string): s is OutputType {
   return (VALID_OUTPUT_TYPES as readonly string[]).includes(s);
 }
 
+// ── Shared scripture-quotation constraint block ────────────────────────────
+//
+// This block is embedded in every prompt. It is more emphatic than the
+// previous single-line version, and includes an explicit worked example.
+
+const SCRIPTURE_CONSTRAINT = `CRITICAL — Scripture quotation rule (applies without exception):
+Direct scripture quotations from the homily must not appear in your output, even when the homily contains them verbatim. Do not copy phrases directly from the scriptural text. Reference scripture by paraphrase or by allusion only. This applies to all scripture, including phrases that may sound like ordinary speech. If a phrase is drawn directly from the readings, paraphrase it.
+
+Example: if the homily contains the line "Do not let your hearts be troubled," do not reproduce that phrase. Instead write something like: "Hear again the Lord's tender word in today's Gospel — that we should not let our hearts be troubled." Or simply: "In today's Gospel, Jesus speaks tenderly to disciples whose hearts are heavy." Apply this principle to every scriptural phrase in the homily, however brief or familiar.`;
+
 // ── System prompts ─────────────────────────────────────────────────────────
 
 function getSystemPrompt(outputType: OutputType, variant?: string): string {
@@ -78,7 +88,7 @@ Universal constraints — all of the following apply without exception:
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas, new theological points, or new pastoral content not present in the homily.
 2. Preserve the priest's voice — his vocabulary, rhythm, tone, and theological register. If he speaks simply, speak simply. If he draws on rich theological language, preserve that register.
 3. Do not soften, sharpen, or alter the homily's emphasis. If he emphasizes mercy, the reflection emphasizes mercy. If he emphasizes sacrifice, the reflection emphasizes sacrifice.
-4. Do not reproduce direct scripture quotations. Reference scripture by name and citation only, or paraphrase in the priest's own words. (Licensing constraint.)
+4. ${SCRIPTURE_CONSTRAINT}
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — if the priest references these, preserve them freely.
 6. Do not draw on any knowledge outside the provided homily. The reflection must be grounded entirely in what the priest said.
 7. Output only the reflection text. No preamble, no explanation, no commentary. Just the output text.
@@ -98,7 +108,7 @@ Universal constraints — all of the following apply without exception:
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas not present in the homily.
 2. Preserve the priest's voice — his vocabulary, rhythm, and tone.
 3. Do not soften, sharpen, or alter the homily's emphasis.
-4. Do not reproduce direct scripture quotations. Reference by name and citation, or paraphrase.
+4. ${SCRIPTURE_CONSTRAINT}
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the reflection text. No preamble, no explanation, no commentary.
@@ -125,7 +135,7 @@ Universal constraints — all of the following apply without exception:
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas not present in the homily.
 2. Preserve the priest's voice and tone.
 3. Do not soften, sharpen, or alter the homily's emphasis.
-4. Do not reproduce direct scripture quotations. Reference by name and citation, or paraphrase.
+4. ${SCRIPTURE_CONSTRAINT}
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the post text. No preamble, no explanation, no commentary.
@@ -145,10 +155,12 @@ Universal constraints — all of the following apply without exception:
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas not present in the homily.
 2. Preserve the priest's theological register and emphasis.
 3. Do not soften, sharpen, or alter the homily's emphasis.
-4. Do not reproduce direct scripture quotations. Reference by name and citation, or paraphrase.
+4. ${SCRIPTURE_CONSTRAINT} This rule is especially critical for Small Group Questions: never invite participants to reflect on a scripture phrase by quoting it directly. Paraphrase or allude to the scriptural idea instead.
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the questions. No preamble, no explanation, no commentary.
+
+Output plain text only. Do not include any Markdown formatting — no headings (no # symbols), no bullet points, no asterisks, no bold, no italics. Number the questions using simple numerals and full stops: 1. 2. 3. Each question on its own line, with a blank line between questions. No introductory heading or title.
 
 Output only the Small Group Questions. Do not include any other text.`;
 }
@@ -165,7 +177,7 @@ Universal constraints — all of the following apply without exception:
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas not present in the homily.
 2. Preserve the priest's theological register and emphasis.
 3. Do not soften, sharpen, or alter the homily's emphasis.
-4. Do not reproduce direct scripture quotations. Reference by name and citation, or paraphrase.
+4. ${SCRIPTURE_CONSTRAINT} This rule is especially critical for Prayer Prompts: the prayer itself must not contain verbatim scripture phrases, even prayerful-sounding ones. If the homily's theme comes from a scripture line, pray about the meaning and movement of that line — do not repeat the line itself.
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the prayer text. No preamble, no explanation, no commentary.

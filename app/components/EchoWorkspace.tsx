@@ -319,6 +319,48 @@ function EmptyOutput({ tab, onGenerate, loading }: EmptyOutputProps) {
   );
 }
 
+// ── No-selection empty state ───────────────────────────────────────────────
+
+function NoSelectionState() {
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "48px 0",
+        animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
+      <p
+        style={{
+          fontFamily: "var(--ambo-font-reading)",
+          fontSize: "var(--ambo-size-3xl)",
+          fontStyle: "italic",
+          fontWeight: 400,
+          color: "var(--ambo-text-primary)",
+          margin: "0 0 10px",
+          lineHeight: 1.2,
+        }}
+      >
+        Echo
+      </p>
+      <p
+        style={{
+          fontFamily: "var(--ambo-font-ui)",
+          fontSize: "var(--ambo-size-sm)",
+          color: "var(--ambo-text-muted)",
+          margin: 0,
+          lineHeight: "var(--ambo-lh-snug)",
+        }}
+      >
+        Five ways to carry the word forward.
+      </p>
+    </div>
+  );
+}
+
 // ── Output text area ───────────────────────────────────────────────────────
 
 interface OutputAreaProps {
@@ -348,15 +390,15 @@ function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaPr
         width: "100%",
         minHeight,
         flex: 1,
-        resize: "vertical",
+        resize: "none",
         fontFamily: "var(--ambo-font-reading)",
-        fontSize: "var(--ambo-size-xl)",
-        lineHeight: "var(--ambo-lh-reading, 1.7)",
+        fontSize: "var(--ambo-size-lg)",
+        lineHeight: 1.85,
         color: "var(--ambo-text-primary)",
         background: "transparent",
         border: "none",
         outline: "none",
-        padding: 0,
+        padding: "24px 0",
         margin: 0,
         boxSizing: "border-box",
         caretColor: "var(--ambo-accent)",
@@ -370,7 +412,7 @@ function OutputArea({ text, onChange, streaming, minHeight = 280 }: OutputAreaPr
   );
 }
 
-// ── Action row ─────────────────────────────────────────────────────────────
+// ── Action row — pills ─────────────────────────────────────────────────────
 
 interface ActionRowProps {
   savedId: string | null;
@@ -391,23 +433,20 @@ function ActionRow({
   onDownload,
   onEmail,
 }: ActionRowProps) {
-  const linkStyle: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    padding: 0,
+  const pillStyle: React.CSSProperties = {
+    border: "1px solid var(--ambo-border)",
+    background: "transparent",
+    color: "var(--ambo-text-secondary)",
+    fontSize: "var(--ambo-size-sm)",
+    fontWeight: 500,
+    padding: "7px 16px",
+    borderRadius: "var(--ambo-radius-pill)",
     cursor: "pointer",
     fontFamily: "var(--ambo-font-ui)",
-    fontSize: "var(--ambo-size-sm)",
-    color: "var(--ambo-text-muted)",
-    transition: "color var(--ambo-dur) var(--ambo-ease)",
+    transition: "all var(--ambo-dur) var(--ambo-ease)",
     lineHeight: 1,
-  };
-
-  const separatorStyle: React.CSSProperties = {
-    color: "var(--ambo-border)",
-    userSelect: "none" as const,
-    fontSize: "var(--ambo-size-sm)",
-    lineHeight: 1,
+    display: "inline-flex",
+    alignItems: "center",
   };
 
   const feedbackStyle: React.CSSProperties = {
@@ -416,6 +455,7 @@ function ActionRow({
     fontStyle: "italic",
     color: "var(--ambo-text-muted)",
     animation: "fadeIn 200ms ease-out both",
+    lineHeight: 1,
   };
 
   return (
@@ -423,67 +463,101 @@ function ActionRow({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 10,
-        paddingTop: 12,
+        gap: 8,
+        marginTop: 32,
         flexWrap: "wrap",
       }}
     >
       {/* Save */}
       {saveStatus === "saved" ? (
-        <span style={feedbackStyle}>Saved</span>
+        <span style={feedbackStyle}>saved</span>
       ) : (
         <button
           onClick={onSave}
           disabled={saveStatus === "saving"}
           style={{
-            ...linkStyle,
+            ...pillStyle,
             opacity: saveStatus === "saving" ? 0.5 : 1,
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+          onMouseEnter={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.borderColor = "var(--ambo-accent)";
+            btn.style.color = "var(--ambo-accent)";
+            btn.style.background = "var(--ambo-accent-light)";
+          }}
+          onMouseLeave={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.borderColor = "var(--ambo-border)";
+            btn.style.color = "var(--ambo-text-secondary)";
+            btn.style.background = "transparent";
+          }}
         >
-          {saveStatus === "saving" ? "Saving…" : savedId ? "Save again" : "Save"}
+          {saveStatus === "saving" ? "saving…" : savedId ? "save again" : "save"}
         </button>
       )}
-
-      <span aria-hidden="true" style={separatorStyle}>·</span>
 
       {/* Copy */}
       {copyStatus === "copied" ? (
-        <span style={feedbackStyle}>Copied</span>
+        <span style={feedbackStyle}>copied</span>
       ) : (
         <button
           onClick={onCopy}
-          style={linkStyle}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+          style={pillStyle}
+          onMouseEnter={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.borderColor = "var(--ambo-accent)";
+            btn.style.color = "var(--ambo-accent)";
+            btn.style.background = "var(--ambo-accent-light)";
+          }}
+          onMouseLeave={(e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.style.borderColor = "var(--ambo-border)";
+            btn.style.color = "var(--ambo-text-secondary)";
+            btn.style.background = "transparent";
+          }}
         >
-          Copy
+          copy
         </button>
       )}
-
-      <span aria-hidden="true" style={separatorStyle}>·</span>
 
       {/* Download */}
       <button
         onClick={onDownload}
-        style={linkStyle}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+        style={pillStyle}
+        onMouseEnter={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement;
+          btn.style.borderColor = "var(--ambo-accent)";
+          btn.style.color = "var(--ambo-accent)";
+          btn.style.background = "var(--ambo-accent-light)";
+        }}
+        onMouseLeave={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement;
+          btn.style.borderColor = "var(--ambo-border)";
+          btn.style.color = "var(--ambo-text-secondary)";
+          btn.style.background = "transparent";
+        }}
       >
-        Download
+        download
       </button>
-
-      <span aria-hidden="true" style={separatorStyle}>·</span>
 
       {/* Email */}
       <button
         onClick={onEmail}
-        style={linkStyle}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+        style={pillStyle}
+        onMouseEnter={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement;
+          btn.style.borderColor = "var(--ambo-accent)";
+          btn.style.color = "var(--ambo-accent)";
+          btn.style.background = "var(--ambo-accent-light)";
+        }}
+        onMouseLeave={(e) => {
+          const btn = e.currentTarget as HTMLButtonElement;
+          btn.style.borderColor = "var(--ambo-border)";
+          btn.style.color = "var(--ambo-text-secondary)";
+          btn.style.background = "transparent";
+        }}
       >
-        Email
+        email
       </button>
 
       {/* Save error */}
@@ -587,53 +661,6 @@ function UnsavedGuard({ onSave, onDiscard, onCancel, saving }: UnsavedGuardProps
         </button>
       </div>
     </div>
-  );
-}
-
-// ── Tab button ─────────────────────────────────────────────────────────────
-
-interface TabButtonProps {
-  tab: EchoTab;
-  active: boolean;
-  onClick: () => void;
-  dimmed?: boolean;
-}
-
-function TabButton({ tab, active, onClick, dimmed }: TabButtonProps) {
-  const [hovered, setHovered] = useState(false);
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      aria-pressed={active}
-      style={{
-        border: "none",
-        background: active
-          ? "var(--ambo-surface-solid)"
-          : hovered
-          ? "rgba(74, 111, 165, 0.05)"
-          : "transparent",
-        color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
-        fontSize: "var(--ambo-size-md)",
-        fontWeight: active ? 600 : 500,
-        padding: "10px 16px",
-        borderRadius: "var(--ambo-radius-sm)",
-        cursor: "pointer",
-        fontFamily: "var(--ambo-font-ui)",
-        textAlign: "left",
-        width: "100%",
-        transition: "all var(--ambo-dur) var(--ambo-ease)",
-        boxShadow: active ? "var(--ambo-shadow-sm)" : "none",
-        lineHeight: 1.3,
-        letterSpacing: active ? "-0.01em" : "0",
-        opacity: dimmed ? 0.4 : 1,
-        pointerEvents: dimmed ? "none" : "auto",
-      }}
-    >
-      {tab.label}
-    </button>
   );
 }
 
@@ -796,7 +823,7 @@ function ArchiveView({
         display: "flex",
         flexDirection: "column",
         overflowY: "auto",
-        padding: "40px 48px",
+        padding: "32px 0 40px",
         animation: "fadeIn 400ms ease-out",
       }}
     >
@@ -951,6 +978,7 @@ export default function EchoWorkspace({
   homilyId,
 }: EchoWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<EchoOutputType>("take-into-the-week");
+  const [tabSelected, setTabSelected] = useState(false);
   const [streaming, setStreaming] = useState(false);
   // outputText: what's in the textarea (editable by priest)
   const [outputText, setOutputText] = useState("");
@@ -1226,6 +1254,7 @@ export default function EchoWorkspace({
       if (action.type === "tab-switch") {
         const tabId = action.payload as EchoOutputType;
         setActiveTab(tabId);
+        setTabSelected(true);
         setOutputText("");
         setGeneratedText("");
         setHasOutput(false);
@@ -1307,9 +1336,10 @@ export default function EchoWorkspace({
 
   const handleTabClick = useCallback(
     (tabId: EchoOutputType) => {
-      if (tabId === activeTab) return;
+      if (tabId === activeTab && tabSelected) return;
       if (guardIfUnsaved({ type: "tab-switch", payload: tabId })) return;
       setActiveTab(tabId);
+      setTabSelected(true);
       setOutputText("");
       setGeneratedText("");
       setHasOutput(false);
@@ -1317,7 +1347,7 @@ export default function EchoWorkspace({
       setSavedId(null);
       setSaveStatus("idle");
     },
-    [activeTab, guardIfUnsaved],
+    [activeTab, tabSelected, guardIfUnsaved],
   );
 
   // ── Variant switch ────────────────────────────────────────────────────────
@@ -1385,6 +1415,7 @@ export default function EchoWorkspace({
   const handleArchiveOpen = useCallback((entry: ArchiveEntry) => {
     // Load entry back into the editing area
     setActiveTab(entry.output_type as EchoOutputType);
+    setTabSelected(true);
     setOutputText(entry.output_text);
     setGeneratedText(entry.generated_text);
     setHasOutput(true);
@@ -1424,6 +1455,7 @@ export default function EchoWorkspace({
   useEffect(() => {
     if (open) {
       setActiveTab("take-into-the-week");
+      setTabSelected(false);
       setOutputText("");
       setGeneratedText("");
       setHasOutput(false);
@@ -1438,6 +1470,22 @@ export default function EchoWorkspace({
 
   if (!open) return null;
 
+  // Pill style factory for output type pills
+  const outputPillStyle = (isActive: boolean): React.CSSProperties => ({
+    border: `1px solid ${isActive ? "var(--ambo-accent)" : "var(--ambo-border)"}`,
+    background: isActive ? "var(--ambo-accent-light)" : "transparent",
+    color: isActive ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
+    fontSize: "var(--ambo-size-sm)",
+    fontWeight: isActive ? 600 : 500,
+    padding: "7px 16px",
+    borderRadius: "var(--ambo-radius-pill)",
+    cursor: "pointer",
+    fontFamily: "var(--ambo-font-ui)",
+    transition: "all var(--ambo-dur) var(--ambo-ease)",
+    lineHeight: 1,
+    whiteSpace: "nowrap" as const,
+  });
+
   return (
     <>
       {/* Keyframes injected once alongside the workspace */}
@@ -1448,16 +1496,14 @@ export default function EchoWorkspace({
         }
       `}</style>
 
-      {/* Full-screen backdrop */}
+      {/* Scrim — same treatment as reading view */}
       <div
         onClick={handleClose}
         aria-hidden="true"
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(15, 20, 30, 0.45)",
-          backdropFilter: "blur(6px)",
-          WebkitBackdropFilter: "blur(6px)",
+          background: "rgba(10, 15, 25, 0.17)",
           zIndex: 110,
           animation: closing
             ? "fadeOut 780ms ease-in both"
@@ -1465,198 +1511,157 @@ export default function EchoWorkspace({
         }}
       />
 
-      {/* Workspace panel — full-screen overlay, slides in from the right */}
+      {/* Workspace panel — contained modal, slides in from right */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Echo — ${sundayLabel}`}
         style={{
           position: "fixed",
-          inset: 0,
+          // Desktop: generous margins. Mobile: full screen.
+          top: "clamp(0px, 7vh, 72px)",
+          bottom: "clamp(0px, 7vh, 72px)",
+          left: "clamp(0px, 7vw, 100px)",
+          right: "clamp(0px, 7vw, 100px)",
           zIndex: 120,
           display: "flex",
           flexDirection: "column",
-          background: "var(--ambo-bg)",
+          background: "var(--ambo-surface-reading)",
+          backdropFilter: "blur(22px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(22px) saturate(1.4)",
+          border: "1px solid var(--ambo-border)",
+          borderRadius: "clamp(0px, 2vw, 20px)",
+          boxShadow: "var(--ambo-shadow-lg)",
+          maxWidth: "min(900px, 100%)",
+          // Centre horizontally within the margins
+          marginLeft: "auto",
+          marginRight: "auto",
+          overflow: "hidden",
           animation: closing
             ? "slideOutRight 780ms ease-in both"
             : "slideInRight 900ms ease-out both",
         }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <header
+        <div
           style={{
-            background: "var(--ambo-header-bg)",
-            backdropFilter: "var(--ambo-blur-chrome)",
-            WebkitBackdropFilter: "var(--ambo-blur-chrome)",
-            borderBottom: "1px solid var(--ambo-border)",
-            padding: "0 24px",
-            height: 60,
+            padding: "20px 32px 0",
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             gap: 16,
             flexShrink: 0,
           }}
         >
-          {/* Left: feature name + sunday label + archive link */}
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span
-              style={{
-                fontFamily: "var(--ambo-font-ui)",
-                fontSize: "var(--ambo-size-xs)",
-                fontWeight: 700,
-                letterSpacing: "var(--ambo-tracking-eyebrow-wide)",
-                textTransform: "uppercase",
-                color: "var(--ambo-text-muted)",
-              }}
-            >
-              Echo
-            </span>
-            <span
-              aria-hidden="true"
-              style={{ fontSize: "var(--ambo-size-xs)", color: "var(--ambo-border)" }}
-            >
-              ·
-            </span>
-            <span
-              style={{
-                fontFamily: "var(--ambo-font-reading)",
-                fontSize: "var(--ambo-size-lg)",
-                fontStyle: "italic",
-                fontWeight: 400,
-                color: "var(--ambo-text-primary)",
-              }}
-            >
-              {sundayLabel}
-            </span>
-            <span
-              aria-hidden="true"
-              style={{ fontSize: "var(--ambo-size-xs)", color: "var(--ambo-border)" }}
-            >
-              ·
-            </span>
-            {/* Archive affordance */}
-            <button
-              onClick={() => setArchiveOpen((v) => !v)}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontFamily: "var(--ambo-font-ui)",
-                fontSize: "var(--ambo-size-xs)",
-                fontWeight: archiveOpen ? 600 : 500,
-                color: archiveOpen ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
-                transition: "color var(--ambo-dur) var(--ambo-ease)",
-                lineHeight: 1,
-                letterSpacing: "0.02em",
-              }}
-              onMouseEnter={(e) => {
-                if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)";
-              }}
-              onMouseLeave={(e) => {
-                if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)";
-              }}
-              aria-pressed={archiveOpen}
-            >
-              Archive
-            </button>
-          </div>
+          {/* Left: quiet italic source line */}
+          <p
+            style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontStyle: "italic",
+              fontSize: "var(--ambo-size-sm)",
+              color: "var(--ambo-text-muted)",
+              margin: 0,
+              lineHeight: 1.4,
+            }}
+          >
+            from your {sundayLabel} homily
+          </p>
 
-          {/* Right: close */}
+          {/* Right: simple × close button */}
           <button
             onClick={handleClose}
             aria-label="Close Echo workspace"
             style={{
-              border: "1px solid var(--ambo-border)",
-              background: "transparent",
+              border: "none",
+              background: "none",
               color: "var(--ambo-text-muted)",
+              fontSize: 18,
               cursor: "pointer",
-              padding: "6px 14px",
-              borderRadius: "var(--ambo-radius-pill)",
-              fontSize: "var(--ambo-size-sm)",
-              fontWeight: 500,
-              fontFamily: "var(--ambo-font-ui)",
+              padding: "0 0 0 8px",
               lineHeight: 1,
-              transition: "all var(--ambo-dur) var(--ambo-ease)",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
+              flexShrink: 0,
+              transition: "color var(--ambo-dur) var(--ambo-ease)",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-primary)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* ── Output type pills row ───────────────────────────────────────── */}
+        <div
+          style={{
+            padding: "16px 32px 0",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            flexShrink: 0,
+          }}
+        >
+          {ECHO_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab.id)}
+              aria-pressed={tabSelected && activeTab === tab.id}
+              style={outputPillStyle(tabSelected && activeTab === tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+
+          {/* Archive affordance — separated by left border */}
+          <button
+            onClick={() => setArchiveOpen((v) => !v)}
+            aria-pressed={archiveOpen}
+            style={{
+              marginLeft: 16,
+              paddingLeft: 16,
+              borderLeft: "1px solid var(--ambo-border)",
+              background: "none",
+              border: "none",
+              borderLeft: "1px solid var(--ambo-border)",
+              padding: "7px 0 7px 16px",
+              cursor: "pointer",
+              fontFamily: "var(--ambo-font-ui)",
+              fontSize: "var(--ambo-size-sm)",
+              fontWeight: archiveOpen ? 600 : 400,
+              color: archiveOpen ? "var(--ambo-accent)" : "var(--ambo-text-muted)",
+              transition: "color var(--ambo-dur) var(--ambo-ease)",
+              lineHeight: 1,
+              whiteSpace: "nowrap",
             }}
             onMouseEnter={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement;
-              btn.style.color = "var(--ambo-text-primary)";
-              btn.style.borderColor = "var(--ambo-border-strong)";
+              if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-secondary)";
             }}
             onMouseLeave={(e) => {
-              const btn = e.currentTarget as HTMLButtonElement;
-              btn.style.color = "var(--ambo-text-muted)";
-              btn.style.borderColor = "var(--ambo-border)";
+              if (!archiveOpen) (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)";
             }}
           >
-            <span aria-hidden="true" style={{ fontSize: 16, lineHeight: 1 }}>
-              ×
-            </span>
-            Close
+            archive ↗
           </button>
-        </header>
+        </div>
 
-        {/* ── Body: sidebar tabs + output area (or archive) ──────────────── */}
+        {/* ── Thin rule beneath pills ─────────────────────────────────────── */}
+        <div
+          style={{
+            margin: "16px 32px 0",
+            height: 1,
+            background: "var(--ambo-rule-subtle)",
+            flexShrink: 0,
+          }}
+        />
+
+        {/* ── Body: archive view or output panel ─────────────────────────── */}
         <div
           style={{
             flex: 1,
-            display: "flex",
             minHeight: 0,
-            overflow: "hidden",
+            overflowY: "auto",
+            padding: "0 32px 32px",
           }}
         >
-          {/* ── Left sidebar: output type tabs ── */}
-          <aside
-            aria-label="Output types"
-            style={{
-              width: 220,
-              flexShrink: 0,
-              borderRight: "1px solid var(--ambo-border)",
-              display: "flex",
-              flexDirection: "column",
-              padding: "24px 12px",
-              gap: 4,
-              overflowY: "auto",
-              background: "var(--ambo-surface)",
-              backdropFilter: "var(--ambo-blur)",
-              WebkitBackdropFilter: "var(--ambo-blur)",
-            }}
-          >
-            {/* Sidebar label */}
-            <div
-              className="ambo-eyebrow"
-              style={{ padding: "0 6px 10px", marginBottom: 4 }}
-            >
-              Output type
-            </div>
-
-            {ECHO_TABS.map((tab) => (
-              <TabButton
-                key={tab.id}
-                tab={tab}
-                active={activeTab === tab.id}
-                onClick={() => handleTabClick(tab.id)}
-                dimmed={archiveOpen}
-              />
-            ))}
-
-            {/* Quiet footer note */}
-            <div style={{ marginTop: "auto", paddingTop: 24 }}>
-              <p
-                className="ambo-affordance"
-                style={{ padding: "0 6px", lineHeight: 1.55 }}
-              >
-                five ways to carry the word forward
-              </p>
-            </div>
-          </aside>
-
-          {/* ── Main content: archive view or output panel ── */}
           {archiveOpen ? (
             <ArchiveView
               entries={archiveOutputs}
@@ -1666,191 +1671,150 @@ export default function EchoWorkspace({
               onFilterChange={setArchiveFilter}
               onOpen={handleArchiveOpen}
             />
+          ) : !tabSelected ? (
+            /* No-selection state: show Echo title + tagline */
+            <NoSelectionState />
           ) : (
-            <main
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                overflowY: "auto",
-                padding: "40px 48px",
-              }}
-            >
-              {/* Output type heading row */}
-              <div style={{ marginBottom: 24, flexShrink: 0 }}>
-                <div
-                  className="ambo-eyebrow ambo-eyebrow--accent"
-                  style={{ marginBottom: 8 }}
-                >
-                  {activeTabData.label}
-                </div>
-                <div
-                  style={{
-                    height: 1,
-                    background: "var(--ambo-rule-subtle)",
-                    width: "100%",
-                  }}
-                />
-              </div>
-
-              {/* Unsaved edits guard — shown above variant selectors */}
+            /* Output panel */
+            <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+              {/* Unsaved edits guard */}
               {pendingAction && (
-                <UnsavedGuard
-                  onSave={handleGuardSave}
-                  onDiscard={handleGuardDiscard}
-                  onCancel={handleGuardCancel}
-                  saving={saveStatus === "saving"}
-                />
+                <div style={{ paddingTop: 24 }}>
+                  <UnsavedGuard
+                    onSave={handleGuardSave}
+                    onDiscard={handleGuardDiscard}
+                    onCancel={handleGuardCancel}
+                    saving={saveStatus === "saving"}
+                  />
+                </div>
               )}
 
               {/* Variant selectors — Parish Reflection */}
               {activeTab === "parish-reflection" && (
-                <VariantChips
-                  variants={PARISH_REFLECTION_VARIANTS}
-                  active={parishVariant}
-                  onChange={handleParishVariantChange}
-                />
+                <div style={{ paddingTop: 20 }}>
+                  <VariantChips
+                    variants={PARISH_REFLECTION_VARIANTS}
+                    active={parishVariant}
+                    onChange={handleParishVariantChange}
+                  />
+                </div>
               )}
 
               {/* Variant selectors — Social Post */}
               {activeTab === "social-post" && (
-                <VariantChips
-                  variants={SOCIAL_POST_VARIANTS}
-                  active={socialVariant}
-                  onChange={handleSocialVariantChange}
+                <div style={{ paddingTop: 20 }}>
+                  <VariantChips
+                    variants={SOCIAL_POST_VARIANTS}
+                    active={socialVariant}
+                    onChange={handleSocialVariantChange}
+                  />
+                </div>
+              )}
+
+              {/* Error state */}
+              {error && !streaming && (
+                <div
+                  style={{
+                    marginTop: 24,
+                    padding: "12px 16px",
+                    background: "rgba(200, 60, 60, 0.06)",
+                    border: "1px solid rgba(200, 60, 60, 0.2)",
+                    borderRadius: "var(--ambo-radius-sm)",
+                    fontSize: "var(--ambo-size-sm)",
+                    color: "var(--ambo-text-secondary)",
+                    fontFamily: "var(--ambo-font-ui)",
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              {/* Composing indicator — shown while streaming and no text yet */}
+              {streaming && outputText.length === 0 && (
+                <div style={{ marginTop: 32 }}>
+                  <ComposingIndicator />
+                </div>
+              )}
+
+              {/* Output text area — shown once text starts arriving */}
+              {hasOutput && outputText.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {/* Composing indicator above the text while still streaming */}
+                  {streaming && (
+                    <div style={{ marginTop: 24 }}>
+                      <ComposingIndicator />
+                    </div>
+                  )}
+
+                  <OutputArea
+                    text={outputText}
+                    onChange={setOutputText}
+                    streaming={streaming}
+                    minHeight={outputMinHeight(activeTab)}
+                  />
+
+                  {/* Try again — directly below the output, before the action row */}
+                  {!streaming && (
+                    <button
+                      onClick={handleRegenerate}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        fontFamily: "var(--ambo-font-ui)",
+                        fontSize: "var(--ambo-size-sm)",
+                        color: "var(--ambo-text-muted)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        marginTop: 16,
+                        transition: "color var(--ambo-dur) var(--ambo-ease)",
+                        alignSelf: "flex-start",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
+                      aria-label="Regenerate output"
+                    >
+                      <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
+                      try again
+                    </button>
+                  )}
+
+                  {/* Action row — pills */}
+                  {!streaming && (
+                    <ActionRow
+                      savedId={savedId}
+                      saveStatus={saveStatus}
+                      copyStatus={copyStatus}
+                      onSave={handleSave}
+                      onCopy={handleCopy}
+                      onDownload={handleDownload}
+                      onEmail={handleEmail}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Empty state — shown before any generation */}
+              {!hasOutput && !streaming && (
+                <EmptyOutput
+                  tab={activeTabData}
+                  onGenerate={handleGenerate}
+                  loading={streaming}
                 />
               )}
 
-              {/* Content card */}
-              <div
-                className="glass-card"
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  padding: "32px 36px",
-                  minHeight: 360,
-                  animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              >
-                {/* Error state */}
-                {error && !streaming && (
-                  <div
-                    style={{
-                      padding: "12px 16px",
-                      background: "rgba(200, 60, 60, 0.06)",
-                      border: "1px solid rgba(200, 60, 60, 0.2)",
-                      borderRadius: "var(--ambo-radius-sm)",
-                      marginBottom: 20,
-                      fontSize: "var(--ambo-size-sm)",
-                      color: "var(--ambo-text-secondary)",
-                      fontFamily: "var(--ambo-font-ui)",
-                    }}
-                  >
-                    {error}
-                  </div>
-                )}
-
-                {/* Composing indicator — shown while streaming and no text yet */}
-                {streaming && outputText.length === 0 && (
-                  <div style={{ marginBottom: 20 }}>
-                    <ComposingIndicator />
-                  </div>
-                )}
-
-                {/* Output text area — shown once text starts arriving */}
-                {hasOutput && outputText.length > 0 && (
-                  <div
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                    }}
-                  >
-                    {/* Composing indicator above the text while still streaming */}
-                    {streaming && (
-                      <ComposingIndicator />
-                    )}
-
-                    <OutputArea
-                      text={outputText}
-                      onChange={setOutputText}
-                      streaming={streaming}
-                      minHeight={outputMinHeight(activeTab)}
-                    />
-
-                    {/* Action row + regenerate — shown after streaming completes */}
-                    {!streaming && (
-                      <>
-                        <ActionRow
-                          savedId={savedId}
-                          saveStatus={saveStatus}
-                          copyStatus={copyStatus}
-                          onSave={handleSave}
-                          onCopy={handleCopy}
-                          onDownload={handleDownload}
-                          onEmail={handleEmail}
-                        />
-
-                        <div style={{ display: "flex", alignItems: "center", paddingTop: 4 }}>
-                          <button
-                            onClick={handleRegenerate}
-                            style={{
-                              background: "none",
-                              border: "none",
-                              padding: 0,
-                              cursor: "pointer",
-                              fontFamily: "var(--ambo-font-ui)",
-                              fontSize: "var(--ambo-size-sm)",
-                              color: "var(--ambo-text-muted)",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 5,
-                              transition: "color var(--ambo-dur) var(--ambo-ease)",
-                            }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
-                            aria-label="Regenerate output"
-                          >
-                            <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
-                            Try again
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Empty state — shown before any generation */}
-                {!hasOutput && !streaming && (
-                  <EmptyOutput
-                    tab={activeTabData}
-                    onGenerate={handleGenerate}
-                    loading={streaming}
-                  />
-                )}
-
-
-              </div>
-
-              {/* Footer */}
-              <div
-                style={{
-                  marginTop: 20,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {!homilyText && (
-                  <p className="ambo-meta ambo-meta--italic" style={{ textAlign: "center" }}>
-                    {/* TODO: remove this note once homily picker is wired in */}
-                    Using demo homily text — select a homily to generate from your own words.
-                  </p>
-                )}
-              </div>
-            </main>
+              {!homilyText && (
+                <p
+                  className="ambo-meta"
+                  style={{ textAlign: "left", marginTop: 24, fontStyle: "italic" }}
+                >
+                  {/* TODO: remove this note once homily picker is wired in */}
+                  Using demo homily text — select a homily to generate from your own words.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>
