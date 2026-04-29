@@ -62,10 +62,10 @@ function getSystemPrompt(outputType: OutputType, variant?: string): string {
 function getParishReflectionPrompt(variant?: string): string {
   const lengthSpec =
     variant === "short"
-      ? "Standard length: approximately 80 words."
+      ? "Target length: approximately 80 words. Do not exceed 100 words. This is for bulletins and brief inserts — brevity is the point."
       : variant === "longer"
-      ? "Standard length: approximately 350 words."
-      : "Standard length: approximately 175 words.";
+      ? "Target length: approximately 350 words. Do not exceed 420 words. This is for monthly newsletters or retreat materials where a fuller reflection is appropriate."
+      : "Target length: approximately 175 words. Do not exceed 220 words. This is for newsletter reflections, weekly emails, and website posts.";
 
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Parish Reflection — a standalone written reflection for a parish newsletter, bulletin, weekly email, or parish website. ${lengthSpec}
 

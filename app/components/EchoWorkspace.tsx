@@ -980,6 +980,10 @@ export default function EchoWorkspace({
   const [archiveLoading, setArchiveLoading] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
+  // Ref: when true, the next render after a variant state update will auto-regenerate.
+  // Set when the priest switches variants while output already exists.
+  const triggerVariantRegenRef = useRef(false);
+
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
@@ -1086,6 +1090,20 @@ export default function EchoWorkspace({
       setStreaming(false);
     }
   }, [streaming, resolvedHomilyText, activeTab, resolvedVariant]);
+
+  // ── Auto-regenerate on variant change ───────────────────────────────────
+
+  // When the priest switches a variant chip while output exists, we set
+  // triggerVariantRegenRef and update the variant state. On the next render
+  // after state has settled (parishVariant / socialVariant updated), this
+  // effect fires handleGenerate so the priest never has to tap Generate again
+  // after a variant switch.
+  useEffect(() => {
+    if (triggerVariantRegenRef.current) {
+      triggerVariantRegenRef.current = false;
+      handleGenerate();
+    }
+  }, [parishVariant, socialVariant, handleGenerate]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
@@ -1219,6 +1237,8 @@ export default function EchoWorkspace({
           tab: "parish-reflection" | "social-post";
           variant: string;
         };
+        // Guard was cleared (save or discard): auto-regenerate with the new variant.
+        triggerVariantRegenRef.current = true;
         if (tab === "parish-reflection") {
           setParishVariant(variant as ParishReflectionVariant);
         } else {
@@ -1226,7 +1246,7 @@ export default function EchoWorkspace({
         }
         setOutputText("");
         setGeneratedText("");
-        setHasOutput(false);
+        // Keep hasOutput true so composing state shows during regen.
         setError(null);
         setSavedId(null);
         setSaveStatus("idle");
@@ -1292,15 +1312,18 @@ export default function EchoWorkspace({
         })
       )
         return;
+      // If we already have output, flag for auto-regeneration after state updates.
+      if (hasOutput) triggerVariantRegenRef.current = true;
       setParishVariant(v);
       setOutputText("");
       setGeneratedText("");
-      setHasOutput(false);
+      // Keep hasOutput true during regen so composing state shows; only clear when starting fresh.
+      if (!hasOutput) setHasOutput(false);
       setError(null);
       setSavedId(null);
       setSaveStatus("idle");
     },
-    [parishVariant, guardIfUnsaved],
+    [parishVariant, guardIfUnsaved, hasOutput],
   );
 
   const handleSocialVariantChange = useCallback(
@@ -1313,15 +1336,16 @@ export default function EchoWorkspace({
         })
       )
         return;
+      if (hasOutput) triggerVariantRegenRef.current = true;
       setSocialVariant(v);
       setOutputText("");
       setGeneratedText("");
-      setHasOutput(false);
+      if (!hasOutput) setHasOutput(false);
       setError(null);
       setSavedId(null);
       setSaveStatus("idle");
     },
-    [socialVariant, guardIfUnsaved],
+    [socialVariant, guardIfUnsaved, hasOutput],
   );
 
   // ── Close logic ──────────────────────────────────────────────────────────
