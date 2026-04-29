@@ -1503,7 +1503,9 @@ export default function EchoWorkspace({
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(10, 15, 25, 0.17)",
+          background: "rgba(10, 15, 25, 0.55)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           zIndex: 110,
           animation: closing
             ? "fadeOut 780ms ease-in both"
@@ -1751,7 +1753,7 @@ export default function EchoWorkspace({
                     minHeight={outputMinHeight(activeTab)}
                   />
 
-                  {/* Try again — directly below the output, before the action row */}
+                  {/* try again lives here — just below the output textarea, inside the scroll area */}
                   {!streaming && (
                     <button
                       onClick={handleRegenerate}
@@ -1767,6 +1769,7 @@ export default function EchoWorkspace({
                         alignItems: "center",
                         gap: 5,
                         marginTop: 16,
+                        marginBottom: 8,
                         transition: "color var(--ambo-dur) var(--ambo-ease)",
                         alignSelf: "flex-start",
                       }}
@@ -1777,19 +1780,6 @@ export default function EchoWorkspace({
                       <span aria-hidden="true" style={{ fontSize: "0.9em", lineHeight: 1 }}>&#x21BA;</span>
                       try again
                     </button>
-                  )}
-
-                  {/* Action row — pills */}
-                  {!streaming && (
-                    <ActionRow
-                      savedId={savedId}
-                      saveStatus={saveStatus}
-                      copyStatus={copyStatus}
-                      onSave={handleSave}
-                      onCopy={handleCopy}
-                      onDownload={handleDownload}
-                      onEmail={handleEmail}
-                    />
                   )}
                 </div>
               )}
@@ -1815,6 +1805,28 @@ export default function EchoWorkspace({
             </div>
           )}
         </div>
+
+        {/* ── Anchored action footer — always at panel bottom ─────────────── */}
+        {hasOutput && !streaming && !archiveOpen && (
+          <div
+            style={{
+              flexShrink: 0,
+              borderTop: "1px solid var(--ambo-border)",
+              padding: "16px 32px",
+              background: "var(--ambo-surface-reading)",
+            }}
+          >
+            <ActionRow
+              savedId={savedId}
+              saveStatus={saveStatus}
+              copyStatus={copyStatus}
+              onSave={handleSave}
+              onCopy={handleCopy}
+              onDownload={handleDownload}
+              onEmail={handleEmail}
+            />
+          </div>
+        )}
       </div>
     </>
   );
