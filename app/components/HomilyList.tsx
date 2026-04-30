@@ -378,9 +378,9 @@ function EchoesSection({ homilyId, onOpenEchoEntry }: EchoesSectionProps) {
 
   const count = outputs.length;
 
-  // Animation easing — contemplative, not snappy
-  // Expand: 700ms ease-out (inhale). Collapse: 600ms ease-in (exhale).
-  const dur     = expanded ? 700 : 600;
+  // Animation easing — deliberately slow, contemplative
+  // Expand: 900ms ease-out (inhale). Collapse: 750ms ease-in (exhale).
+  const dur     = expanded ? 900 : 750;
   const ease    = expanded ? "cubic-bezier(0.22, 1, 0.36, 1)" : "cubic-bezier(0.55, 0, 1, 0.45)";
   const transFn = `${dur}ms ${ease}`;
 
@@ -612,7 +612,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
   }, [onClose]);
 
   const anim = closing
-    ? "rvFadeOut 750ms ease-out both"
+    ? "rvFadeOut 1000ms ease-out both"
     : "rvFadeIn 780ms ease-out both";
 
   return (
@@ -1039,7 +1039,7 @@ export default function HomilyList({
     setTimeout(() => {
       setViewingHomily(null);
       setClosingReading(false);
-    }, 750);
+    }, 1000);
   }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
@@ -1084,19 +1084,19 @@ export default function HomilyList({
             onOpenInWrite(h);
           }}
           onOpenEcho={(label, text, hId) => {
-            // Start reading view exit animation (750ms ease-out fade)
+            // Start reading view exit animation (1000ms ease-out fade)
             setClosingReading(true);
-            // Open Echo workspace at ~33% through the reading view fade (~250ms).
-            // This way both surfaces are visible simultaneously: the reading view
-            // dissolving as the Echo workspace slides in — one continuous gesture.
+            // Open Echo workspace at t=350ms (~35% through the reading view fade).
+            // This gives ~650ms of simultaneous visibility — the reading view is
+            // clearly dissolving as the Echo workspace arrives. One deliberate gesture.
             setTimeout(() => {
               onOpenEcho(label, text, hId);
-            }, 250);
+            }, 350);
             // Unmount reading view after its animation completes
             setTimeout(() => {
               setViewingHomily(null);
               setClosingReading(false);
-            }, 750);
+            }, 1000);
           }}
           onOpenEchoEntry={(entry) => {
             setViewingHomily(null);
