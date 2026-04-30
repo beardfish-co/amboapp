@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // ── Archive types ──────────────────────────────────────────────────────────
 
@@ -676,12 +677,16 @@ export default function EchoWorkspace({
   const [composingExiting, setComposingExiting] = useState(false);
   const composingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Homily text fetched from DB when homilyId present but homilyText prop is absent
+  const [fetchedHomilyText, setFetchedHomilyText] = useState("");
+
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
-  // Resolve the homily text to use — prop or demo placeholder.
-  const resolvedHomilyText = homilyText && homilyText.trim().length > 0
-    ? homilyText
+  // Resolve the homily text to use — prop, DB-fetched, or demo placeholder.
+  const resolvedHomilyText =
+    homilyText && homilyText.trim().length > 0 ? homilyText
+    : fetchedHomilyText.trim().length > 0      ? fetchedHomilyText
     : DEMO_HOMILY_TEXT;
 
   // Resolve the variant for the current tab.
@@ -704,6 +709,33 @@ export default function EchoWorkspace({
   const showVariants =
     tabSelected &&
     (activeTab === "parish-reflection" || activeTab === "social-post");
+
+  // ── Fetch homily from DB when homilyId is present but homilyText is absent ──
+
+  useEffect(() => {
+    if (!open) {
+      setFetchedHomilyText("");
+      return;
+    }
+    // If homilyText prop is already set, no fetch needed
+    if (homilyText && homilyText.trim().length > 0) return;
+    // If there's no ID to fetch by, nothing to do
+    if (!homilyId) return;
+
+    const supabase = createClient();
+    supabase
+      .from("homilies")
+      .select("content")
+      .eq("id", homilyId)
+      .single()
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("[EchoWorkspace] homily fetch error:", error.message);
+          return;
+        }
+        if (data?.content) setFetchedHomilyText(data.content);
+      });
+  }, [open, homilyId, homilyText]);
 
   // ── Generation ───────────────────────────────────────────────────────────
 
@@ -1521,7 +1553,7 @@ export default function EchoWorkspace({
                 </div>
               </div>
 
-              {!homilyText && (
+              {resolvedHomilyText === DEMO_HOMILY_TEXT && (
                 <p
                   className="ambo-meta"
                   style={{ textAlign: "left", marginTop: 12, fontStyle: "italic" }}
