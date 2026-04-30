@@ -392,7 +392,11 @@ export default function AmboApp() {
         // The inner wrapper clips the sliding content when the header collapses.
         overflow: headerHidden ? "hidden" : "visible",
         pointerEvents: headerHidden ? "none" : "auto",
-        height: headerHidden ? 0 : 60,
+        // paddingTop fills the Dynamic Island / notch safe-area with the header background.
+        // This ensures the area above the nav content shows the correct themed colour rather
+        // than a white default, on both installed PWA and Safari browser modes.
+        paddingTop: "env(safe-area-inset-top)",
+        height: headerHidden ? 0 : "calc(60px + env(safe-area-inset-top))",
         transition: headerHidden ? "height 0.5s ease 0.2s" : "height 0.4s ease",
       }}>
         {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}

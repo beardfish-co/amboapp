@@ -18,14 +18,31 @@ function applyTheme(theme: Theme) {
   root.removeAttribute("data-theme");
 }
 
+// Keep the <meta name="theme-color"> tags in sync with the effective in-app theme.
+// The tags Next.js renders use OS-level prefers-color-scheme media queries, which
+// won't match when the user overrides the theme in-app.  We stamp all of them to
+// the single effective colour so the Dynamic Island always reflects the app's
+// actual background, regardless of whether the OS and in-app modes agree.
+function syncThemeColorMeta(isDark: boolean) {
+  if (typeof document === "undefined") return;
+  const color = isDark ? "#0F1824" : "#EEF2F7";
+  document.querySelectorAll('meta[name="theme-color"]').forEach(el => {
+    (el as HTMLMetaElement).content = color;
+  });
+}
+
 export default function ThemeToggle() {
   // null during SSR; resolved client-side
   const [theme, setTheme] = useState<Theme | null>(null);
 
-  // Hydrate from localStorage once on mount
+  // Hydrate from localStorage once on mount; sync meta tags immediately so the
+  // Dynamic Island colour is correct from the very first paint after JS loads.
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    setTheme(saved ?? "system");
+    const resolved = saved ?? "system";
+    setTheme(resolved);
+    const isDark = resolved === "dark" || (resolved === "system" && getSystemDark());
+    syncThemeColorMeta(isDark);
   }, []);
 
   const handleClick = () => {
@@ -36,6 +53,7 @@ export default function ThemeToggle() {
     const next: Theme = isDark ? "light" : "dark";
 
     applyTheme(next);
+    syncThemeColorMeta(next === "dark");
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* ignore */ }
     setTheme(next);
   };

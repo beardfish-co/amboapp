@@ -515,7 +515,10 @@ export default function MobileEchoWorkspace({
 
   const topBarBase: React.CSSProperties = {
     display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-    padding: "18px 20px 14px",
+    // paddingTop uses max() so it is at least 18px on non-notched devices but expands
+    // to env(safe-area-inset-top) on iPhone with a Dynamic Island / notch, keeping
+    // nav content below the hardware island.
+    padding: "max(18px, env(safe-area-inset-top)) 20px 14px",
     flexShrink: 0,
     borderBottom: "1px solid var(--ambo-border)",
     background:  "var(--ambo-bg)",
@@ -842,13 +845,17 @@ export default function MobileEchoWorkspace({
           display: "flex", flexDirection: "column", overflow: "hidden",
           minHeight: 0,
         }}>
-          {/* Scroll container — flex:1 + minHeight:0 is the standard pattern
-              for a flex child that needs to scroll. minHeight:0 allows it to
-              shrink below its natural content height so overflow:auto works. */}
+          {/* Scroll container — flex:1 + minHeight:0 gives this div a definite
+              height from the card's flex context, which makes overflow:auto work.
+              IMPORTANT: no display:flex here. A flex column container with overflow:auto
+              has a known browser quirk where children with min-height:100% prevent scroll
+              from triggering (the container expands instead). Plain block + overflow:auto
+              scrolls correctly. WebkitOverflowScrolling:touch gives momentum on older iOS. */}
           <div style={{
             flex: 1, minHeight: 0,
             overflowY: "auto",
-            display: "flex", flexDirection: "column",
+            WebkitOverflowScrolling: "touch",
+            position: "relative",
             padding: "24px 20px",
           }}>
             {/* Composing indicator — collapses + fades at completion */}
@@ -906,9 +913,14 @@ export default function MobileEchoWorkspace({
               />
             )}
 
-            {/* Empty state — only before generation begins */}
+            {/* Empty state — only before generation begins.
+                Absolutely positioned so it centres within the scroll container without
+                requiring display:flex on the container (which would break overflow scroll). */}
             {!hasOutput && !error && (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
                 <p style={{
                   fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
                   color: "var(--ambo-text-muted)",

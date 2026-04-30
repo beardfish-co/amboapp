@@ -29,6 +29,14 @@ export const metadata: Metadata = {
   title: "Ambo — Homily writing space",
   description: "A sacred writing workspace for priests. Read, pray, and write your homily in a space designed for encounter.",
   manifest: "/manifest.json",
+  // PWA — makes the app run full-screen when added to home screen, and sets the
+  // status bar to transparent so our background shows through the Dynamic Island.
+  // Works in conjunction with viewport-fit=cover and env(safe-area-inset-*).
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Ambo",
+  },
   icons: {
     icon: [
       { url: "/ambo-mark-32.png", sizes: "32x32", type: "image/png" },
