@@ -320,6 +320,7 @@ function NoSelectionState() {
         flex: 1,
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
         justifyContent: "center",
         padding: "48px 0",
         animation: "fadeIn 500ms cubic-bezier(0.22, 1, 0.36, 1)",
@@ -334,6 +335,7 @@ function NoSelectionState() {
           color: "var(--ambo-text-primary)",
           margin: "0 0 10px",
           lineHeight: 1.2,
+          textAlign: "center",
         }}
       >
         Echo
@@ -345,6 +347,7 @@ function NoSelectionState() {
           color: "var(--ambo-text-muted)",
           margin: 0,
           lineHeight: "var(--ambo-lh-snug)",
+          textAlign: "center",
         }}
       >
         Five ways to carry the word forward.
