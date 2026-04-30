@@ -1131,7 +1131,7 @@ export default function HomilyList({
           overflow: "hidden",
         } as React.CSSProperties}
       >
-        {/* Header — close button only */}
+        {/* Header — title + close button */}
         <div style={{
           padding: "16px 20px 0",
           borderBottom: "1px solid var(--ambo-border)",
@@ -1140,9 +1140,20 @@ export default function HomilyList({
           <div style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "flex-end",
+            justifyContent: "space-between",
             marginBottom: 14,
           }}>
+            <p style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontStyle: "italic",
+              fontWeight: 500,
+              fontSize: 18,
+              color: "var(--ambo-text-primary)",
+              margin: 0,
+              lineHeight: 1.2,
+            }}>
+              My Homilies
+            </p>
             <button
               onClick={handleCloseDrawer}
               aria-label="Close"

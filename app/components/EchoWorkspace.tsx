@@ -1394,28 +1394,45 @@ export default function EchoWorkspace({
 
                   {tabSelected && (
                     <>
-                      {/* Composing indicator — streaming, no text yet */}
-                      {streaming && outputText.length === 0 && (
-                        <div style={{ marginTop: 16 }}>
+                      {/* Composing indicator — single instance, fades out as first tokens
+                          arrive rather than snapping away. Opacity transitions from 1→0
+                          over 450ms ease-out the moment outputText becomes non-empty.
+                          The element stays in DOM while streaming so the space it occupies
+                          dissolves smoothly; it unmounts naturally when streaming ends. */}
+                      {streaming && (
+                        <div
+                          style={{
+                            marginTop: 16,
+                            flexShrink: 0,
+                            opacity: outputText.length === 0 ? 1 : 0,
+                            transition: "opacity 450ms ease-out",
+                            pointerEvents: "none",
+                          }}
+                        >
                           <ComposingIndicator />
                         </div>
                       )}
 
-                      {/* Output text area */}
+                      {/* Output text area — fades in as text first arrives */}
                       {hasOutput && outputText.length > 0 && (
                         <>
-                          {streaming && (
-                            <div style={{ marginTop: 16 }}>
-                              <ComposingIndicator />
-                            </div>
-                          )}
-
-                          <OutputArea
-                            text={outputText}
-                            onChange={setOutputText}
-                            streaming={streaming}
-                            minHeight={outputMinHeight(activeTab)}
-                          />
+                          {/* Wrap in a keyed div so the fade-in fires once on first appearance */}
+                          <div
+                            key="output-area"
+                            style={{
+                              flex: 1,
+                              display: "flex",
+                              flexDirection: "column",
+                              animation: "fadeIn 500ms ease-out both",
+                            }}
+                          >
+                            <OutputArea
+                              text={outputText}
+                              onChange={setOutputText}
+                              streaming={streaming}
+                              minHeight={outputMinHeight(activeTab)}
+                            />
+                          </div>
 
                           {!streaming && (
                             <button
@@ -1435,6 +1452,7 @@ export default function EchoWorkspace({
                                 marginBottom: 4,
                                 transition: "color var(--ambo-dur) var(--ambo-ease)",
                                 alignSelf: "flex-start",
+                                animation: "fadeIn 600ms ease-out 200ms both",
                               }}
                               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-accent)"; }}
                               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--ambo-text-muted)"; }}
