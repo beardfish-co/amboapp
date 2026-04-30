@@ -795,7 +795,12 @@ export default function MobileEchoWorkspace({
 
   // ── Screen 3: Generation and result ──────────────────────────────────────────
   function Screen3Content() {
-    const ACTION_ROW_HEIGHT = 72;
+    // Actions fade in when streaming ends and output exists.
+    // Opacity is driven at the container level so the action row is ALWAYS
+    // present in layout — the white card never resizes because its flex:1
+    // sibling never changes height.
+    const actionsVisible = hasOutput && !streaming;
+
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         {/* Top bar */}
@@ -819,7 +824,9 @@ export default function MobileEchoWorkspace({
           </div>
         </div>
 
-        {/* White card — fills remaining height */}
+        {/* White card — structurally fixed, fills all space between top bar and
+            action row. Never resizes. Short outputs sit inside it with empty
+            space below; long outputs scroll internally. */}
         <div style={{
           flex: 1, margin: "16px 16px 0", borderRadius: "var(--ambo-radius-lg)",
           background: "var(--ambo-surface-solid)", boxShadow: "var(--ambo-shadow-md)",
@@ -827,14 +834,14 @@ export default function MobileEchoWorkspace({
           minHeight: 0,
         }}>
           <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px" }}>
-            {/* Composing indicator */}
+            {/* Composing indicator — collapses in height + fades out at completion */}
             {composingVisible && (
               <div style={{
                 overflow: "hidden",
                 maxHeight: composingExiting ? 0 : 40,
                 opacity:   composingExiting ? 0 : 1,
-                transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease-out",
                 marginBottom: composingExiting ? 0 : 16,
+                transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease-out, margin-bottom 650ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}>
                 <p style={{
                   fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
@@ -855,7 +862,8 @@ export default function MobileEchoWorkspace({
               </p>
             )}
 
-            {/* Output textarea */}
+            {/* Output textarea — always mounted once generation starts so text
+                streams in without remounting; rises upward as composing exits */}
             {hasOutput && !error && (
               <textarea
                 value={outputText}
@@ -874,7 +882,7 @@ export default function MobileEchoWorkspace({
               />
             )}
 
-            {/* Empty state while loading */}
+            {/* Empty state — only before generation begins */}
             {!hasOutput && !error && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
                 <p style={{
@@ -888,28 +896,33 @@ export default function MobileEchoWorkspace({
           </div>
         </div>
 
-        {/* Try again + action pill row */}
+        {/* Action area — ALWAYS present in layout (never conditionally mounted).
+            Opacity-only fade keeps card height stable throughout generation.
+            Fades in in synchrony with composing exit: both triggered when
+            streaming ends, both at ~600ms ease-out. */}
         <div style={{
-          flexShrink: 0, padding: "10px 16px calc(16px + env(safe-area-inset-bottom))",
+          flexShrink: 0,
+          padding: "10px 16px calc(16px + env(safe-area-inset-bottom))",
           display: "flex", flexDirection: "column", gap: 8,
           background: "var(--ambo-bg)",
+          opacity: actionsVisible ? 1 : 0,
+          transition: "opacity 600ms ease-out",
+          pointerEvents: actionsVisible ? "auto" : "none",
         }}>
-          {/* Try again */}
-          {hasOutput && !streaming && (
-            <div style={{ textAlign: "center" }}>
-              <button
-                onClick={handleRegenerate}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  fontFamily: "var(--ambo-font-ui)", fontSize: 12,
-                  color: "var(--ambo-text-muted)", letterSpacing: "0.02em",
-                  padding: "4px 8px",
-                }}
-              >
-                ↺ try again
-              </button>
-            </div>
-          )}
+          {/* Try again — always in layout, never conditionally mounted */}
+          <div style={{ textAlign: "center" }}>
+            <button
+              onClick={handleRegenerate}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontFamily: "var(--ambo-font-ui)", fontSize: 12,
+                color: "var(--ambo-text-muted)", letterSpacing: "0.02em",
+                padding: "4px 8px",
+              }}
+            >
+              ↺ try again
+            </button>
+          </div>
 
           {/* Action pills */}
           <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
