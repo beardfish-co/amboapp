@@ -612,7 +612,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
   }, [onClose]);
 
   const anim = closing
-    ? "rvFadeOut 540ms ease-in both"
+    ? "rvFadeOut 750ms ease-out both"
     : "rvFadeIn 780ms ease-out both";
 
   return (
@@ -682,7 +682,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {onOpenEcho && subtitle && (
                 <button
-                  onClick={() => { onClose(); onOpenEcho(subtitle, homily.content ?? "", homily.id); }}
+                  onClick={() => onOpenEcho(subtitle, homily.content ?? "", homily.id)}
                   style={{
                     border: "1px solid rgba(74, 111, 165, 0.35)",
                     background: "transparent",
@@ -1039,7 +1039,7 @@ export default function HomilyList({
     setTimeout(() => {
       setViewingHomily(null);
       setClosingReading(false);
-    }, 540);
+    }, 750);
   }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
@@ -1084,9 +1084,19 @@ export default function HomilyList({
             onOpenInWrite(h);
           }}
           onOpenEcho={(label, text, hId) => {
-            setViewingHomily(null);
-            setClosingReading(false);
-            onOpenEcho(label, text, hId);
+            // Start reading view exit animation (750ms ease-out fade)
+            setClosingReading(true);
+            // Open Echo workspace at ~33% through the reading view fade (~250ms).
+            // This way both surfaces are visible simultaneously: the reading view
+            // dissolving as the Echo workspace slides in — one continuous gesture.
+            setTimeout(() => {
+              onOpenEcho(label, text, hId);
+            }, 250);
+            // Unmount reading view after its animation completes
+            setTimeout(() => {
+              setViewingHomily(null);
+              setClosingReading(false);
+            }, 750);
           }}
           onOpenEchoEntry={(entry) => {
             setViewingHomily(null);
