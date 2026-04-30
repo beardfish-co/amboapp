@@ -104,7 +104,16 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    console.error("[echo/save] DB insert error:", error.message, error.code);
+    if (error.code === "42P01") {
+      // PostgreSQL: undefined_table — echo_outputs table has not been created.
+      // Fix: run migrations/010_echo_outputs.sql in the Supabase SQL editor.
+      console.error(
+        "[echo/save] MIGRATION NOT APPLIED: echo_outputs table does not exist. " +
+        "Run migrations/010_echo_outputs.sql in the Supabase dashboard."
+      );
+    } else {
+      console.error("[echo/save] DB insert error:", error.message, error.code);
+    }
     return NextResponse.json({ error: "Failed to save output" }, { status: 500 });
   }
 

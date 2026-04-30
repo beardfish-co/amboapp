@@ -109,6 +109,31 @@ create policy "Users can update own homilies" on homilies for update using (auth
 create policy "Users can delete own homilies" on homilies for delete using (auth.uid() = user_id);
 ```
 
+```sql
+create table echo_outputs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  homily_id uuid references homilies(id) on delete set null,
+  output_type text not null check (output_type in ('take-into-the-week','parish-reflection','social-post','small-group-questions','prayer-prompt')),
+  variant text,
+  generated_text text not null,
+  output_text text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table echo_outputs enable row level security;
+create policy "Users can manage their own echo outputs"
+  on echo_outputs for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+> ⚠️ **MIGRATION GOTCHA**: Supabase migrations in `migrations/` are NOT auto-applied.
+> Every new `.sql` file must be manually run in the Supabase SQL editor at
+> https://supabase.com/dashboard/project/jowbavogcjozxpujwwah/sql/new
+> This was the root cause of the Echo save bug in Rounds 13–14:
+> `010_echo_outputs.sql` was written but never applied, so the table didn't exist in production.
+
 ### Supabase clients
 - `lib/supabase/client.ts` — browser client (`createBrowserClient`)
 - `lib/supabase/server.ts` — server client using `cookies()` and `SetAllCookies` type from `@supabase/ssr`

@@ -669,6 +669,13 @@ export default function EchoWorkspace({
   // Set when the priest switches variants while output already exists.
   const triggerVariantRegenRef = useRef(false);
 
+  // Composing indicator animation state:
+  // composingVisible stays true during streaming + during the exit animation after streaming ends.
+  // composingExiting triggers the simultaneous fade-out + height collapse when generation completes.
+  const [composingVisible, setComposingVisible] = useState(false);
+  const [composingExiting, setComposingExiting] = useState(false);
+  const composingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
@@ -768,6 +775,29 @@ export default function EchoWorkspace({
       handleGenerate();
     }
   }, [parishVariant, socialVariant, handleGenerate]);
+
+  // ── Composing animation — tracks streaming state ──────────────────────────
+  // Stay fully visible throughout streaming; when streaming ends, fade out and
+  // collapse height simultaneously so the text eases upward into its final position.
+  useEffect(() => {
+    if (streaming) {
+      if (composingTimerRef.current) {
+        clearTimeout(composingTimerRef.current);
+        composingTimerRef.current = null;
+      }
+      setComposingVisible(true);
+      setComposingExiting(false);
+    } else if (composingVisible) {
+      // Streaming just ended — trigger the exit: fade + height collapse over 600ms
+      setComposingExiting(true);
+      composingTimerRef.current = setTimeout(() => {
+        setComposingVisible(false);
+        setComposingExiting(false);
+        composingTimerRef.current = null;
+      }, 650);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
@@ -1118,6 +1148,13 @@ export default function EchoWorkspace({
       setSaveStatus("idle");
       setCopyStatus("idle");
       setPendingAction(null);
+      // Reset composing animation state
+      if (composingTimerRef.current) {
+        clearTimeout(composingTimerRef.current);
+        composingTimerRef.current = null;
+      }
+      setComposingVisible(false);
+      setComposingExiting(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -1394,19 +1431,25 @@ export default function EchoWorkspace({
 
                   {tabSelected && (
                     <>
-                      {/* Composing indicator — single instance, fades out as first tokens
-                          arrive rather than snapping away. Opacity transitions from 1→0
-                          over 450ms ease-out the moment outputText becomes non-empty.
-                          The element stays in DOM while streaming so the space it occupies
-                          dissolves smoothly; it unmounts naturally when streaming ends. */}
-                      {streaming && (
+                      {/* Composing indicator — visible for the full duration of streaming.
+                          When streaming completes, composingExiting=true triggers a
+                          simultaneous fade-out (opacity→0) and height collapse (maxHeight→0)
+                          over 600ms ease-out. The text textarea sits below in the same flex
+                          column, so it naturally eases upward as the indicator collapses —
+                          one continuous gesture, not two separate UI events.
+                          After 650ms the element unmounts (composingVisible=false). */}
+                      {composingVisible && (
                         <div
                           style={{
-                            marginTop: 16,
                             flexShrink: 0,
-                            opacity: outputText.length === 0 ? 1 : 0,
-                            transition: "opacity 450ms ease-out",
+                            overflow: "hidden",
+                            maxHeight: composingExiting ? "0px" : "60px",
+                            opacity: composingExiting ? 0 : 1,
+                            marginTop: composingExiting ? 0 : 16,
                             pointerEvents: "none",
+                            transition: composingExiting
+                              ? "max-height 600ms ease-out, opacity 600ms ease-out, margin-top 600ms ease-out"
+                              : "none",
                           }}
                         >
                           <ComposingIndicator />
