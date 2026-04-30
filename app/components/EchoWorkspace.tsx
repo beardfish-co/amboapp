@@ -1216,7 +1216,7 @@ export default function EchoWorkspace({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div
           style={{
-            padding: "10px 32px 0",
+            padding: "16px 32px 0",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
