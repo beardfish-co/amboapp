@@ -138,6 +138,7 @@ export default function MobileEchoWorkspace({
   const [composingVisible, setComposingVisible] = useState(false);
   const [composingExiting, setComposingExiting] = useState(false);
   const composingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // ── Save / copy state ────────────────────────────────────────────────────────
   const [savedId,       setSavedId]       = useState<string | null>(null);
@@ -251,6 +252,14 @@ export default function MobileEchoWorkspace({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streaming]);
+
+  // ── Textarea auto-resize — grows with content so parent div scrolls ─────────
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + "px";
+  }, [outputText]);
 
   // ── Save ──────────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -795,11 +804,11 @@ export default function MobileEchoWorkspace({
 
   // ── Screen 3: Generation and result ──────────────────────────────────────────
   function Screen3Content() {
-    // Actions fade in when streaming ends and output exists.
-    // Opacity is driven at the container level so the action row is ALWAYS
-    // present in layout — the white card never resizes because its flex:1
-    // sibling never changes height.
-    const actionsVisible = hasOutput && !streaming;
+    // Try Again slides in at completion via max-height transition.
+    // Because the card is flex:1, as Try Again grows the card eases shorter —
+    // the flex layout distributes the space change automatically, giving a
+    // synchronised, animated card resize with no extra work.
+    const tryAgainVisible = hasOutput && !streaming;
 
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -824,23 +833,32 @@ export default function MobileEchoWorkspace({
           </div>
         </div>
 
-        {/* White card — structurally fixed, fills all space between top bar and
-            action row. Never resizes. Short outputs sit inside it with empty
-            space below; long outputs scroll internally. */}
+        {/* White card — structurally fixed. flex:1 fills all space between top
+            bar and action area. Card eases shorter when Try Again slides in
+            (flex redistribution is automatic and smooth). */}
         <div style={{
           flex: 1, margin: "16px 16px 0", borderRadius: "var(--ambo-radius-lg)",
           background: "var(--ambo-surface-solid)", boxShadow: "var(--ambo-shadow-md)",
           display: "flex", flexDirection: "column", overflow: "hidden",
           minHeight: 0,
         }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px" }}>
-            {/* Composing indicator — collapses in height + fades out at completion */}
+          {/* Scroll container — flex:1 + minHeight:0 is the standard pattern
+              for a flex child that needs to scroll. minHeight:0 allows it to
+              shrink below its natural content height so overflow:auto works. */}
+          <div style={{
+            flex: 1, minHeight: 0,
+            overflowY: "auto",
+            display: "flex", flexDirection: "column",
+            padding: "24px 20px",
+          }}>
+            {/* Composing indicator — collapses + fades at completion */}
             {composingVisible && (
               <div style={{
                 overflow: "hidden",
                 maxHeight: composingExiting ? 0 : 40,
                 opacity:   composingExiting ? 0 : 1,
                 marginBottom: composingExiting ? 0 : 16,
+                flexShrink: 0,
                 transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease-out, margin-bottom 650ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}>
                 <p style={{
@@ -862,21 +880,27 @@ export default function MobileEchoWorkspace({
               </p>
             )}
 
-            {/* Output textarea — always mounted once generation starts so text
-                streams in without remounting; rises upward as composing exits */}
+            {/* Output textarea — ref-driven auto-resize so the scroll container
+                (not the textarea) handles overflow. Short outputs fill the card
+                with empty space below; long outputs cause the parent to scroll. */}
             {hasOutput && !error && (
               <textarea
+                ref={textareaRef}
                 value={outputText}
                 onChange={e => setOutputText(e.target.value)}
                 readOnly={streaming}
                 style={{
-                  width: "100%", minHeight: 200,
+                  width: "100%",
+                  height: "auto",   // managed by the resize effect
+                  minHeight: "100%", // at least fills the scroll container
                   resize: "none", border: "none", outline: "none",
                   background: "transparent",
                   fontFamily: "var(--ambo-font-reading)", fontSize: 16,
                   lineHeight: 1.7, color: "var(--ambo-text-primary)",
                   letterSpacing: "0.01em",
                   paddingBottom: 24,
+                  boxSizing: "border-box",
+                  overflowY: "hidden", // parent div does the scrolling
                 }}
                 aria-label="Generated text"
               />
@@ -884,7 +908,7 @@ export default function MobileEchoWorkspace({
 
             {/* Empty state — only before generation begins */}
             {!hasOutput && !error && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <p style={{
                   fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
                   color: "var(--ambo-text-muted)",
@@ -896,36 +920,45 @@ export default function MobileEchoWorkspace({
           </div>
         </div>
 
-        {/* Action area — ALWAYS present in layout (never conditionally mounted).
-            Opacity-only fade keeps card height stable throughout generation.
-            Fades in in synchrony with composing exit: both triggered when
-            streaming ends, both at ~600ms ease-out. */}
+        {/* ── Action area ────────────────────────────────────────────────────
+            Pills are always fully visible — present from the moment Screen 3
+            opens. Try Again slides in at completion via max-height + opacity,
+            and the card eases shorter to match via flex redistribution. */}
         <div style={{
           flexShrink: 0,
-          padding: "10px 16px calc(16px + env(safe-area-inset-bottom))",
-          display: "flex", flexDirection: "column", gap: 8,
+          padding: "0 16px calc(16px + env(safe-area-inset-bottom))",
+          display: "flex", flexDirection: "column",
           background: "var(--ambo-bg)",
-          opacity: actionsVisible ? 1 : 0,
-          transition: "opacity 600ms ease-out",
-          pointerEvents: actionsVisible ? "auto" : "none",
         }}>
-          {/* Try again — always in layout, never conditionally mounted */}
-          <div style={{ textAlign: "center" }}>
-            <button
-              onClick={handleRegenerate}
-              style={{
-                background: "none", border: "none", cursor: "pointer",
-                fontFamily: "var(--ambo-font-ui)", fontSize: 12,
-                color: "var(--ambo-text-muted)", letterSpacing: "0.02em",
-                padding: "4px 8px",
-              }}
-            >
-              ↺ try again
-            </button>
+          {/* Try again — max-height slides it into the layout at completion.
+              The growing height pushes the card (flex:1) to ease shorter,
+              synchronised with the composing fade and text rise. */}
+          <div style={{
+            overflow: "hidden",
+            maxHeight: tryAgainVisible ? 40 : 0,
+            opacity:   tryAgainVisible ? 1 : 0,
+            transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease-out",
+          }}>
+            <div style={{ textAlign: "center", paddingTop: 8 }}>
+              <button
+                onClick={handleRegenerate}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "var(--ambo-font-ui)", fontSize: 12,
+                  color: "var(--ambo-text-muted)", letterSpacing: "0.02em",
+                  padding: "4px 8px",
+                }}
+              >
+                ↺ try again
+              </button>
+            </div>
           </div>
 
-          {/* Action pills */}
-          <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          {/* Action pills — always visible at full opacity */}
+          <div style={{
+            display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap",
+            paddingTop: 10, paddingBottom: 6,
+          }}>
             <button onClick={handleSave} style={pillStyle(saveStatus === "saved")} disabled={!hasOutput || streaming}>
               <SaveIcon />
               <span>{saveStatus === "saving" ? "saving…" : saveStatus === "saved" ? "saved" : saveStatus === "error" ? "error" : "save"}</span>
