@@ -52,6 +52,21 @@ Direct scripture quotations from the homily must not appear in your output, even
 
 Example: if the homily contains the line "Do not let your hearts be troubled," do not reproduce that phrase. Instead write something like: "Hear again the Lord's tender word in today's Gospel — that we should not let our hearts be troubled." Or simply: "In today's Gospel, Jesus speaks tenderly to disciples whose hearts are heavy." Apply this principle to every scriptural phrase in the homily, however brief or familiar.`;
 
+// ── Shared voice-constraint block ─────────────────────────────────────────
+//
+// Injected into every prompt immediately before the closing "Output only…"
+// line. Targets the most persistent AI prose tells observed in testing.
+
+const VOICE_CONSTRAINTS = `Voice constraints — please attend to these carefully:
+
+- Do not use em-dashes as a default rhythmic device. Em-dashes have legitimate uses but you reach for them as a stylistic crutch. Use commas, colons, or full stops and new sentences instead. If a 175-word output contains more than one em-dash, that is too many.
+- Do not pile up triple-parallel constructions. Phrases like "wounds acknowledged, grace received, mercy extended" or "questions we cannot answer, worries that will not leave, responsibilities that weigh heavily" are AI tells. Two parallel phrases is fine. One is often better. Vary your sentence rhythm.
+- Do not use the contrast-pivot pattern as a default ("not X, but Y" / "this is not abstract doctrine, it is lived experience"). It feels rhetorical but reads as machine-generated when overused. Reserve it for moments where it earns its weight.
+- Do not end with a paragraph that restates the main point. Trust the reader. End on the last point that needed making, not on a summary.
+- Avoid these specific words and phrases that have become AI-recognisable: delve, tapestry, unpack, crucial, pivotal, profound, deeply, navigate (as metaphor), journey (as metaphor), foster, harness, leverage, underscore, "in many ways", "to some extent", "it can be said that".
+- Write in flowing prose. Vary sentence length. Trust short sentences. Prefer specific, concrete language to abstract noun pile-ups.
+- The voice you are imitating is the priest's, drawn from his source homily. Match his cadence, his rhythms, his way of approaching scripture. Do not produce generic Catholic prose.`;
+
 // ── System prompts ─────────────────────────────────────────────────────────
 
 function getSystemPrompt(outputType: OutputType, variant?: string): string {
@@ -93,6 +108,8 @@ Universal constraints — all of the following apply without exception:
 6. Do not draw on any knowledge outside the provided homily. The reflection must be grounded entirely in what the priest said.
 7. Output only the reflection text. No preamble, no explanation, no commentary. Just the output text.
 
+${VOICE_CONSTRAINTS}
+
 Output only the Parish Reflection. Do not include any other text.`;
 }
 
@@ -112,6 +129,8 @@ Universal constraints — all of the following apply without exception:
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the reflection text. No preamble, no explanation, no commentary.
+
+${VOICE_CONSTRAINTS}
 
 Output only the Take Into the Week text. Do not include any other text.`;
 }
@@ -140,6 +159,8 @@ Universal constraints — all of the following apply without exception:
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the post text. No preamble, no explanation, no commentary.
 
+${VOICE_CONSTRAINTS}
+
 Output only the Social Post. Do not include any other text.`;
 }
 
@@ -159,6 +180,8 @@ Universal constraints — all of the following apply without exception:
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the questions. No preamble, no explanation, no commentary.
+
+${VOICE_CONSTRAINTS}
 
 Output plain text only. Do not include any Markdown formatting — no headings (no # symbols), no bullet points, no asterisks, no bold, no italics. Number the questions using simple numerals and full stops: 1. 2. 3. Each question on its own line, with a blank line between questions. No introductory heading or title.
 
@@ -181,6 +204,8 @@ Universal constraints — all of the following apply without exception:
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — preserve these freely.
 6. Do not draw on any knowledge outside the provided homily.
 7. Output only the prayer text. No preamble, no explanation, no commentary.
+
+${VOICE_CONSTRAINTS}
 
 Output only the Prayer Prompt. Do not include any other text.`;
 }
