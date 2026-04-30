@@ -102,7 +102,7 @@ export default function ReadingsDrawer({
 
   const handleCloseDrawer = () => {
     setClosingDrawer(true);
-    setTimeout(() => { setClosingDrawer(false); onClose(); }, 540);
+    setTimeout(() => { setClosingDrawer(false); onClose(); }, 780);
   };
 
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function ReadingsDrawer({
           WebkitBackdropFilter: "blur(4px)",
           zIndex: 90,
           animation: closingDrawer
-            ? "fadeOut 540ms ease-in both"
+            ? "fadeOut 780ms ease-out both"
             : "fadeIn 780ms ease-out",
         }}
       />
@@ -213,7 +213,7 @@ export default function ReadingsDrawer({
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",
           animation: closingDrawer
-            ? "slideOutRight 540ms ease-in both"
+            ? "slideOutRight 780ms ease-out both"
             : "slideInRight 780ms ease-out",
         }}
       >
