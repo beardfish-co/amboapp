@@ -859,7 +859,7 @@ export default function MobileEchoWorkspace({
                 opacity:   composingExiting ? 0 : 1,
                 marginBottom: composingExiting ? 0 : 16,
                 flexShrink: 0,
-                transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease-out, margin-bottom 650ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transition: "max-height 1400ms cubic-bezier(0.22, 1, 0.36, 1), opacity 1200ms ease-out, margin-bottom 1400ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}>
                 <p style={{
                   fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
@@ -937,7 +937,7 @@ export default function MobileEchoWorkspace({
             overflow: "hidden",
             maxHeight: tryAgainVisible ? 40 : 0,
             opacity:   tryAgainVisible ? 1 : 0,
-            transition: "max-height 650ms cubic-bezier(0.22, 1, 0.36, 1), opacity 550ms ease-out",
+            transition: "max-height 1400ms cubic-bezier(0.22, 1, 0.36, 1), opacity 1200ms ease-out",
           }}>
             <div style={{ textAlign: "center", paddingTop: 8 }}>
               <button
