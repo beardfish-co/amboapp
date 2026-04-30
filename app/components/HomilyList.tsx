@@ -983,14 +983,17 @@ export default function HomilyList({
   }, [open, handleCloseDrawer, viewingHomily, confirmDeleteId]);
 
   // ── Reset on close ─────────────────────────────────────────────────────
+  // Do NOT reset viewingHomily while closingReading=true — the reading view
+  // is still animating out and must stay mounted for the full duration.
+  // It will be cleared by its own timeout once the animation completes.
   useEffect(() => {
-    if (!open) {
+    if (!open && !closingReading) {
       setViewingHomily(null);
       setSearchQuery("");
       setSearchResults(null);
       setSearchStatus("idle");
     }
-  }, [open]);
+  }, [open, closingReading]);
 
   // ── Static placeholder ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1068,7 +1071,7 @@ export default function HomilyList({
 
   const isSearchActive = searchQuery.trim().length > 0;
 
-  if (!open && !closingDrawer) return null;
+  if (!open && !closingDrawer && !closingReading) return null;
 
   return (
     <>

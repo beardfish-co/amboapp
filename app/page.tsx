@@ -285,12 +285,8 @@ export default function AmboApp() {
     setEchoHomilyText(homilyText);
     setEchoHomilyId(homilyId || undefined);
     setEchoInitialEntry(undefined);
+    setDrawerOpen(false);
     setEchoOpen(true);
-    // Delay closing the drawer so HomilyList stays mounted — and the ReadingView
-    // stays in the DOM — for the full duration of the reading view fade-out (2000ms).
-    // Without this delay, setDrawerOpen(false) causes HomilyList to return null
-    // immediately, unmounting the ReadingView before its animation can play.
-    setTimeout(() => setDrawerOpen(false), 2100);
   }, []);
 
   const handleOpenEchoFromArchive = useCallback((entry: ArchiveEntry) => {
