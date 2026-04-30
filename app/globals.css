@@ -575,6 +575,12 @@ body {
   to   { transform: translateX(-100%); }
 }
 
+/* Drawer / sheet slide up from bottom */
+@keyframes slideInUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
 /* Fade out — backdrop dismiss */
 @keyframes fadeOut {
   from { opacity: 1; }

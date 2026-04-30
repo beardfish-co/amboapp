@@ -10,6 +10,7 @@ import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList, { HomilyRow } from "./components/HomilyList";
 import EchoWorkspace, { ArchiveEntry } from "./components/EchoWorkspace";
+import MobileEchoWorkspace from "./components/MobileEchoWorkspace";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -25,6 +26,18 @@ import {
 type Mode = "reflect" | "write" | "preach";
 
 const CURRENT_ID_KEY = "ambo-current-id";
+
+// Detect mobile viewport (< 640px) — used to swap Echo workspace for mobile flow
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("reflect");
@@ -91,6 +104,7 @@ export default function AmboApp() {
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [echoOpen, setEchoOpen] = useState(false);
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [echoHomilyText, setEchoHomilyText] = useState("");
@@ -551,15 +565,26 @@ export default function AmboApp() {
       />
       </ErrorBoundary>
 
-      {/* Echo workspace */}
-      <EchoWorkspace
-        open={echoOpen}
-        onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
-        sundayLabel={echoSundayLabel}
-        homilyText={echoHomilyText}
-        homilyId={echoHomilyId}
-        initialEntry={echoInitialEntry}
-      />
+      {/* Echo workspace — mobile flow on narrow screens, desktop on wider */}
+      {isMobile ? (
+        <MobileEchoWorkspace
+          open={echoOpen}
+          onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
+          sundayLabel={echoSundayLabel}
+          homilyText={echoHomilyText}
+          homilyId={echoHomilyId}
+          initialEntry={echoInitialEntry}
+        />
+      ) : (
+        <EchoWorkspace
+          open={echoOpen}
+          onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
+          sundayLabel={echoSundayLabel}
+          homilyText={echoHomilyText}
+          homilyId={echoHomilyId}
+          initialEntry={echoInitialEntry}
+        />
+      )}
 
       {/* Onboarding tour */}
       <OnboardingTour mode={mode} setMode={setMode} />
