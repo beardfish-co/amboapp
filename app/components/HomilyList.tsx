@@ -26,7 +26,19 @@ interface SearchResult {
   confidence: "strong" | "loose";
 }
 
-type DrawerTab = "my-homilies" | "echo";
+// Mirror of ArchiveEntry from EchoWorkspace — avoid cross-import
+interface ArchiveEntry {
+  id: string;
+  output_type: string;
+  variant: string | null;
+  output_text: string;
+  generated_text: string;
+  homily_id: string | null;
+  created_at: string;
+  updated_at: string;
+  homily_title: string | null;
+  homily_sunday_date: string | null;
+}
 
 interface HomilyListProps {
   open: boolean;
@@ -42,10 +54,6 @@ interface HomilyListProps {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-/**
- * Static-per-session placeholder examples.
- * One is chosen randomly when the drawer opens; it stays fixed until close.
- */
 const SEARCH_PLACEHOLDERS = [
   "When did I preach on mercy?",
   "Anything I said about the Eucharist last Lent?",
@@ -54,14 +62,18 @@ const SEARCH_PLACEHOLDERS = [
   "Where I spoke about the troubled heart",
 ];
 
-/**
- * Layer labels — shown only for non-content matches.
- * The homily body itself needs no label.
- */
 const LAYER_LABELS: Record<string, string> = {
   thread: "from a discernment thread",
   followups: "from follow-up notes",
   notes: "from notes",
+};
+
+const ECHO_TYPE_LABELS: Record<string, string> = {
+  "take-into-the-week":    "Take Into the Week",
+  "parish-reflection":     "Parish Reflection",
+  "social-post":           "Social Post",
+  "small-group-questions": "Small Group Questions",
+  "prayer-prompt":         "Prayer Prompt",
 };
 
 // ── Shared Sunday-name cache ───────────────────────────────────────────────
@@ -118,13 +130,40 @@ function parseContentParagraphs(content: string | null): string[] {
   return content.split(/\n+/).map((s) => s.trim()).filter(Boolean);
 }
 
+// Format variant string for display
+function variantLabel(variant: string | null): string {
+  if (!variant) return "";
+  switch (variant) {
+    case "short":          return "Short · ~80w";
+    case "standard":       return "Standard · ~175w";
+    case "longer":         return "Longer · ~350w";
+    case "before-sunday":  return "Before Sunday";
+    case "after-sunday":   return "After Sunday";
+    default: return variant.charAt(0).toUpperCase() + variant.slice(1).replace(/-/g, " ");
+  }
+}
+
+// ── Echo output type icon (mirrors EchoWorkspace EchoTabIcon) ─────────────
+function EchoTypeIcon({ type }: { type: string }) {
+  const s = { width: 13, height: 13, display: "block" as const, flexShrink: 0 };
+  switch (type) {
+    case "take-into-the-week":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 10h10M11 6l4 4-4 4"/></svg>;
+    case "parish-reflection":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h7l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M12 3v4h4M7 11h6M7 14h4"/></svg>;
+    case "social-post":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="15" cy="5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="15" cy="15" r="2"/><path d="M7 9l6-3M7 11l6 3"/></svg>;
+    case "small-group-questions":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3V14z"/></svg>;
+    case "prayer-prompt":
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3v14M4 8h12"/></svg>;
+    default:
+      return <svg {...s} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="12" height="14" rx="1"/></svg>;
+  }
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-/**
- * Unified archive card — identical glass surface in both browse and search states.
- * Pass `excerpt` (and optionally `layer`/`confidence`) for search results;
- * omit them for the browse list. The card surface never varies between modes.
- */
 interface ArchiveCardProps {
   id: string;
   title: string | null;
@@ -133,18 +172,17 @@ interface ArchiveCardProps {
   content: string | null;
   onOpen: () => void;
   onDelete: (id: string) => void;
-  // Search-result extras — omit entirely for browse cards
   excerpt?: string;
   layer?: "content" | "thread" | "notes" | "followups";
   confidence?: "strong" | "loose";
-  // Echo trigger — omit when Sunday date is absent
   onOpenEcho?: (sundayLabel: string, homilyText: string, homilyId: string) => void;
+  onEchoInteract?: () => void;
 }
 
 function ArchiveCard({
   id, title, sunday_date, updated_at, content,
   onOpen, onDelete,
-  excerpt, layer, confidence, onOpenEcho,
+  excerpt, layer, confidence, onOpenEcho, onEchoInteract,
 }: ArchiveCardProps) {
   const sundayName = sunday_date ? sundayNameCache.get(sunday_date) : undefined;
   const displayTitle = (title && title.trim()) || sundayName || "Untitled";
@@ -165,7 +203,7 @@ function ArchiveCard({
         cursor: "pointer",
         transition: "box-shadow 0.15s",
       }}
-      onClick={onOpen}
+      onClick={() => { onEchoInteract?.(); onOpen(); }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = "var(--ambo-shadow-lg)";
       }}
@@ -214,7 +252,6 @@ function ArchiveCard({
         </div>
       )}
 
-      {/* Excerpt — search results only */}
       {isSearchResult && excerpt && (
         <div style={{
           fontSize: 13,
@@ -230,7 +267,6 @@ function ArchiveCard({
         </div>
       )}
 
-      {/* Footer */}
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -252,9 +288,7 @@ function ArchiveCard({
           ) : (
             <>
               <span>{words} {words === 1 ? "word" : "words"}</span>
-              {sunday_date && (
-                <span>· {friendlyDate(sunday_date)}</span>
-              )}
+              {sunday_date && <span>· {friendlyDate(sunday_date)}</span>}
             </>
           )}
         </div>
@@ -263,6 +297,7 @@ function ArchiveCard({
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                onEchoInteract?.();
                 onOpenEcho(subtitle, content ?? "", id);
               }}
               aria-label="Open Echo for this homily"
@@ -303,7 +338,6 @@ function ArchiveCard({
   );
 }
 
-/** Section divider label */
 function SectionLabel({ label }: { label: string }) {
   return (
     <div style={{
@@ -320,18 +354,238 @@ function SectionLabel({ label }: { label: string }) {
   );
 }
 
-// ── Full-screen reading view ───────────────────────────────────────────────
-// Renders as a fixed overlay covering the whole app — not scoped to the drawer.
-// Scrim dims the drawer + main app behind at ~17% opacity.
+// ── Echoes section — expandable in reading view ────────────────────────────
+
+interface EchoesSectionProps {
+  homilyId: string;
+  onOpenEchoEntry: (entry: ArchiveEntry) => void;
+}
+
+function EchoesSection({ homilyId, onOpenEchoEntry }: EchoesSectionProps) {
+  const [outputs, setOutputs] = useState<ArchiveEntry[] | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Fetch echoes for this homily on mount
+  useEffect(() => {
+    fetch(`/api/echo/archive?homilyId=${encodeURIComponent(homilyId)}`)
+      .then((r) => r.json())
+      .then(({ outputs: rows }) => setOutputs(rows ?? []))
+      .catch(() => setOutputs([]));
+  }, [homilyId]);
+
+  // Don't render until we know there are echoes
+  if (!outputs || outputs.length === 0) return null;
+
+  const count = outputs.length;
+
+  // Animation easing — contemplative, not snappy
+  // Expand: 700ms ease-out (inhale). Collapse: 600ms ease-in (exhale).
+  const dur     = expanded ? 700 : 600;
+  const ease    = expanded ? "cubic-bezier(0.22, 1, 0.36, 1)" : "cubic-bezier(0.55, 0, 1, 0.45)";
+  const transFn = `${dur}ms ${ease}`;
+
+  return (
+    <>
+      <style>{`
+        @media print {
+          .echoes-section-collapsed { display: none !important; }
+          .echo-row-preview { display: none !important; }
+          .echo-print-full { display: block !important; }
+          .echoes-print-block { display: block !important; }
+        }
+        .echo-print-full { display: none; }
+        .echoes-print-block { display: none; }
+      `}</style>
+
+      {/* Section rule */}
+      <div style={{
+        height: 1,
+        background: "var(--ambo-rule-subtle, rgba(74,111,165,0.12))",
+        margin: "48px 0 0",
+      }} />
+
+      {/* Toggle line */}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "none",
+          border: "none",
+          padding: "20px 0 0",
+          cursor: "pointer",
+          fontFamily: "var(--ambo-font-reading)",
+          fontSize: "clamp(13px, 2vw, 14px)",
+          fontStyle: "italic",
+          color: "var(--ambo-text-muted)",
+          lineHeight: 1.4,
+          width: "100%",
+          textAlign: "left",
+        }}
+        aria-expanded={expanded}
+      >
+        {/* Chevron — rotates with same timing as section */}
+        <svg
+          width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"
+          style={{
+            flexShrink: 0,
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: `transform ${transFn}`,
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        <span>
+          {expanded ? "↑" : "↓"} echoes from this homily ({count})
+        </span>
+      </button>
+
+      {/* Expandable body — grid-template-rows trick for height animation */}
+      <div
+        className={expanded ? undefined : "echoes-section-collapsed"}
+        style={{
+          display: "grid",
+          gridTemplateRows: expanded ? "1fr" : "0fr",
+          opacity: expanded ? 1 : 0,
+          transition: `grid-template-rows ${transFn}, opacity ${transFn}`,
+        }}
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div style={{ paddingTop: 8, paddingBottom: 32 }}>
+            {outputs.map((entry) => {
+              const typeLabel = ECHO_TYPE_LABELS[entry.output_type] ?? entry.output_type;
+              const vLabel = variantLabel(entry.variant);
+              const savedAt = relativeTime(entry.created_at);
+              const fullText = entry.output_text ?? entry.generated_text ?? "";
+
+              return (
+                <div key={entry.id}>
+                  {/* Screen row — visible when expanded */}
+                  <button
+                    className="echo-row-preview"
+                    onClick={() => onOpenEchoEntry(entry)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      width: "100%",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      borderBottom: "1px solid var(--ambo-rule-subtle, rgba(74,111,165,0.1))",
+                      padding: "14px 0",
+                      cursor: "pointer",
+                      fontFamily: "var(--ambo-font-ui)",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.7"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+                  >
+                    {/* Icon */}
+                    <span style={{ color: "var(--ambo-text-muted)", flexShrink: 0 }}>
+                      <EchoTypeIcon type={entry.output_type} />
+                    </span>
+
+                    {/* Label + variant */}
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: 13,
+                        fontStyle: "italic",
+                        color: "var(--ambo-text-primary)",
+                      }}>
+                        {typeLabel}
+                      </span>
+                      {vLabel && (
+                        <span style={{
+                          fontSize: 11,
+                          color: "var(--ambo-text-muted)",
+                          marginLeft: 6,
+                        }}>
+                          {vLabel}
+                        </span>
+                      )}
+                    </span>
+
+                    {/* Date */}
+                    <span style={{
+                      fontSize: 11,
+                      color: "var(--ambo-text-muted)",
+                      flexShrink: 0,
+                      marginRight: 6,
+                    }}>
+                      {savedAt}
+                    </span>
+
+                    {/* Right chevron */}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="var(--ambo-text-muted)" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"
+                      style={{ flexShrink: 0 }}>
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+
+                  {/* Print-only full content */}
+                  <div className="echo-print-full" style={{ paddingBottom: 24 }}>
+                    <p style={{
+                      fontFamily: "Georgia, serif",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#777",
+                      margin: "0 0 6px",
+                    }}>
+                      {typeLabel}{vLabel ? ` · ${vLabel}` : ""}
+                    </p>
+                    <p style={{
+                      fontFamily: "Georgia, serif",
+                      fontSize: 12,
+                      lineHeight: 1.75,
+                      color: "#111",
+                      margin: 0,
+                      whiteSpace: "pre-line",
+                    }}>
+                      {fullText}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Print block — heading + all full-content echoes (only when expanded, via print CSS) */}
+      <div className="echoes-print-block">
+        <hr style={{ margin: "32px 0 24px", border: "none", borderTop: "1px solid #ccc" }} />
+        <p style={{
+          fontFamily: "Georgia, serif",
+          fontSize: 13,
+          fontStyle: "italic",
+          color: "#555",
+          margin: "0 0 20px",
+        }}>
+          Echoes from this homily
+        </p>
+      </div>
+    </>
+  );
+}
+
+// ── Reading view ───────────────────────────────────────────────────────────
 interface ReadingViewProps {
   homily: HomilyRow | SearchResult;
   closing: boolean;
   onClose: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
   onOpenEcho?: (sundayLabel: string, homilyText: string, homilyId: string) => void;
+  onOpenEchoEntry: (entry: ArchiveEntry) => void;
 }
 
-function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: ReadingViewProps) {
+function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOpenEchoEntry }: ReadingViewProps) {
   const sundayName = homily.sunday_date
     ? sundayNameCache.get(homily.sunday_date)
     : undefined;
@@ -351,7 +605,6 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
     created_at: homily.created_at,
   };
 
-  // Close on Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -364,13 +617,11 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
 
   return (
     <>
-      {/* Pure-opacity keyframes — no transform */}
       <style>{`
         @keyframes rvFadeIn  { from { opacity: 0 } to { opacity: 1 } }
         @keyframes rvFadeOut { from { opacity: 1 } to { opacity: 0 } }
       `}</style>
 
-      {/* Scrim + scroll container — tap outside to dismiss */}
       <div
         onClick={onClose}
         style={{
@@ -386,7 +637,6 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
           animation: anim,
         }}
       >
-        {/* Glass panel — stops propagation, rounded corners, contained */}
         <div
           id="ambo-reading-print"
           onClick={(e) => e.stopPropagation()}
@@ -403,7 +653,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
             flexShrink: 0,
           }}
         >
-          {/* Top chrome — chevron + edit */}
+          {/* Top chrome */}
           <div style={{
             display: "flex",
             alignItems: "center",
@@ -449,10 +699,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
                 </button>
               )}
               <button
-                onClick={() => {
-                  // Print just the homily content area
-                  window.print();
-                }}
+                onClick={() => window.print()}
                 style={{
                   border: "none",
                   background: "none",
@@ -500,7 +747,6 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
             {title}
           </h1>
 
-          {/* Subtitle + metadata */}
           {subtitle && (
             <div style={{
               fontSize: 13,
@@ -544,239 +790,66 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho }: Re
               </p>
             ))
           )}
+
+          {/* Echoes section — shown only when this homily has saved outputs */}
+          <EchoesSection
+            homilyId={homily.id}
+            onOpenEchoEntry={onOpenEchoEntry}
+          />
         </div>
       </div>
     </>
   );
 }
 
-// ── Echo panel ─────────────────────────────────────────────────────────────
+// ── One-time Echo onboarding tooltip ──────────────────────────────────────
 
-// Mirror of ArchiveEntry from EchoWorkspace (avoid cross-import)
-interface ArchiveEntry {
-  id: string;
-  output_type: string;
-  variant: string | null;
-  output_text: string;
-  generated_text: string;
-  homily_id: string | null;
-  created_at: string;
-  updated_at: string;
-  homily_title: string | null;
-  homily_sunday_date: string | null;
+interface EchoTooltipProps {
+  onDismiss: () => void;
 }
 
-const ECHO_TYPE_LABELS: Record<string, string> = {
-  "take-into-the-week":    "Take Into the Week",
-  "parish-reflection":     "Parish Reflection",
-  "social-post":           "Social Post",
-  "small-group-questions": "Small Group Questions",
-  "prayer-prompt":         "Prayer Prompt",
-};
-
-function EchoArchiveCard({
-  entry,
-  onOpen,
-}: {
-  entry: ArchiveEntry;
-  onOpen: (entry: ArchiveEntry) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const typeLabel = ECHO_TYPE_LABELS[entry.output_type] ?? entry.output_type;
-  const variantLabel = entry.variant
-    ? ` · ${entry.variant.charAt(0).toUpperCase() + entry.variant.slice(1).replace(/-/g, " ")}`
-    : "";
-  const preview = (entry.output_text ?? entry.generated_text ?? "").slice(0, 110).trim();
-  const sourceLabel = entry.homily_title
-    ? entry.homily_title
-    : entry.homily_sunday_date
-    ? entry.homily_sunday_date
-    : "Standalone";
-  const savedDate = new Date(entry.created_at).toLocaleDateString(undefined, {
-    month: "short", day: "numeric",
-  });
-
+function EchoTooltip({ onDismiss }: EchoTooltipProps) {
   return (
-    <button
-      onClick={() => onOpen(entry)}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+    <div
       style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        background: hovered ? "var(--ambo-surface-raised)" : "var(--ambo-surface)",
-        border: "1px solid var(--ambo-border)",
-        borderRadius: "var(--ambo-radius-sm)",
-        padding: "14px 16px",
-        cursor: "pointer",
-        transition: "all var(--ambo-dur) var(--ambo-ease)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+        padding: "0 0 14px",
+        animation: "fadeIn 600ms ease-out both",
       }}
     >
-      <div style={{
-        fontFamily: "var(--ambo-font-ui)",
-        fontSize: 10, fontWeight: 700,
-        letterSpacing: "0.1em", textTransform: "uppercase",
-        color: "var(--ambo-text-muted)", marginBottom: 6,
-      }}>
-        {typeLabel}{variantLabel}
-      </div>
       <p style={{
         fontFamily: "var(--ambo-font-reading)",
-        fontSize: 13, fontStyle: "italic",
-        color: "var(--ambo-text-primary)",
-        margin: "0 0 8px", lineHeight: 1.5,
-        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        fontStyle: "italic",
+        fontSize: 12,
+        color: "var(--ambo-text-muted)",
+        margin: 0,
+        lineHeight: 1.5,
+        opacity: 0.75,
       }}>
-        {preview}{(entry.output_text ?? "").length > 110 ? "…" : ""}
+        Tap echo on any homily to carry your words forward.
       </p>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {sourceLabel}
-        </span>
-        <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)", flexShrink: 0 }}>
-          {savedDate}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-type EchoSubTab = "generate" | "archive";
-
-interface EchoPanelProps {
-  homilies: HomilyRow[] | null;
-  onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
-  onOpenEchoEntry: (entry: ArchiveEntry) => void;
-}
-
-function EchoPanel({ homilies, onOpenEcho, onOpenEchoEntry }: EchoPanelProps) {
-  const [subTab, setSubTab] = useState<EchoSubTab>("generate");
-  const [archiveEntries, setArchiveEntries] = useState<ArchiveEntry[] | null>(null);
-  const [archiveLoading, setArchiveLoading] = useState(false);
-  const [archiveError, setArchiveError] = useState<string | null>(null);
-
-  // Fetch archive on demand
-  useEffect(() => {
-    if (subTab !== "archive" || archiveEntries !== null) return;
-    setArchiveLoading(true);
-    setArchiveError(null);
-    fetch("/api/echo/archive")
-      .then((r) => r.json())
-      .then(({ outputs }) => setArchiveEntries(outputs ?? []))
-      .catch(() => setArchiveError("Could not load archive. Please try again."))
-      .finally(() => setArchiveLoading(false));
-  }, [subTab, archiveEntries]);
-
-  const subPillStyle = (active: boolean): React.CSSProperties => ({
-    fontFamily: "var(--ambo-font-ui)",
-    fontSize: 12,
-    fontWeight: 500,
-    padding: "6px 14px",
-    borderRadius: "var(--ambo-radius-pill)",
-    cursor: "pointer",
-    border: active ? "1px solid var(--ambo-accent)" : "1px solid var(--ambo-border)",
-    background: active ? "var(--ambo-accent-light)" : "transparent",
-    color: active ? "var(--ambo-accent)" : "var(--ambo-text-secondary)",
-    transition: "all 150ms ease",
-    lineHeight: 1,
-    whiteSpace: "nowrap" as const,
-  });
-
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-
-      {/* Sub-tab pills */}
-      <div style={{ padding: "12px 20px 10px", display: "flex", gap: 6, flexShrink: 0 }}>
-        <button onClick={() => setSubTab("generate")} style={subPillStyle(subTab === "generate")}>
-          Generate
-        </button>
-        <button onClick={() => setSubTab("archive")} style={subPillStyle(subTab === "archive")}>
-          Archive
-        </button>
-      </div>
-
-      {/* ── Generate: homily list ── */}
-      {subTab === "generate" && (
-        <div className="echo-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "0 20px 24px" }}>
-          {!homilies && (
-            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "16px 0 0" }}>
-              Loading homilies…
-            </p>
-          )}
-          {homilies && homilies.length === 0 && (
-            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "16px 0 0", lineHeight: 1.6 }}>
-              No homilies yet. Write and save a homily first, then come back to Echo it.
-            </p>
-          )}
-          {homilies && homilies.length > 0 && (
-            <div>
-              {homilies.map((h) => {
-                const sundayName = h.sunday_date ? sundayNameCache.get(h.sunday_date) : undefined;
-                const label = h.sunday_date
-                  ? `${sundayName ?? "Sunday"} · ${lectionaryYear(h.sunday_date)}`
-                  : (h.title ?? "Untitled homily");
-                return (
-                  <button
-                    key={h.id}
-                    onClick={() => onOpenEcho(label, h.content ?? "", h.id)}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      width: "100%",
-                      textAlign: "left",
-                      background: "transparent",
-                      border: "none",
-                      borderBottom: "1px solid var(--ambo-border)",
-                      padding: "12px 0",
-                      cursor: "pointer",
-                      gap: 2,
-                    }}
-                  >
-                    <span style={{ fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic", color: "var(--ambo-text-primary)" }}>
-                      {label}
-                    </span>
-                    {h.sunday_date && (
-                      <span style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 11, color: "var(--ambo-text-muted)" }}>
-                        {friendlyDate(h.sunday_date)}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Archive: saved Echo outputs ── */}
-      {subTab === "archive" && (
-        <div className="echo-scroll" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 20px 24px" }}>
-          {archiveLoading && (
-            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "8px 0 0" }}>
-              Loading archive…
-            </p>
-          )}
-          {!archiveLoading && archiveError && (
-            <p style={{ fontFamily: "var(--ambo-font-ui)", fontSize: 13, color: "rgba(200,60,60,0.8)", margin: "8px 0 0" }}>
-              {archiveError}
-            </p>
-          )}
-          {!archiveLoading && !archiveError && archiveEntries && archiveEntries.length === 0 && (
-            <p style={{ fontFamily: "var(--ambo-font-reading)", fontStyle: "italic", fontSize: 14, color: "var(--ambo-text-muted)", margin: "8px 0 0", lineHeight: 1.6 }}>
-              No saved Echo outputs yet. Generate something and tap Save.
-            </p>
-          )}
-          {!archiveLoading && !archiveError && archiveEntries && archiveEntries.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {archiveEntries.map((entry) => (
-                <EchoArchiveCard key={entry.id} entry={entry} onOpen={onOpenEchoEntry} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        style={{
+          border: "none",
+          background: "none",
+          color: "var(--ambo-text-muted)",
+          cursor: "pointer",
+          fontSize: 14,
+          lineHeight: 1,
+          padding: "0 2px",
+          flexShrink: 0,
+          opacity: 0.5,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.5")}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -793,7 +866,6 @@ export default function HomilyList({
   onOpenEchoEntry,
   refreshKey = 0,
 }: HomilyListProps) {
-  const [tab, setTab] = useState<DrawerTab>("my-homilies");
   const [homilies, setHomilies] = useState<HomilyRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -808,9 +880,36 @@ export default function HomilyList({
   const [searchFocused, setSearchFocused] = useState(false);
   const [, bumpNames] = useState(0);
 
+  // One-time Echo onboarding tooltip state
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipChecked = useRef(false);
+
   const loadedForKey = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Check tooltip state on first drawer open ───────────────────────────
+  useEffect(() => {
+    if (!open || tooltipChecked.current) return;
+    tooltipChecked.current = true;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const dismissed = user.user_metadata?.echo_onboarding_dismissed;
+        if (!dismissed) setShowTooltip(true);
+      } catch { /* silently skip */ }
+    })();
+  }, [open]);
+
+  const dismissTooltip = useCallback(async () => {
+    setShowTooltip(false);
+    try {
+      const supabase = createClient();
+      await supabase.auth.updateUser({ data: { echo_onboarding_dismissed: true } });
+    } catch { /* silently skip */ }
+  }, []);
 
   // ── Load homilies ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -860,7 +959,7 @@ export default function HomilyList({
     return () => { cancelled = true; };
   }, [open, homilies]);
 
-  // ── Close drawer with slide-out animation before unmounting ─────────────────
+  // ── Close drawer with animation ────────────────────────────────────────
   const handleCloseDrawer = useCallback(() => {
     setClosingDrawer(true);
     setTimeout(() => {
@@ -869,7 +968,7 @@ export default function HomilyList({
     }, 540);
   }, [onClose]);
 
-  // ── Keyboard: Escape closes reading view, then delete confirm, then drawer ──
+  // ── Keyboard: Escape ──────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -881,7 +980,7 @@ export default function HomilyList({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, handleCloseDrawer, viewingHomily, confirmDeleteId]);
+  }, [open, handleCloseDrawer, viewingHomily, confirmDeleteId]);
 
   // ── Reset on close ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -893,14 +992,12 @@ export default function HomilyList({
     }
   }, [open]);
 
-  // ── Static placeholder — chosen randomly when drawer opens, stable until close ──
+  // ── Static placeholder ─────────────────────────────────────────────────
   useEffect(() => {
-    if (open) {
-      setPlaceholderIndex(Math.floor(Math.random() * SEARCH_PLACEHOLDERS.length));
-    }
+    if (open) setPlaceholderIndex(Math.floor(Math.random() * SEARCH_PLACEHOLDERS.length));
   }, [open]);
 
-  // ── Focus search input on open — prevents any card from carrying focus ring ──
+  // ── Focus search on open ───────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => searchInputRef.current?.focus(), 150);
@@ -936,7 +1033,7 @@ export default function HomilyList({
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
   }, [searchQuery, runSearch]);
 
-  // ── Close reading view with graceful fade-out before unmount ─────────────────
+  // ── Close reading view ─────────────────────────────────────────────────
   const closeReading = useCallback(() => {
     setClosingReading(true);
     setTimeout(() => {
@@ -991,6 +1088,11 @@ export default function HomilyList({
             setClosingReading(false);
             onOpenEcho(label, text, hId);
           }}
+          onOpenEchoEntry={(entry) => {
+            setViewingHomily(null);
+            setClosingReading(false);
+            onOpenEchoEntry(entry);
+          }}
         />
       )}
 
@@ -1012,7 +1114,7 @@ export default function HomilyList({
       {/* Drawer */}
       <aside
         role="dialog"
-        aria-label="Archive"
+        aria-label="My Homilies"
         style={{
           position: "fixed",
           top: 0, left: 0, bottom: 0,
@@ -1029,7 +1131,7 @@ export default function HomilyList({
           overflow: "hidden",
         } as React.CSSProperties}
       >
-        {/* Header — mode-pill tabs */}
+        {/* Header — close button only */}
         <div style={{
           padding: "16px 20px 0",
           borderBottom: "1px solid var(--ambo-border)",
@@ -1038,21 +1140,9 @@ export default function HomilyList({
           <div style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             marginBottom: 14,
           }}>
-            <nav className="mode-pill">
-              {(["my-homilies", "echo"] as DrawerTab[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`mode-pill-btn ${tab === t ? "active" : ""}`}
-                  style={{ padding: "6px 14px", fontSize: 13 }}
-                >
-                  {t === "my-homilies" ? "My Homilies" : "Echo"}
-                </button>
-              ))}
-            </nav>
             <button
               onClick={handleCloseDrawer}
               aria-label="Close"
@@ -1068,208 +1158,202 @@ export default function HomilyList({
           </div>
         </div>
 
-        {/* Panel content */}
-        {tab === "my-homilies" ? (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {/* My Homilies panel — single mode */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
 
-            {/* Search bar — underline, italic placeholder, no icon */}
-            <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                borderBottom: `1px solid ${searchFocused ? "var(--ambo-accent)" : "rgba(74, 111, 165, 0.25)"}`,
-                paddingBottom: 2,
-                transition: "border-color 0.2s",
-                marginBottom: 14,
-              }}>
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder={SEARCH_PLACEHOLDERS[placeholderIndex]}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
-                  style={{
-                    flex: 1, border: "none", background: "transparent",
-                    color: "var(--ambo-text-primary)",
-                    fontSize: 13, fontStyle: "italic",
-                    padding: "8px 0", outline: "none",
-                    fontFamily: "var(--ambo-font-ui)",
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-                    style={{
-                      border: "none", background: "none",
-                      color: "var(--ambo-text-muted)",
-                      cursor: "pointer", fontSize: 16, lineHeight: 1,
-                      padding: "0 4px", flexShrink: 0,
-                    }}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {!isSearchActive && (
+          {/* Search bar + new button */}
+          <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              borderBottom: `1px solid ${searchFocused ? "var(--ambo-accent)" : "rgba(74, 111, 165, 0.25)"}`,
+              paddingBottom: 2,
+              transition: "border-color 0.2s",
+              marginBottom: 14,
+            }}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={SEARCH_PLACEHOLDERS[placeholderIndex]}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                style={{
+                  flex: 1, border: "none", background: "transparent",
+                  color: "var(--ambo-text-primary)",
+                  fontSize: 13, fontStyle: "italic",
+                  padding: "8px 0", outline: "none",
+                  fontFamily: "var(--ambo-font-ui)",
+                }}
+              />
+              {searchQuery && (
                 <button
-                  onClick={onCreate}
+                  onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
                   style={{
-                    width: "100%",
-                    border: "1px dashed rgba(74, 111, 165, 0.3)",
-                    background: "transparent",
-                    color: "var(--ambo-accent)",
-                    fontSize: 13, fontWeight: 600,
-                    padding: "10px 14px", borderRadius: 10,
-                    cursor: "pointer", fontFamily: "inherit",
-                    display: "flex", alignItems: "center",
-                    justifyContent: "center", gap: 6, opacity: 0.85,
-                    transition: "opacity 0.15s",
+                    border: "none", background: "none",
+                    color: "var(--ambo-text-muted)",
+                    cursor: "pointer", fontSize: 16, lineHeight: 1,
+                    padding: "0 4px", flexShrink: 0,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
                 >
-                  <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-                  New homily
+                  ×
                 </button>
               )}
             </div>
 
-            {/* List / results — horizontal padding lives here */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 24px" }}>
+            {/* One-time onboarding tooltip — below search, above New button */}
+            {showTooltip && !isSearchActive && (
+              <EchoTooltip onDismiss={dismissTooltip} />
+            )}
 
-              {homilies === null && !loadError && !isSearchActive && (
-                <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
-                  Loading…
+            {!isSearchActive && (
+              <button
+                onClick={onCreate}
+                style={{
+                  width: "100%",
+                  border: "1px dashed rgba(74, 111, 165, 0.3)",
+                  background: "transparent",
+                  color: "var(--ambo-accent)",
+                  fontSize: 13, fontWeight: 600,
+                  padding: "10px 14px", borderRadius: 10,
+                  cursor: "pointer", fontFamily: "inherit",
+                  display: "flex", alignItems: "center",
+                  justifyContent: "center", gap: 6, opacity: 0.85,
+                  transition: "opacity 0.15s",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
+              >
+                <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+                New homily
+              </button>
+            )}
+          </div>
+
+          {/* List / results */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 24px" }}>
+
+            {homilies === null && !loadError && !isSearchActive && (
+              <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
+                Loading…
+              </div>
+            )}
+
+            {loadError && (
+              <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
+                Couldn&apos;t load homilies. {loadError}
+              </div>
+            )}
+
+            {isSearchActive && searchStatus === "listening" && (
+              <div style={{ padding: "36px 20px", textAlign: "center", animation: "fadeIn 400ms ease" }}>
+                <div style={{
+                  fontFamily: "var(--ambo-font-reading)",
+                  fontSize: 15, fontStyle: "italic",
+                  color: "var(--ambo-text-muted)",
+                }}>
+                  Listening…
                 </div>
-              )}
+              </div>
+            )}
 
-              {loadError && (
-                <div style={{ padding: 20, fontSize: 13, color: "var(--ambo-text-muted)", textAlign: "center" }}>
-                  Couldn&apos;t load homilies. {loadError}
-                </div>
-              )}
-
-              {/* Listening */}
-              {isSearchActive && searchStatus === "listening" && (
-                <div style={{ padding: "36px 20px", textAlign: "center", animation: "fadeIn 400ms ease" }}>
-                  <div style={{
-                    fontFamily: "var(--ambo-font-reading)",
-                    fontSize: 15, fontStyle: "italic",
-                    color: "var(--ambo-text-muted)",
-                  }}>
-                    Listening…
-                  </div>
-                </div>
-              )}
-
-              {/* Search results */}
-              {isSearchActive && searchStatus === "done" && searchResults && (
-                searchResults.length === 0 ? (
-                  <div style={{ padding: "36px 20px", textAlign: "center" }}>
-                    <div style={{
-                      fontFamily: "var(--ambo-font-reading)",
-                      fontSize: 14, fontStyle: "italic",
-                      color: "var(--ambo-text-muted)", lineHeight: 1.7,
-                    }}>
-                      Nothing found in the archive.
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <SectionLabel label={`${searchResults.length} ${searchResults.length === 1 ? "result" : "results"}`} />
-                    {searchResults.map((r) => (
-                      <ArchiveCard
-                        key={r.id}
-                        id={r.id}
-                        title={r.title}
-                        sunday_date={r.sunday_date}
-                        updated_at={r.updated_at}
-                        content={r.content}
-                        excerpt={r.excerpt}
-                        layer={r.layer}
-                        confidence={r.confidence}
-                        onOpen={() => setViewingHomily(r)}
-                        onDelete={(id) => setConfirmDeleteId(id)}
-                        onOpenEcho={onOpenEcho}
-                      />
-                    ))}
-                  </>
-                )
-              )}
-
-              {/* Error */}
-              {isSearchActive && searchStatus === "error" && (
+            {isSearchActive && searchStatus === "done" && searchResults && (
+              searchResults.length === 0 ? (
                 <div style={{ padding: "36px 20px", textAlign: "center" }}>
                   <div style={{
                     fontFamily: "var(--ambo-font-reading)",
-                    fontSize: 14, fontStyle: "italic", color: "var(--ambo-text-muted)",
+                    fontSize: 14, fontStyle: "italic",
+                    color: "var(--ambo-text-muted)", lineHeight: 1.7,
                   }}>
-                    The archive is unavailable just now.
+                    Nothing found in the archive.
                   </div>
                 </div>
-              )}
+              ) : (
+                <>
+                  <SectionLabel label={`${searchResults.length} ${searchResults.length === 1 ? "result" : "results"}`} />
+                  {searchResults.map((r) => (
+                    <ArchiveCard
+                      key={r.id}
+                      id={r.id}
+                      title={r.title}
+                      sunday_date={r.sunday_date}
+                      updated_at={r.updated_at}
+                      content={r.content}
+                      excerpt={r.excerpt}
+                      layer={r.layer}
+                      confidence={r.confidence}
+                      onOpen={() => setViewingHomily(r)}
+                      onDelete={(id) => setConfirmDeleteId(id)}
+                      onOpenEcho={onOpenEcho}
+                      onEchoInteract={showTooltip ? dismissTooltip : undefined}
+                    />
+                  ))}
+                </>
+              )
+            )}
 
-              {/* Browse — empty state */}
-              {!isSearchActive && homilies && homilies.length === 0 && !loadError && (
+            {isSearchActive && searchStatus === "error" && (
+              <div style={{ padding: "36px 20px", textAlign: "center" }}>
                 <div style={{
-                  padding: "36px 20px", fontSize: 13,
-                  color: "var(--ambo-text-muted)", textAlign: "center", lineHeight: 1.6,
+                  fontFamily: "var(--ambo-font-reading)",
+                  fontSize: 14, fontStyle: "italic", color: "var(--ambo-text-muted)",
                 }}>
-                  No homilies yet.<br />Start a new one above.
+                  The archive is unavailable just now.
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Browse — recent */}
-              {!isSearchActive && recentHomilies.length > 0 && (
-                <>
-                  <SectionLabel label="Recent" />
-                  {recentHomilies.map((h) => (
-                    <ArchiveCard
-                      key={h.id}
-                      id={h.id}
-                      title={h.title}
-                      sunday_date={h.sunday_date}
-                      updated_at={h.updated_at}
-                      content={h.content}
-                      onOpen={() => setViewingHomily(h)}
-                      onDelete={(id) => setConfirmDeleteId(id)}
-                      onOpenEcho={onOpenEcho}
-                    />
-                  ))}
-                </>
-              )}
+            {!isSearchActive && homilies && homilies.length === 0 && !loadError && (
+              <div style={{
+                padding: "36px 20px", fontSize: 13,
+                color: "var(--ambo-text-muted)", textAlign: "center", lineHeight: 1.6,
+              }}>
+                No homilies yet.<br />Start a new one above.
+              </div>
+            )}
 
-              {/* Browse — archive */}
-              {!isSearchActive && olderHomilies.length > 0 && (
-                <>
-                  <SectionLabel label={recentHomilies.length > 0 ? "Archive" : "All Homilies"} />
-                  {olderHomilies.map((h) => (
-                    <ArchiveCard
-                      key={h.id}
-                      id={h.id}
-                      title={h.title}
-                      sunday_date={h.sunday_date}
-                      updated_at={h.updated_at}
-                      content={h.content}
-                      onOpen={() => setViewingHomily(h)}
-                      onDelete={(id) => setConfirmDeleteId(id)}
-                      onOpenEcho={onOpenEcho}
-                    />
-                  ))}
-                </>
-              )}
-            </div>
+            {!isSearchActive && recentHomilies.length > 0 && (
+              <>
+                <SectionLabel label="Recent" />
+                {recentHomilies.map((h) => (
+                  <ArchiveCard
+                    key={h.id}
+                    id={h.id}
+                    title={h.title}
+                    sunday_date={h.sunday_date}
+                    updated_at={h.updated_at}
+                    content={h.content}
+                    onOpen={() => setViewingHomily(h)}
+                    onDelete={(id) => setConfirmDeleteId(id)}
+                    onOpenEcho={onOpenEcho}
+                    onEchoInteract={showTooltip ? dismissTooltip : undefined}
+                  />
+                ))}
+              </>
+            )}
+
+            {!isSearchActive && olderHomilies.length > 0 && (
+              <>
+                <SectionLabel label={recentHomilies.length > 0 ? "Archive" : "All Homilies"} />
+                {olderHomilies.map((h) => (
+                  <ArchiveCard
+                    key={h.id}
+                    id={h.id}
+                    title={h.title}
+                    sunday_date={h.sunday_date}
+                    updated_at={h.updated_at}
+                    content={h.content}
+                    onOpen={() => setViewingHomily(h)}
+                    onDelete={(id) => setConfirmDeleteId(id)}
+                    onOpenEcho={onOpenEcho}
+                    onEchoInteract={showTooltip ? dismissTooltip : undefined}
+                  />
+                ))}
+              </>
+            )}
           </div>
-        ) : (
-          <EchoPanel
-            homilies={homilies}
-            onOpenEcho={onOpenEcho}
-            onOpenEchoEntry={onOpenEchoEntry}
-          />
-        )}
+        </div>
       </aside>
 
       {/* ── Delete confirmation modal ── */}

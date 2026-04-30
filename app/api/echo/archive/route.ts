@@ -3,6 +3,9 @@
 // Returns the authenticated priest's saved Echo outputs, ordered by
 // created_at descending. Joins with homilies to surface title and sunday_date.
 //
+// Optional query params:
+//   ?homilyId=xxx  — filter to outputs for a specific homily
+//
 // Response shape:
 //   {
 //     outputs: Array<{
@@ -23,10 +26,10 @@
 //   401 -- not authenticated
 //   500 -- database error
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
 
   const {
@@ -37,7 +40,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
 
-  const { data, error } = await supabase
+  const homilyId = req.nextUrl.searchParams.get("homilyId");
+
+  let query = supabase
     .from("echo_outputs")
     .select(
       `
@@ -57,6 +62,12 @@ export async function GET() {
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
+
+  if (homilyId) {
+    query = query.eq("homily_id", homilyId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("[echo/archive] DB query error:", error.message);
