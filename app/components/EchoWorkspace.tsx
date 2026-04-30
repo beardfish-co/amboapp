@@ -1190,8 +1190,8 @@ export default function EchoWorkspace({
         style={{
           position: "fixed",
           // Desktop: generous margins. Mobile: full screen.
-          top: "clamp(0px, 7vh, 72px)",
-          bottom: "clamp(0px, 7vh, 72px)",
+          top: "clamp(0px, 3.5vh, 36px)",
+          bottom: "clamp(0px, 3.5vh, 36px)",
           left: "clamp(0px, 7vw, 100px)",
           right: "clamp(0px, 7vw, 100px)",
           zIndex: 120,
@@ -1216,7 +1216,7 @@ export default function EchoWorkspace({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div
           style={{
-            padding: "20px 32px 0",
+            padding: "10px 32px 0",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
@@ -1475,7 +1475,7 @@ export default function EchoWorkspace({
         <div
             style={{
               flexShrink: 0,
-              padding: "8px 32px 16px",
+              padding: "8px 32px 8px",
               background: "transparent",
               opacity: hasOutput ? 1 : 0.35,
               transition: "opacity 0.6s ease",
