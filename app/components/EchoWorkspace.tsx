@@ -139,8 +139,8 @@ const OUTPUT_TYPE_LABELS: Record<string, string> = {
 };
 
 /**
- * Demo homily text used when no homilyText prop is provided.
- * TODO: replace with the real homily when the homily picker is wired in.
+ * Demo homily text — only reachable when DEMO_MODE_ENABLED is true.
+ * Never surfaces in production; kept for dev / demonstration environments.
  */
 const DEMO_HOMILY_TEXT = `Brothers and sisters, today's Gospel brings us face to face with a question that echoes through every human heart: "Do you love me?" Three times the Lord asks Peter, and three times Peter answers — not with the polished confidence of before the passion, but with the vulnerability of a man who knows his own weakness. "Lord, you know everything; you know that I love you."
 
@@ -149,6 +149,9 @@ There is something profound happening here. Jesus does not ask Peter to prove hi
 This is the shape of Christian mission. It does not begin with our accomplishments or our certainty. It begins with our response to the Lord's question. And the answer he is looking for is not perfection — it is honesty. The Church is built not on Peter's heroism but on Peter's love, and on Christ's faithfulness to that love even when Peter could not be faithful to himself.
 
 As we leave Mass today, the Lord asks us the same question. Not "Have you been perfect?" Not "Have you never failed?" But simply: do you love me? And if we can say yes — however quietly, however tentatively — then the next word follows: go, and feed.`;
+
+/** True only when NEXT_PUBLIC_AMBO_DEMO_MODE_ENABLED=true — never set in production. */
+const DEMO_MODE_ENABLED = process.env.NEXT_PUBLIC_AMBO_DEMO_MODE_ENABLED === "true";
 
 // ── Composing state ────────────────────────────────────────────────────────
 
@@ -683,11 +686,14 @@ export default function EchoWorkspace({
   const activeTabData =
     ECHO_TABS.find((t) => t.id === activeTab) ?? ECHO_TABS[0];
 
-  // Resolve the homily text to use — prop, DB-fetched, or demo placeholder.
-  const resolvedHomilyText =
+  // Resolve the homily text to use — prop, DB-fetched, demo (dev only), or null.
+  // In production (DEMO_MODE_ENABLED=false), a missing homily resolves to null
+  // and generation is blocked with a clear error — demo content never surfaces.
+  const resolvedHomilyText: string | null =
     homilyText && homilyText.trim().length > 0 ? homilyText
     : fetchedHomilyText.trim().length > 0      ? fetchedHomilyText
-    : DEMO_HOMILY_TEXT;
+    : DEMO_MODE_ENABLED                        ? DEMO_HOMILY_TEXT
+    : null;
 
   // Resolve the variant for the current tab.
   const resolvedVariant =
@@ -741,6 +747,15 @@ export default function EchoWorkspace({
 
   const handleGenerate = useCallback(async () => {
     if (streaming) return;
+
+    // Production guard: if no real homily text is available, surface an honest error.
+    // This path is unreachable in normal usage — every real entry point provides a homily.
+    if (!resolvedHomilyText) {
+      setError(
+        "Could not load this homily. Please try again, or contact support if the problem persists.",
+      );
+      return;
+    }
 
     setStreaming(true);
     setHasOutput(true);
@@ -1553,7 +1568,7 @@ export default function EchoWorkspace({
                 </div>
               </div>
 
-              {resolvedHomilyText === DEMO_HOMILY_TEXT && (
+              {DEMO_MODE_ENABLED && resolvedHomilyText === DEMO_HOMILY_TEXT && (
                 <p
                   className="ambo-meta"
                   style={{ textAlign: "left", marginTop: 12, fontStyle: "italic" }}
