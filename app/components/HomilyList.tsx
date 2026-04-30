@@ -612,7 +612,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
   }, [onClose]);
 
   const anim = closing
-    ? "rvFadeOut 1500ms ease-out both"
+    ? "rvFadeOut 2000ms cubic-bezier(0.6, 0, 1, 1) both"
     : "rvFadeIn 780ms ease-out both";
 
   return (
@@ -1039,7 +1039,7 @@ export default function HomilyList({
     setTimeout(() => {
       setViewingHomily(null);
       setClosingReading(false);
-    }, 1500);
+    }, 2000);
   }, []);
 
   // ── Delete handler ─────────────────────────────────────────────────────
@@ -1084,7 +1084,9 @@ export default function HomilyList({
             onOpenInWrite(h);
           }}
           onOpenEcho={(label, text, hId) => {
-            // Start reading view exit animation (1500ms ease-out fade)
+            // Start reading view exit animation (2000ms ease-in fade — stays
+            // visible for the first ~800ms, then accelerates away. Ensures the view
+            // is clearly present when Echo arrives at t=600ms.)
             setClosingReading(true);
             // Open Echo workspace at t=600ms (40% through the reading view fade).
             // ~900ms of simultaneous visibility — reading view still clearly
@@ -1096,7 +1098,7 @@ export default function HomilyList({
             setTimeout(() => {
               setViewingHomily(null);
               setClosingReading(false);
-            }, 1500);
+            }, 2000);
           }}
           onOpenEchoEntry={(entry) => {
             setViewingHomily(null);
