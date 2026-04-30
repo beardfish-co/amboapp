@@ -1133,7 +1133,7 @@ export default function HomilyList({
         style={{
           position: "fixed",
           top: 0, left: 0, bottom: 0,
-          width: "min(400px, 92vw)",
+          width: "min(400px, 100vw)",
           background: "var(--ambo-bg)",
           borderRight: "1px solid var(--ambo-border)",
           zIndex: 100,

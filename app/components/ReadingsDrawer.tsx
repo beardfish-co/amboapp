@@ -205,7 +205,7 @@ export default function ReadingsDrawer({
           top: 0,
           right: 0,
           bottom: 0,
-          width: "min(440px, 92vw)",
+          width: "min(440px, 100vw)",
           background: "var(--ambo-bg)",
           borderLeft: "1px solid var(--ambo-border)",
           zIndex: 100,
