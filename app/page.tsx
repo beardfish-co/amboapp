@@ -10,6 +10,7 @@ import WriteView from "./components/WriteView";
 import PreachView from "./components/PreachView";
 import HomilyList, { HomilyRow } from "./components/HomilyList";
 import EchoWorkspace, { ArchiveEntry } from "./components/EchoWorkspace";
+import MobileEchoWorkspace from "./components/MobileEchoWorkspace";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -25,6 +26,18 @@ import {
 type Mode = "reflect" | "write" | "preach";
 
 const CURRENT_ID_KEY = "ambo-current-id";
+
+// Detect mobile viewport (< 640px) — used to swap Echo workspace for mobile flow
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 
 export default function AmboApp() {
   const [mode, setMode] = useState<Mode>("reflect");
@@ -91,6 +104,7 @@ export default function AmboApp() {
   // Multi-homily state
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [echoOpen, setEchoOpen] = useState(false);
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [echoHomilyText, setEchoHomilyText] = useState("");
@@ -284,7 +298,17 @@ export default function AmboApp() {
     setEchoSundayLabel(sundayLabel);
     setEchoHomilyText(homilyText);
     setEchoHomilyId(homilyId || undefined);
+    setEchoInitialEntry(undefined);
     setDrawerOpen(false);
+    setEchoOpen(true);
+  }, []);
+
+  const handleOpenEchoFromArchive = useCallback((entry: ArchiveEntry) => {
+    const label = entry.homily_title ?? entry.homily_sunday_date ?? "your homily";
+    setEchoInitialEntry(entry);
+    setEchoSundayLabel(label);
+    setEchoHomilyText("");
+    setEchoHomilyId(entry.homily_id ?? undefined);
     setEchoOpen(true);
   }, []);
 
@@ -368,7 +392,11 @@ export default function AmboApp() {
         // The inner wrapper clips the sliding content when the header collapses.
         overflow: headerHidden ? "hidden" : "visible",
         pointerEvents: headerHidden ? "none" : "auto",
-        height: headerHidden ? 0 : 60,
+        // paddingTop fills the Dynamic Island / notch safe-area with the header background.
+        // This ensures the area above the nav content shows the correct themed colour rather
+        // than a white default, on both installed PWA and Safari browser modes.
+        paddingTop: "env(safe-area-inset-top)",
+        height: headerHidden ? 0 : "calc(60px + env(safe-area-inset-top))",
         transition: headerHidden ? "height 0.5s ease 0.2s" : "height 0.4s ease",
       }}>
         {/* Inner wrapper — GPU-composited transform+opacity, always animates on iOS PWA */}
@@ -536,26 +564,31 @@ export default function AmboApp() {
         onCreate={handleCreateHomily}
         onOpenInWrite={handleOpenInWrite}
         onOpenEcho={handleOpenEcho}
-        onOpenEchoEntry={(entry) => {
-          setEchoInitialEntry(entry);
-          setEchoSundayLabel(entry.homily_sunday_date ?? "");
-          setEchoHomilyId(entry.homily_id ?? undefined);
-          setDrawerOpen(false);
-          setEchoOpen(true);
-        }}
+        onOpenEchoEntry={handleOpenEchoFromArchive}
         refreshKey={listRefreshKey}
       />
       </ErrorBoundary>
 
-      {/* Echo workspace */}
-      <EchoWorkspace
-        open={echoOpen}
-        onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
-        sundayLabel={echoSundayLabel}
-        homilyText={echoHomilyText}
-        homilyId={echoHomilyId}
-        initialEntry={echoInitialEntry}
-      />
+      {/* Echo workspace — mobile flow on narrow screens, desktop on wider */}
+      {isMobile ? (
+        <MobileEchoWorkspace
+          open={echoOpen}
+          onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
+          sundayLabel={echoSundayLabel}
+          homilyText={echoHomilyText}
+          homilyId={echoHomilyId}
+          initialEntry={echoInitialEntry}
+        />
+      ) : (
+        <EchoWorkspace
+          open={echoOpen}
+          onClose={() => { setEchoOpen(false); setEchoInitialEntry(undefined); }}
+          sundayLabel={echoSundayLabel}
+          homilyText={echoHomilyText}
+          homilyId={echoHomilyId}
+          initialEntry={echoInitialEntry}
+        />
+      )}
 
       {/* Onboarding tour */}
       <OnboardingTour mode={mode} setMode={setMode} />
