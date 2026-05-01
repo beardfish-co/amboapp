@@ -571,7 +571,7 @@ function AmboLogo() {
       alt="Ambo mark"
       width={32}
       height={32}
-      style={{ display: "block", objectFit: "contain", transform: "translateY(2px)" }}
+      style={{ display: "block", objectFit: "contain", transform: "translateY(-4px)" }}
     />
   );
 }
