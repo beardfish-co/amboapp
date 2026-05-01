@@ -253,13 +253,24 @@ export default function MobileEchoWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [streaming]);
 
-  // ── Textarea auto-resize — grows with content so parent div scrolls ─────────
+  // ── Auto-scroll to bottom during streaming ──────────────────────────────────
+  // The textarea scrolls itself (overflow:auto). While streaming, keep the
+  // latest content visible by pinning scrollTop to scrollHeight on every chunk.
   useEffect(() => {
     const ta = textareaRef.current;
+    if (!ta || !streaming) return;
+    ta.scrollTop = ta.scrollHeight;
+  }, [outputText, streaming]);
+
+  // ── Reset scroll to top when streaming ends ───────────────────────────────
+  // After generation completes the priest should read from the beginning,
+  // not be left at the bottom of the output.
+  useEffect(() => {
+    if (streaming) return;
+    const ta = textareaRef.current;
     if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = ta.scrollHeight + "px";
-  }, [outputText]);
+    ta.scrollTop = 0;
+  }, [streaming]);
 
   // ── Save ──────────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
@@ -836,110 +847,94 @@ export default function MobileEchoWorkspace({
           </div>
         </div>
 
-        {/* White card — structurally fixed. flex:1 fills all space between top
-            bar and action area. Card eases shorter when Try Again slides in
-            (flex redistribution is automatic and smooth). */}
+        {/* White card — flex:1 fills all space between top bar and action area.
+            Flex column: composing indicator at top (collapses via max-height),
+            then textarea fills the rest and scrolls itself.
+            Card eases shorter when Try Again slides in below (flex redistribution). */}
         <div style={{
           flex: 1, margin: "16px 16px 0", borderRadius: "var(--ambo-radius-lg)",
           background: "var(--ambo-surface-solid)", boxShadow: "var(--ambo-shadow-md)",
           display: "flex", flexDirection: "column", overflow: "hidden",
           minHeight: 0,
         }}>
-          {/* Scroll container — flex:1 + minHeight:0 gives this div a definite
-              height from the card's flex context, which makes overflow:auto work.
-              IMPORTANT: no display:flex here. A flex column container with overflow:auto
-              has a known browser quirk where children with min-height:100% prevent scroll
-              from triggering (the container expands instead). Plain block + overflow:auto
-              scrolls correctly. WebkitOverflowScrolling:touch gives momentum on older iOS. */}
-          <div style={{
-            flex: 1, minHeight: 0,
-            // "scroll" (not "auto") always establishes an iOS scroll context — more
-            // reliable than "auto" which only creates the context once overflow is
-            // detected and can be missed on first paint.
-            overflowY: "scroll",
-            WebkitOverflowScrolling: "touch",
-            // pan-y tells iOS this element owns vertical scrolling, preventing
-            // the gesture from bubbling to the overflow:hidden ancestors.
-            touchAction: "pan-y",
-            position: "relative",
-            padding: "24px 20px",
-          }}>
-            {/* Composing indicator — collapses + fades at completion */}
-            {composingVisible && (
-              <div style={{
-                overflow: "hidden",
-                maxHeight: composingExiting ? 0 : 40,
-                opacity:   composingExiting ? 0 : 1,
-                marginBottom: composingExiting ? 0 : 16,
-                flexShrink: 0,
-                transition: "max-height 1400ms cubic-bezier(0.22, 1, 0.36, 1), opacity 1200ms ease-out, margin-bottom 1400ms cubic-bezier(0.22, 1, 0.36, 1)",
-              }}>
-                <p style={{
-                  fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
-                  color: "var(--ambo-text-muted)", letterSpacing: "0.03em",
-                }}>
-                  Composing…
-                </p>
-              </div>
-            )}
 
-            {/* Error */}
-            {error && (
+          {/* Composing indicator — lives in card flex (not inside scroll) so its
+              collapse animation doesn't disturb scroll position. Slides out by
+              shrinking max-height; the textarea flex:1 fills the freed space. */}
+          {composingVisible && (
+            <div style={{
+              overflow: "hidden",
+              maxHeight: composingExiting ? 0 : 48,
+              opacity:   composingExiting ? 0 : 1,
+              transition: "max-height 1400ms cubic-bezier(0.22, 1, 0.36, 1), opacity 1200ms ease-out",
+              flexShrink: 0,
+              padding: composingExiting ? "0 20px" : "16px 20px 0",
+            }}>
+              <p style={{
+                fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
+                color: "var(--ambo-text-muted)", letterSpacing: "0.03em",
+              }}>
+                Composing…
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div style={{ padding: "24px 20px" }}>
               <p style={{
                 fontFamily: "var(--ambo-font-ui)", fontSize: 14,
                 color: "#c0392b", lineHeight: 1.5,
               }}>
                 {error}
               </p>
-            )}
+            </div>
+          )}
 
-            {/* Output textarea — ref-driven auto-resize so the scroll container
-                (not the textarea) handles overflow.
-                CRITICAL: no minHeight here. On iOS Safari, when a textarea has
-                minHeight:100% and overflow-y:hidden, ta.scrollHeight returns the
-                rendered (min-height) value rather than the actual content height.
-                JS then sets height = minHeight, leaving nothing to scroll. Without
-                minHeight, scrollHeight always reflects the true content height. */}
-            {hasOutput && !error && (
-              <textarea
-                ref={textareaRef}
-                value={outputText}
-                onChange={e => setOutputText(e.target.value)}
-                readOnly={streaming}
-                style={{
-                  width: "100%",
-                  height: "auto",   // managed by the resize effect
-                  // NO minHeight — see comment above
-                  resize: "none", border: "none", outline: "none",
-                  background: "transparent",
-                  fontFamily: "var(--ambo-font-reading)", fontSize: 16,
-                  lineHeight: 1.7, color: "var(--ambo-text-primary)",
-                  letterSpacing: "0.01em",
-                  paddingBottom: 24,
-                  boxSizing: "border-box",
-                  overflowY: "hidden", // parent div does the scrolling
-                }}
-                aria-label="Generated text"
-              />
-            )}
+          {/* Output textarea — fills remaining card height and scrolls itself.
+              On iOS Safari, a textarea with overflow:auto is a native scroll view.
+              This is fundamentally more reliable than scrolling a parent div:
+              - iOS touch events are delivered to the textarea's own scroll context
+              - No need for touchAction, WebkitOverflowScrolling on a wrapper div
+              - No auto-resize JS that disturbs scroll position during streaming
+              Scroll-during-streaming and reset-to-top are handled by useEffect hooks. */}
+          {hasOutput && !error && (
+            <textarea
+              ref={textareaRef}
+              value={outputText}
+              onChange={e => setOutputText(e.target.value)}
+              readOnly={streaming}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                width: "100%",
+                padding: "20px 20px 24px",
+                boxSizing: "border-box",
+                resize: "none", border: "none", outline: "none",
+                background: "transparent",
+                fontFamily: "var(--ambo-font-reading)", fontSize: 16,
+                lineHeight: 1.7, color: "var(--ambo-text-primary)",
+                letterSpacing: "0.01em",
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+              aria-label="Generated text"
+            />
+          )}
 
-            {/* Empty state — only before generation begins.
-                Absolutely positioned so it centres within the scroll container without
-                requiring display:flex on the container (which would break overflow scroll). */}
-            {!hasOutput && !error && (
-              <div style={{
-                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
+          {/* Empty state — flex centering, only before generation begins */}
+          {!hasOutput && !error && (
+            <div style={{
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <p style={{
+                fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
+                color: "var(--ambo-text-muted)",
               }}>
-                <p style={{
-                  fontFamily: "var(--ambo-font-reading)", fontSize: 14, fontStyle: "italic",
-                  color: "var(--ambo-text-muted)",
-                }}>
-                  Preparing…
-                </p>
-              </div>
-            )}
-          </div>
+                Preparing…
+              </p>
+            </div>
+          )}
         </div>
 
         {/* ── Action area ────────────────────────────────────────────────────
