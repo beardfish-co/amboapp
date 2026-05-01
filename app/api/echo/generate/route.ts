@@ -59,13 +59,14 @@ Example: if the homily contains the line "Do not let your hearts be troubled," d
 
 const VOICE_CONSTRAINTS = `Voice constraints — please attend to these carefully:
 
-- Do not use em-dashes as a default rhythmic device. Em-dashes have legitimate uses but you reach for them as a stylistic crutch. Use commas, colons, or full stops and new sentences instead. If a 175-word output contains more than one em-dash, that is too many.
+- Hard limit on em-dashes: use at most one in the entire output. Set this as a prior before you begin writing. Every time an em-dash arises naturally, write a comma, colon, or full stop instead. Em-dashes are the single most persistent AI prose tell in these outputs. You will reach for them automatically. Do not.
 - Do not pile up triple-parallel constructions. Phrases like "wounds acknowledged, grace received, mercy extended" or "questions we cannot answer, worries that will not leave, responsibilities that weigh heavily" are AI tells. Two parallel phrases is fine. One is often better. Vary your sentence rhythm.
 - Do not use the contrast-pivot pattern as a default ("not X, but Y" / "this is not abstract doctrine, it is lived experience"). It feels rhetorical but reads as machine-generated when overused. Reserve it for moments where it earns its weight.
 - Do not end with a paragraph that restates the main point. Trust the reader. End on the last point that needed making, not on a summary.
 - Avoid these specific words and phrases that have become AI-recognisable: delve, tapestry, unpack, crucial, pivotal, profound, deeply, navigate (as metaphor), journey (as metaphor), foster, harness, leverage, underscore, "in many ways", "to some extent", "it can be said that".
 - Write in flowing prose. Vary sentence length. Trust short sentences. Prefer specific, concrete language to abstract noun pile-ups.
-- The voice you are imitating is the priest's, drawn from his source homily. Match his cadence, his rhythms, his way of approaching scripture. Do not produce generic Catholic prose.`;
+- The voice you are imitating is the priest's, drawn from his source homily. Match his cadence, his rhythms, his way of approaching scripture. Do not produce generic Catholic prose.
+- Preserve the priest's relational posture. If he addresses his people with warmth and closeness, the output should be warm and close. If he speaks in first-person plural (we, us, our), keep it. If his preaching voice turns toward the listener, find a written equivalent. Do not let a genre shift to print erase the human address in his preaching.`;
 
 // ── System prompts ─────────────────────────────────────────────────────────
 
@@ -94,14 +95,14 @@ function getParishReflectionPrompt(variant?: string): string {
 
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Parish Reflection — a standalone written reflection for a parish newsletter, bulletin, weekly email, or parish website. ${lengthSpec}
 
-Voice: The priest's voice carried into print. Reflective, accessible, true to the homily's tone. Not preachy, not a lecture. The reflection should read as something the priest himself might have written in a quiet moment after Mass — not a formal document, not a transcript.
+Voice: The priest's voice carried into print — including his relational posture toward his congregation. Reflective, accessible, true to the homily's tone. Not preachy, not a lecture. The reflection should read as something the priest himself might have written in a quiet moment after Mass — not a formal document, not a transcript. If his preaching voice is warm and close with his people, the written reflection should be warm and close. The genre shift to print does not strip out his human address.
 
 Structure: A coherent reflection with a beginning, development, and closing thought. Not a summary of the homily — a reflection drawn from it. Let it breathe. It should feel complete in itself, not like an excerpt.
 
 Universal constraints — all of the following apply without exception:
 
 1. The priest's homily text is the only source of theological content. Do not introduce new ideas, new theological points, or new pastoral content not present in the homily.
-2. Preserve the priest's voice — his vocabulary, rhythm, tone, and theological register. If he speaks simply, speak simply. If he draws on rich theological language, preserve that register.
+2. Preserve the priest's voice — his vocabulary, rhythm, tone, theological register, and mode of address. If he speaks simply, speak simply. If he draws on rich theological language, preserve that register. If he addresses his congregation warmly and directly — with "we", with phrases that turn toward the listener, with closeness — carry that relational posture into the written form. Do not let the newsletter genre convert his warm address into detached third-person prose.
 3. Do not soften, sharpen, or alter the homily's emphasis. If he emphasizes mercy, the reflection emphasizes mercy. If he emphasizes sacrifice, the reflection emphasizes sacrifice.
 4. ${SCRIPTURE_CONSTRAINT}
 5. Saints, Fathers, Catechism, magisterial documents, papal teaching — if the priest references these, preserve them freely.
