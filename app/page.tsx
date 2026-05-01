@@ -108,6 +108,10 @@ export default function AmboApp() {
   const isMobile = useIsMobile();
   const [echoOpen, setEchoOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [dailyInitialDate, setDailyInitialDate] = useState<string>(() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+  });
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [echoHomilyText, setEchoHomilyText] = useState("");
   const [echoHomilyId, setEchoHomilyId] = useState<string | undefined>(undefined);
@@ -314,7 +318,8 @@ export default function AmboApp() {
     setEchoOpen(true);
   }, []);
 
-  const handleOpenDaily = useCallback(() => {
+  const handleOpenDaily = useCallback((date: string) => {
+    setDailyInitialDate(date);
     setDrawerOpen(false);
     setDailyOpen(true);
   }, []);
@@ -603,6 +608,7 @@ export default function AmboApp() {
         open={dailyOpen}
         onClose={() => setDailyOpen(false)}
         lectionaryFamily={lectionaryFamily}
+        initialDate={dailyInitialDate}
       />
 
       {/* Onboarding tour */}

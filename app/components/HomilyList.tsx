@@ -51,7 +51,7 @@ interface HomilyListProps {
   /** Opens the existing Sunday Reflect/Write/Preach flow */
   onCreate: () => void;
   /** Opens the Daily Mass surface */
-  onCreateDaily: () => void;
+  onCreateDaily: (date: string) => void;
   onOpenInWrite: (homily: HomilyRow) => void;
   onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
   onOpenEchoEntry: (entry: ArchiveEntry) => void;
@@ -866,6 +866,51 @@ function EchoTooltip({ onDismiss }: EchoTooltipProps) {
   );
 }
 
+// ── Daily day-picker helpers ──────────────────────────────────────────────
+
+/**
+ * Returns the next `count` non-Sunday ISO date strings starting from today.
+ * The priest picks one of these in the drawer before the Daily surface opens.
+ */
+function buildDailyOptions(count = 7): string[] {
+  const options: string[] = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  while (options.length < count) {
+    if (cursor.getDay() !== 0) {
+      const y = cursor.getFullYear();
+      const m = String(cursor.getMonth() + 1).padStart(2, "0");
+      const d = String(cursor.getDate()).padStart(2, "0");
+      options.push(`${y}-${m}-${d}`);
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return options;
+}
+
+function dailyOptionLabel(iso: string): { main: string; sub: string } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  const todayStr = `${y}-${m}-${d}`;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const ty = tomorrow.getFullYear();
+  const tm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+  const td = String(tomorrow.getDate()).padStart(2, "0");
+  const tomorrowStr = `${ty}-${tm}-${td}`;
+
+  const dt = new Date(iso + "T00:00:00");
+  if (iso === todayStr) return { main: "Today", sub: dt.toLocaleDateString(undefined, { weekday: "long" }) };
+  if (iso === tomorrowStr) return { main: "Tomorrow", sub: dt.toLocaleDateString(undefined, { weekday: "long" }) };
+  return {
+    main: dt.toLocaleDateString(undefined, { weekday: "long" }),
+    sub: dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+  };
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 export default function HomilyList({
   open,
@@ -892,6 +937,7 @@ export default function HomilyList({
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
   const [, bumpNames] = useState(0);
+  const [dailyPickerOpen, setDailyPickerOpen] = useState(false);
 
   // One-time Echo onboarding tooltip state
   const [showTooltip, setShowTooltip] = useState(false);
@@ -1005,6 +1051,7 @@ export default function HomilyList({
       setSearchQuery("");
       setSearchResults(null);
       setSearchStatus("idle");
+      setDailyPickerOpen(false);
     }
   }, [open, closingReading]);
 
@@ -1284,31 +1331,104 @@ export default function HomilyList({
                   >
                     Sunday
                   </button>
-                  {/* Daily — opens the Daily Mass surface */}
-                  <button
-                    onClick={onCreateDaily}
-                    style={{
-                      flex: 1,
-                      border: "1px solid rgba(74, 111, 165, 0.28)",
-                      background: "transparent",
-                      color: "var(--ambo-accent)",
-                      fontSize: 12, fontWeight: 500,
-                      padding: "8px 6px", borderRadius: 8,
-                      cursor: "pointer", fontFamily: "inherit",
-                      opacity: 0.85,
-                      transition: "opacity 0.15s, background 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "1";
-                      e.currentTarget.style.background = "var(--ambo-accent-faint)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "0.85";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    Daily
-                  </button>
+                  {/* Daily — shows day picker dropdown */}
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <button
+                      onClick={() => setDailyPickerOpen(v => !v)}
+                      style={{
+                        width: "100%",
+                        border: dailyPickerOpen
+                          ? "1px solid rgba(74, 111, 165, 0.55)"
+                          : "1px solid rgba(74, 111, 165, 0.28)",
+                        background: dailyPickerOpen ? "var(--ambo-accent-faint)" : "transparent",
+                        color: "var(--ambo-accent)",
+                        fontSize: 12, fontWeight: 500,
+                        padding: "8px 6px", borderRadius: 8,
+                        cursor: "pointer", fontFamily: "inherit",
+                        opacity: 0.85,
+                        transition: "opacity 0.15s, background 0.15s",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                        if (!dailyPickerOpen) e.currentTarget.style.background = "var(--ambo-accent-faint)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "0.85";
+                        if (!dailyPickerOpen) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      Daily
+                      <span style={{ fontSize: 9, opacity: 0.7 }}>{dailyPickerOpen ? "▴" : "▾"}</span>
+                    </button>
+
+                    {/* Day picker dropdown — matches WriteView Sunday date picker style exactly */}
+                    {dailyPickerOpen && (
+                      <>
+                        <div
+                          onClick={() => setDailyPickerOpen(false)}
+                          style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                        />
+                        <div style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          zIndex: 50,
+                          background: "var(--ambo-bg)",
+                          border: "1px solid var(--ambo-border)",
+                          borderRadius: 10,
+                          boxShadow: "var(--ambo-shadow-md)",
+                          padding: 4,
+                          minWidth: 220,
+                        }}>
+                          {buildDailyOptions().map((iso) => {
+                            const labels = dailyOptionLabel(iso);
+                            return (
+                              <button
+                                key={iso}
+                                onClick={() => {
+                                  setDailyPickerOpen(false);
+                                  onCreateDaily(iso);
+                                }}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 10,
+                                  width: "100%",
+                                  textAlign: "left",
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "var(--ambo-text-primary)",
+                                  padding: "8px 10px",
+                                  borderRadius: 8,
+                                  cursor: "pointer",
+                                  fontFamily: "inherit",
+                                  fontSize: 13,
+                                  fontWeight: 500,
+                                  transition: "background 0.1s",
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ambo-accent-faint)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                              >
+                                <span>{labels.main}</span>
+                                <span style={{
+                                  fontSize: 11,
+                                  color: "var(--ambo-text-muted)",
+                                  flexShrink: 0,
+                                }}>
+                                  {labels.sub}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {/* Special Occasion — stub, not yet implemented */}
                   <button
                     disabled
