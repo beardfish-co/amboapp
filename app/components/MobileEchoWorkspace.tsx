@@ -853,8 +853,14 @@ export default function MobileEchoWorkspace({
               scrolls correctly. WebkitOverflowScrolling:touch gives momentum on older iOS. */}
           <div style={{
             flex: 1, minHeight: 0,
-            overflowY: "auto",
+            // "scroll" (not "auto") always establishes an iOS scroll context — more
+            // reliable than "auto" which only creates the context once overflow is
+            // detected and can be missed on first paint.
+            overflowY: "scroll",
             WebkitOverflowScrolling: "touch",
+            // pan-y tells iOS this element owns vertical scrolling, preventing
+            // the gesture from bubbling to the overflow:hidden ancestors.
+            touchAction: "pan-y",
             position: "relative",
             padding: "24px 20px",
           }}>
@@ -888,8 +894,12 @@ export default function MobileEchoWorkspace({
             )}
 
             {/* Output textarea — ref-driven auto-resize so the scroll container
-                (not the textarea) handles overflow. Short outputs fill the card
-                with empty space below; long outputs cause the parent to scroll. */}
+                (not the textarea) handles overflow.
+                CRITICAL: no minHeight here. On iOS Safari, when a textarea has
+                minHeight:100% and overflow-y:hidden, ta.scrollHeight returns the
+                rendered (min-height) value rather than the actual content height.
+                JS then sets height = minHeight, leaving nothing to scroll. Without
+                minHeight, scrollHeight always reflects the true content height. */}
             {hasOutput && !error && (
               <textarea
                 ref={textareaRef}
@@ -899,7 +909,7 @@ export default function MobileEchoWorkspace({
                 style={{
                   width: "100%",
                   height: "auto",   // managed by the resize effect
-                  minHeight: "100%", // at least fills the scroll container
+                  // NO minHeight — see comment above
                   resize: "none", border: "none", outline: "none",
                   background: "transparent",
                   fontFamily: "var(--ambo-font-reading)", fontSize: 16,
