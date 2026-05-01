@@ -52,6 +52,17 @@ Direct scripture quotations from the homily must not appear in your output, even
 
 Example: if the homily contains the line "Do not let your hearts be troubled," do not reproduce that phrase. Instead write something like: "Hear again the Lord's tender word in today's Gospel — that we should not let our hearts be troubled." Or simply: "In today's Gospel, Jesus speaks tenderly to disciples whose hearts are heavy." Apply this principle to every scriptural phrase in the homily, however brief or familiar.`;
 
+// ── Shared homily ownership block ─────────────────────────────────────────
+//
+// This block is embedded at the top of every prompt, immediately after the
+// opening task line and before the Voice section. It establishes the
+// foundational premise: the source homily belongs to the priest using AMBO.
+// It must appear before any voice or formatting instructions so that the
+// model's entire generation is framed by ownership from the start.
+
+const HOMILY_OWNERSHIP = `CRITICAL — Source homily ownership (applies without exception):
+The source homily that follows is the priest's own preaching, written and delivered by him to his parish. Generate the requested output as if the priest himself is producing it. Do not attribute the source homily to any third party, even if the content matches recognisable preaching by another figure. Never refer to "the Holy Father," "Bishop Barron," "Pope Francis," or any other named preacher as the source of the content. The homily belongs to the priest using AMBO; the output must be in his voice, from his perspective.`;
+
 // ── Shared voice-constraint block ─────────────────────────────────────────
 //
 // Injected into every prompt immediately before the closing "Output only…"
@@ -95,6 +106,8 @@ function getParishReflectionPrompt(variant?: string): string {
 
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Parish Reflection — a standalone written reflection for a parish newsletter, bulletin, weekly email, or parish website. ${lengthSpec}
 
+${HOMILY_OWNERSHIP}
+
 Voice: The priest's voice carried into print — including his relational posture toward his congregation. Reflective, accessible, true to the homily's tone. Not preachy, not a lecture. The reflection should read as something the priest himself might have written in a quiet moment after Mass — not a formal document, not a transcript. If his preaching voice is warm and close with his people, the written reflection should be warm and close. The genre shift to print does not strip out his human address.
 
 Structure: A coherent reflection with a beginning, development, and closing thought. Not a summary of the homily — a reflection drawn from it. Let it breathe. It should feel complete in itself, not like an excerpt.
@@ -116,6 +129,8 @@ Output only the Parish Reflection. Do not include any other text.`;
 
 function getTakeIntoTheWeekPrompt(): string {
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Take Into the Week — a short spoken reflection for the end of Mass, a single quiet note the congregation can carry home. Approximately 50–80 words.
+
+${HOMILY_OWNERSHIP}
 
 Voice: Warm, personal, immediate. Spoken, not written. The priest addressing his people as they prepare to leave.
 
@@ -146,6 +161,8 @@ function getSocialPostPrompt(variant?: string): string {
 
 ${timing}
 
+${HOMILY_OWNERSHIP}
+
 Voice: Warm and accessible. Inviting, not promotional. The priest speaking to his parish community online — the same voice, a shorter form.
 
 Structure: One resonant image or idea. A brief development. An optional closing line or question. Optionally 2–3 hashtags at the end if natural.
@@ -167,6 +184,8 @@ Output only the Social Post. Do not include any other text.`;
 
 function getSmallGroupQuestionsPrompt(): string {
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate Small Group Questions — three to five discussion questions for faith-sharing groups, drawing the homily into lived conversation.
+
+${HOMILY_OWNERSHIP}
 
 Voice: Contemplative and invitational. Questions that open space rather than test knowledge. Questions a group of ordinary faithful could sit with together.
 
@@ -191,6 +210,8 @@ Output only the Small Group Questions. Do not include any other text.`;
 
 function getPrayerPromptPrompt(): string {
   return `You are helping a Catholic priest carry his preached homily into parish life. Generate a Prayer Prompt — a short prayer drawn from the homily, 40–80 words, for personal or communal use through the week.
+
+${HOMILY_OWNERSHIP}
 
 Voice: Devotional, reverent, prayerful. This must sound like a prayer, not a reflection about prayer and not instruction on how to pray. Address God directly — Father, Lord Jesus, or Holy Spirit — consistent with the homily's own theological emphasis. The words should feel natural on the lips of a parishioner in a quiet moment.
 
