@@ -10,6 +10,9 @@ export interface HomilyRow {
   title: string | null;
   content: string | null;
   sunday_date: string | null;
+  note_type: string | null;      // 'sunday' | 'daily' | 'special'
+  liturgical_day: string | null; // e.g. "Friday of the Fourth Week of Easter"
+  saint_name: string | null;     // saint name on memorial days
   updated_at: string;
   created_at: string;
 }
@@ -45,7 +48,10 @@ interface HomilyListProps {
   currentId: string | null;
   onClose: () => void;
   onSelect: (id: string) => void;
+  /** Opens the existing Sunday Reflect/Write/Preach flow */
   onCreate: () => void;
+  /** Opens the Daily Mass surface */
+  onCreateDaily: () => void;
   onOpenInWrite: (homily: HomilyRow) => void;
   onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
   onOpenEchoEntry: (entry: ArchiveEntry) => void;
@@ -168,6 +174,8 @@ interface ArchiveCardProps {
   id: string;
   title: string | null;
   sunday_date: string | null;
+  note_type?: string | null;
+  liturgical_day?: string | null;
   updated_at: string;
   content: string | null;
   onOpen: () => void;
@@ -180,12 +188,13 @@ interface ArchiveCardProps {
 }
 
 function ArchiveCard({
-  id, title, sunday_date, updated_at, content,
+  id, title, sunday_date, note_type, liturgical_day, updated_at, content,
   onOpen, onDelete,
   excerpt, layer, confidence, onOpenEcho, onEchoInteract,
 }: ArchiveCardProps) {
   const sundayName = sunday_date ? sundayNameCache.get(sunday_date) : undefined;
-  const displayTitle = (title && title.trim()) || sundayName || "Untitled";
+  const isDaily = note_type === "daily";
+  const displayTitle = (title && title.trim()) || (isDaily ? liturgical_day : sundayName) || "Untitled";
   const subtitle = sunday_date
     ? `${sundayName ?? "Sunday"} · ${lectionaryYear(sunday_date)}`
     : null;
@@ -601,6 +610,9 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
     title: homily.title,
     content: homily.content,
     sunday_date: homily.sunday_date,
+    note_type: (homily as HomilyRow).note_type ?? "sunday",
+    liturgical_day: (homily as HomilyRow).liturgical_day ?? null,
+    saint_name: (homily as HomilyRow).saint_name ?? null,
     updated_at: homily.updated_at,
     created_at: homily.created_at,
   };
@@ -861,6 +873,7 @@ export default function HomilyList({
   onClose,
   onSelect,
   onCreate,
+  onCreateDaily,
   onOpenInWrite,
   onOpenEcho,
   onOpenEchoEntry,
@@ -925,7 +938,7 @@ export default function HomilyList({
         if (!user) { if (!cancelled) setLoadError("Not signed in"); return; }
         const { data, error } = await supabase
           .from("homilies")
-          .select("id, title, content, sunday_date, updated_at, created_at")
+          .select("id, title, content, sunday_date, note_type, liturgical_day, saint_name, updated_at, created_at")
           .eq("user_id", user.id)
           .order("sunday_date", { ascending: false, nullsFirst: false });
         if (error) throw error;
@@ -1234,26 +1247,87 @@ export default function HomilyList({
             )}
 
             {!isSearchActive && (
-              <button
-                onClick={onCreate}
-                style={{
-                  width: "100%",
-                  border: "1px dashed rgba(74, 111, 165, 0.3)",
-                  background: "transparent",
-                  color: "var(--ambo-accent)",
-                  fontSize: 13, fontWeight: 600,
-                  padding: "10px 14px", borderRadius: 10,
-                  cursor: "pointer", fontFamily: "inherit",
-                  display: "flex", alignItems: "center",
-                  justifyContent: "center", gap: 6, opacity: 0.85,
-                  transition: "opacity 0.15s",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.85")}
-              >
-                <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-                New homily
-              </button>
+              <div>
+                {/* "New homily" label — quiet italic header above the three pills */}
+                <div style={{
+                  fontSize: 11,
+                  fontStyle: "italic",
+                  color: "var(--ambo-text-muted)",
+                  marginBottom: 8,
+                  opacity: 0.75,
+                }}>
+                  New homily
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {/* Sunday — opens the existing Reflect/Write/Preach flow */}
+                  <button
+                    onClick={onCreate}
+                    style={{
+                      flex: 1,
+                      border: "1px solid rgba(74, 111, 165, 0.28)",
+                      background: "transparent",
+                      color: "var(--ambo-accent)",
+                      fontSize: 12, fontWeight: 500,
+                      padding: "8px 6px", borderRadius: 8,
+                      cursor: "pointer", fontFamily: "inherit",
+                      opacity: 0.85,
+                      transition: "opacity 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "1";
+                      e.currentTarget.style.background = "var(--ambo-accent-faint)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "0.85";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    Sunday
+                  </button>
+                  {/* Daily — opens the Daily Mass surface */}
+                  <button
+                    onClick={onCreateDaily}
+                    style={{
+                      flex: 1,
+                      border: "1px solid rgba(74, 111, 165, 0.28)",
+                      background: "transparent",
+                      color: "var(--ambo-accent)",
+                      fontSize: 12, fontWeight: 500,
+                      padding: "8px 6px", borderRadius: 8,
+                      cursor: "pointer", fontFamily: "inherit",
+                      opacity: 0.85,
+                      transition: "opacity 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "1";
+                      e.currentTarget.style.background = "var(--ambo-accent-faint)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "0.85";
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    Daily
+                  </button>
+                  {/* Special Occasion — stub, not yet implemented */}
+                  <button
+                    disabled
+                    title="Coming soon"
+                    style={{
+                      flex: 1,
+                      border: "1px solid rgba(74, 111, 165, 0.15)",
+                      background: "transparent",
+                      color: "var(--ambo-text-muted)",
+                      fontSize: 12, fontWeight: 500,
+                      padding: "8px 6px", borderRadius: 8,
+                      cursor: "not-allowed", fontFamily: "inherit",
+                      opacity: 0.45,
+                    }}
+                  >
+                    Occasion
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -1348,6 +1422,8 @@ export default function HomilyList({
                     id={h.id}
                     title={h.title}
                     sunday_date={h.sunday_date}
+                        note_type={h.note_type}
+                        liturgical_day={h.liturgical_day}
                     updated_at={h.updated_at}
                     content={h.content}
                     onOpen={() => setViewingHomily(h)}
@@ -1368,6 +1444,8 @@ export default function HomilyList({
                     id={h.id}
                     title={h.title}
                     sunday_date={h.sunday_date}
+                        note_type={h.note_type}
+                        liturgical_day={h.liturgical_day}
                     updated_at={h.updated_at}
                     content={h.content}
                     onOpen={() => setViewingHomily(h)}

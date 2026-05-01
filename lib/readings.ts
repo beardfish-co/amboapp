@@ -26,6 +26,8 @@ export interface ReadingsPayload {
   date: string;
   number: number;
   dayName: string;
+  /** Saint name for the day. Empty string on feria days. */
+  saint: string;
   source: ReadingsSource;
   readings: Reading[];
 }
@@ -57,6 +59,7 @@ export async function loadReadings(
   isoDate: string,
   homilyId?: string | null,
   source: ReadingsSource = "universalis",
+  jurisdiction?: string,
 ): Promise<ReadingsResult> {
   if (!isoDate) return { payload: null, status: "unavailable" };
 
@@ -89,7 +92,7 @@ export async function loadReadings(
   // 2. Live fetch.
   try {
     const res = await fetch(
-      `/api/readings?date=${isoToCompact(isoDate)}&source=${source}`,
+      `/api/readings?date=${isoToCompact(isoDate)}&source=${source}${jurisdiction ? `&jurisdiction=${encodeURIComponent(jurisdiction)}` : ""}`,
     );
     if (res.status === 404) {
       return { payload: null, status: "not_published" };
@@ -129,7 +132,8 @@ export async function loadDayName(
   isoDate: string,
   homilyId?: string | null,
   source: ReadingsSource = "universalis",
+  jurisdiction?: string,
 ): Promise<string | null> {
-  const { payload } = await loadReadings(isoDate, homilyId, source);
+  const { payload } = await loadReadings(isoDate, homilyId, source, jurisdiction);
   return payload?.dayName ?? null;
 }

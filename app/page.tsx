@@ -11,6 +11,7 @@ import PreachView from "./components/PreachView";
 import HomilyList, { HomilyRow } from "./components/HomilyList";
 import EchoWorkspace, { ArchiveEntry } from "./components/EchoWorkspace";
 import MobileEchoWorkspace from "./components/MobileEchoWorkspace";
+import DailyMassView from "./components/DailyMassView";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -106,6 +107,7 @@ export default function AmboApp() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
   const [echoOpen, setEchoOpen] = useState(false);
+  const [dailyOpen, setDailyOpen] = useState(false);
   const [echoSundayLabel, setEchoSundayLabel] = useState("");
   const [echoHomilyText, setEchoHomilyText] = useState("");
   const [echoHomilyId, setEchoHomilyId] = useState<string | undefined>(undefined);
@@ -310,6 +312,11 @@ export default function AmboApp() {
     setEchoHomilyText("");
     setEchoHomilyId(entry.homily_id ?? undefined);
     setEchoOpen(true);
+  }, []);
+
+  const handleOpenDaily = useCallback(() => {
+    setDrawerOpen(false);
+    setDailyOpen(true);
   }, []);
 
   const openDrawer = useCallback(() => setDrawerOpen(true), []);
@@ -564,6 +571,7 @@ export default function AmboApp() {
         onCreate={handleCreateHomily}
         onOpenInWrite={handleOpenInWrite}
         onOpenEcho={handleOpenEcho}
+        onCreateDaily={handleOpenDaily}
         onOpenEchoEntry={handleOpenEchoFromArchive}
         refreshKey={listRefreshKey}
       />
@@ -589,6 +597,13 @@ export default function AmboApp() {
           initialEntry={echoInitialEntry}
         />
       )}
+
+      {/* Daily Mass surface */}
+      <DailyMassView
+        open={dailyOpen}
+        onClose={() => setDailyOpen(false)}
+        lectionaryFamily={lectionaryFamily}
+      />
 
       {/* Onboarding tour */}
       <OnboardingTour mode={mode} setMode={setMode} />
