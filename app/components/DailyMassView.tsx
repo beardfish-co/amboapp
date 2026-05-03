@@ -142,7 +142,6 @@ export default function DailyMassView({
   const [noteId, setNoteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [unsavedGuard, setUnsavedGuard] = useState<UnsavedGuard | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,7 +151,7 @@ export default function DailyMassView({
   });
 
   // ── isActive: writing card lifts when the priest focuses or types ──────────
-  const isActive = isFocused || noteContent.trim().length > 0;
+  const isActive = noteContent.trim().length > 0;
 
   // ── headerHidden: immersive preach mode collapses the header ─────────────
   const [headerHidden, setHeaderHidden] = useState(false);
@@ -484,13 +483,13 @@ export default function DailyMassView({
 
           {mode === "preach" ? (
             // ── Daily Preach — full PreachView chrome ─────────────────
-            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onExitDaily={requestClose} />
+            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onBack={() => setMode("daily")} />
 
           ) : (
             // ── Daily mode — two-column layout ────────────────────────
             <div className="view-fade" style={{
               maxWidth: 1180, margin: "0 auto",
-              padding: "0 clamp(16px, 3vw, 40px) 56px",
+              padding: "36px clamp(16px, 3vw, 40px) 56px",
             }}>
 
               {/* ── Secondary chrome row ──────────────────────────────── */}
@@ -501,7 +500,15 @@ export default function DailyMassView({
                 <PillButton variant="ghost" icon={<StackIcon />} onClick={() => onOpenList?.()}>
                   My homilies
                 </PillButton>
-                <PillButton variant="ghost" onClick={requestClose}>
+                <PillButton
+                  variant="ghost"
+                  icon={
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                      <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  }
+                  onClick={requestClose}
+                >
                   Exit
                 </PillButton>
                 <div style={{ flex: 1 }} />
@@ -675,7 +682,7 @@ export default function DailyMassView({
                       boxShadow: isActive ? "var(--ambo-shadow-sm)" : "none",
                       overflow: "hidden",
                       opacity: isActive ? 1 : 0.68,
-                      transition: "background 1000ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1000ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1000ms cubic-bezier(0.4, 0, 0.2, 1)",
+                      transition: "background 1500ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1500ms cubic-bezier(0.4, 0, 0.2, 1)",
                       padding: "32px 40px 48px",
                     }}
                   >
@@ -688,7 +695,7 @@ export default function DailyMassView({
                         color: isActive
                           ? "var(--ambo-text-primary)"
                           : "var(--ambo-text-muted)",
-                        transition: "color 1000ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        transition: "color 1500ms cubic-bezier(0.4, 0, 0.2, 1)",
                         marginBottom: 20,
                         minHeight: 30,
                       }}>
@@ -707,8 +714,6 @@ export default function DailyMassView({
                         ref={textareaRef}
                         value={noteContent}
                         onChange={(e) => handleContentChange(e.target.value)}
-                        onFocus={() => setIsFocused(true)}
-                        onBlur={() => setIsFocused(false)}
                         placeholder="Begin writing…"
                         style={{
                           width: "100%",
@@ -718,7 +723,7 @@ export default function DailyMassView({
                           fontFamily: "var(--ambo-font-reading)",
                           fontSize: "clamp(15px, 1.5vw, 17px)",
                           lineHeight: 1.85,
-                          color: noteContent.trim() || isFocused
+                          color: noteContent.trim()
                             ? "var(--ambo-text-primary)"
                             : "var(--ambo-text-muted)",
                           caretColor: "var(--ambo-accent)",
@@ -832,9 +837,10 @@ interface DailyPreachPanelProps {
   content: string;
   title: string;
   onScrollLock: (locked: boolean) => void;
-  onExitDaily: () => void;
+  /** Returns to Daily Write (non-committed state) or exits immersive (committed) */
+  onBack: () => void;
 }
-function DailyPreachPanel({ content, title, onScrollLock, onExitDaily }: DailyPreachPanelProps) {
+function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachPanelProps) {
   const [fontSize, setFontSize]             = useState(24);
   const [currentBlock, setCurrentBlock]     = useState(0);
   const [blocks, setBlocks]                 = useState<Block[]>(() => parseBlocks(content));
@@ -932,7 +938,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onExitDaily }: DailyPr
       className="view-fade preach-print-root"
       style={{
         maxWidth: 840, margin: "0 auto",
-        padding: isScrollMode ? "0 20px 80px" : "0 20px 0",
+        padding: isScrollMode ? "36px 20px 80px" : "36px 20px 0",
         ...(isScrollMode ? {} : { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" as const }),
         ["--print-font-size" as string]: `${displayFontSize}px`,
       }}
@@ -941,23 +947,25 @@ function DailyPreachPanel({ content, title, onScrollLock, onExitDaily }: DailyPr
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 20, marginTop: 20, gap: 16,
+        marginBottom: 20, gap: 16,
       }}>
         {/* Left: Exit | Scroll | Step */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* Exit pill — leftmost; pulses when in committed/immersive mode */}
+          {/* Back / Exit pill — leftmost
+               Out of mode: "Back" → returns to Daily Write
+               In committed/immersive mode: "Exit" (pulses) → exits immersive */}
           <PillButton
             variant="ghost"
             className={committedMode !== null ? "preach-exit-pulse" : undefined}
             onClick={() => {
               if (committedMode !== null) {
-                // Exit immersive mode — stay on Daily Preach
+                // Exit immersive mode — restore chrome, stay on Daily Preach
                 setCommittedMode(null);
                 setIsScrollMode(true);
                 onScrollLock(false);
               } else {
-                // Exit Daily entirely
-                onExitDaily();
+                // Back to Daily Write
+                onBack();
               }
             }}
             icon={
@@ -967,7 +975,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onExitDaily }: DailyPr
             }
             style={{ height: 34, padding: "0 14px" }}
           >
-            Exit
+            {committedMode !== null ? "Exit" : "Back"}
           </PillButton>
           <PillButton
             variant={isScrollMode && committedMode !== null ? "active" : "ghost"}
