@@ -164,6 +164,7 @@ export default function DailyMassView({
 
   // ── headerHidden: immersive preach mode collapses the header ─────────────
   const [headerHidden, setHeaderHidden] = useState(false);
+  const [stepLocked, setStepLocked]     = useState(false);
   // Incremented when the DailyMassView-level Exit pill fires; resets DailyPreachPanel
   const [immersiveVersion, setImmersiveVersion] = useState(0);
 
@@ -200,6 +201,7 @@ export default function DailyMassView({
     setHasUnsaved(false);
     setUnsavedGuard(null);
     setHeaderHidden(false);
+    setStepLocked(false);
     setImmersiveVersion(0);
     setMinWritingCardHeight(0);
     cardHighWaterRef.current = 0;
@@ -525,11 +527,24 @@ export default function DailyMassView({
         </header>
 
         {/* ── Scrollable content ───────────────────────────────────────── */}
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div style={{
+          flex: 1, minHeight: 0,
+          overflowY: stepLocked ? "hidden" : "auto",
+          ...(stepLocked ? { display: "flex", flexDirection: "column" as const } : {}),
+        }}>
 
           {mode === "preach" ? (
             // ── Daily Preach — full PreachView chrome ─────────────────
-            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onBack={() => setMode("daily")} immersiveVersion={immersiveVersion} />
+            <DailyPreachPanel
+              content={noteContent}
+              title={dayTitle}
+              onScrollLock={(locked, isScroll) => {
+                setHeaderHidden(locked);
+                setStepLocked(locked && isScroll === false);
+              }}
+              onBack={() => setMode("daily")}
+              immersiveVersion={immersiveVersion}
+            />
 
           ) : (
             // ── Daily mode — two-column layout ────────────────────────
@@ -781,7 +796,7 @@ export default function DailyMassView({
                           flex: 1,
                           minHeight: 60,
                           border: "none", background: "transparent",
-                          resize: "none", outline: "none", overflow: "auto",
+                          resize: "none", outline: "none", overflow: "hidden",
                           fontFamily: "var(--ambo-font-reading)",
                           fontSize: "clamp(15px, 1.5vw, 17px)",
                           lineHeight: 1.85,
@@ -931,7 +946,7 @@ const stepBtnStyle = (disabled: boolean): CSSProperties => ({
 interface DailyPreachPanelProps {
   content: string;
   title: string;
-  onScrollLock: (locked: boolean) => void;
+  onScrollLock: (locked: boolean, isScrollMode?: boolean) => void;
   /** Returns to Daily Write */
   onBack: () => void;
   /** Incremented by DailyMassView when the overlay-level Exit pill fires */
@@ -1085,7 +1100,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
           </PillButton>
           <PillButton
             variant={isScrollMode && committedMode !== null ? "active" : "ghost"}
-            onClick={() => { setIsScrollMode(true); setCommittedMode("scroll"); onScrollLock(true); }}
+            onClick={() => { setIsScrollMode(true); setCommittedMode("scroll"); onScrollLock(true, true); }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <line x1="2" y1="3.5" x2="14" y2="3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -1103,7 +1118,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
           </PillButton>
           <PillButton
             variant={!isScrollMode && committedMode !== null ? "active" : "ghost"}
-            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; setCommittedMode("step"); onScrollLock(true); }}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; setCommittedMode("step"); onScrollLock(true, false); }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
