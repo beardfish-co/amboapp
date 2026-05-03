@@ -150,6 +150,10 @@ export default function DailyMassView({
 
   // Writing card min-height — measured from left column when all cards are closed
   const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
+  // High-water mark for writing card — prevents snap-back during content growth
+  const cardHighWaterRef = useRef(0);
+  const [cardMinH, setCardMinH] = useState(0);
+  const CARD_FIXED_H = 180; // conservative estimate: padding + title + divider
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
     date: initialDate, id: null, content: "",
   });
@@ -159,13 +163,31 @@ export default function DailyMassView({
 
   // ── headerHidden: immersive preach mode collapses the header ─────────────
   const [headerHidden, setHeaderHidden] = useState(false);
+  // Incremented when the DailyMassView-level Exit pill fires; resets DailyPreachPanel
+  const [immersiveVersion, setImmersiveVersion] = useState(0);
 
   // ── Auto-size textarea — grows with content only, no activation jump ────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
+    // Measure scroll height before resetting (avoids collapse-then-measure artifact)
+    const needed = Math.max(ta.scrollHeight, 60);
     ta.style.height = "auto";
-    ta.style.height = `${Math.max(ta.scrollHeight, 60)}px`;
+    ta.style.height = `${needed}px`;
+
+    // High-water mark: keep card tall while content needs the space
+    const estimatedCardH = needed + CARD_FIXED_H;
+    if (estimatedCardH > minWritingCardHeight) {
+      if (estimatedCardH > cardHighWaterRef.current) {
+        cardHighWaterRef.current = estimatedCardH;
+        setCardMinH(estimatedCardH);
+      }
+    } else {
+      // Content fits inside dormant size — release high-water
+      cardHighWaterRef.current = 0;
+      setCardMinH(0);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteContent]);
 
   // ── Reset on each fresh open ──────────────────────────────────────────────
@@ -182,7 +204,10 @@ export default function DailyMassView({
     setHasUnsaved(false);
     setUnsavedGuard(null);
     setHeaderHidden(false);
+    setImmersiveVersion(0);
     setMinWritingCardHeight(0);
+    cardHighWaterRef.current = 0;
+    setCardMinH(0);
     currentNoteRef.current = { date: initialDate, id: null, content: "" };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate]);
@@ -502,7 +527,7 @@ export default function DailyMassView({
 
           {mode === "preach" ? (
             // ── Daily Preach — full PreachView chrome ─────────────────
-            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onBack={() => setMode("daily")} />
+            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onBack={() => setMode("daily")} immersiveVersion={immersiveVersion} />
 
           ) : (
             // ── Daily mode — two-column layout ────────────────────────
@@ -693,7 +718,7 @@ export default function DailyMassView({
                   <div
                     className="ambo-write-panel"
                     style={{
-                      minHeight: minWritingCardHeight > 0 ? minWritingCardHeight : undefined,
+                      minHeight: cardMinH > 0 ? cardMinH : (minWritingCardHeight > 0 ? minWritingCardHeight : undefined),
                       border: "1px solid var(--ambo-border)",
                       borderRadius: 14,
                       background: isActive ? "var(--ambo-surface)" : "transparent",
@@ -702,7 +727,7 @@ export default function DailyMassView({
                       boxShadow: isActive ? "var(--ambo-shadow-sm)" : "none",
                       overflow: "hidden",
                       opacity: isActive ? 1 : 0.68,
-                      transition: "background 1800ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1800ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1800ms cubic-bezier(0.4, 0, 0.2, 1)",
+                      transition: "background 2000ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 2000ms cubic-bezier(0.4, 0, 0.2, 1), opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1), min-height 2000ms cubic-bezier(0.4, 0, 0.2, 1)",
                       padding: "32px 40px 48px",
                     }}
                   >
@@ -715,7 +740,7 @@ export default function DailyMassView({
                         color: isActive
                           ? "var(--ambo-text-primary)"
                           : "var(--ambo-text-muted)",
-                        transition: "color 1800ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        transition: "color 2000ms cubic-bezier(0.4, 0, 0.2, 1)",
                         marginBottom: 20,
                         minHeight: 30,
                       }}>
@@ -754,14 +779,7 @@ export default function DailyMassView({
                         autoCapitalize="sentences"
                       />
 
-                      {/* Saving indicator — word count moved to fixed status bar */}
-                      {saving && (
-                        <div style={{ marginTop: 10, minHeight: 18 }}>
-                          <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.55 }}>
-                            Saving…
-                          </span>
-                        </div>
-                      )}
+
                   </div>
                 </div>
 
@@ -770,6 +788,34 @@ export default function DailyMassView({
           )}
         </div>
       </div>
+
+      {/* ── Immersive Exit pill — rendered at overlay level (not inside DailyPreachPanel)
+           so position:fixed is relative to viewport with no stacking-context issues ── */}
+      {mode === "preach" && headerHidden && (
+        <div style={{
+          position: "fixed",
+          top: "calc(20px + env(safe-area-inset-top))",
+          left: 20,
+          zIndex: 201,
+        }}>
+          <PillButton
+            variant="ghost"
+            className="preach-exit-pulse"
+            onClick={() => {
+              setHeaderHidden(false);
+              setImmersiveVersion(v => v + 1);
+            }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px" }}
+          >
+            Exit
+          </PillButton>
+        </div>
+      )}
 
       {/* ── Status bar — matches Sunday Write footer (fixed, centred) ───────── */}
       {mode === "daily" && wordCount > 0 && (
@@ -870,10 +916,12 @@ interface DailyPreachPanelProps {
   content: string;
   title: string;
   onScrollLock: (locked: boolean) => void;
-  /** Returns to Daily Write (non-committed state) or exits immersive (committed) */
+  /** Returns to Daily Write */
   onBack: () => void;
+  /** Incremented by DailyMassView when the overlay-level Exit pill fires */
+  immersiveVersion: number;
 }
-function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachPanelProps) {
+function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersion }: DailyPreachPanelProps) {
   const [fontSize, setFontSize]             = useState(24);
   const [currentBlock, setCurrentBlock]     = useState(0);
   const [blocks, setBlocks]                 = useState<Block[]>(() => parseBlocks(content));
@@ -897,6 +945,14 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachP
     onScrollLock(false);
     isFirstStep.current = true;
   }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset committed mode when DailyMassView overlay fires its Exit pill
+  useEffect(() => {
+    if (immersiveVersion === 0) return; // skip on mount
+    setCommittedMode(null);
+    setIsScrollMode(true);
+    isFirstStep.current = true;
+  }, [immersiveVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect phone viewport
   useEffect(() => {
@@ -976,35 +1032,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachP
         ["--print-font-size" as string]: `${displayFontSize}px`,
       }}
     >
-      {/* ── Fixed Exit pill — visible only in committed/immersive mode ────── */}
-      {committedMode !== null && (
-        <div style={{
-          position: "fixed",
-          top: "calc(20px + env(safe-area-inset-top))",
-          left: 20,
-          zIndex: 200,
-        }}>
-          <PillButton
-            variant="ghost"
-            className="preach-exit-pulse"
-            onClick={() => {
-              setCommittedMode(null);
-              setIsScrollMode(true);
-              onScrollLock(false);
-            }}
-            icon={
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            }
-            style={{ height: 34, padding: "0 14px" }}
-          >
-            Exit
-          </PillButton>
-        </div>
-      )}
-
-      {/* ── Controls bar — hidden in immersive mode (Exit pill floats above) ── */}
+      {/* ── Controls bar — hidden in immersive mode (Exit pill is in DailyMassView) ── */}
       {committedMode === null && (
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
