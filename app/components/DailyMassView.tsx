@@ -113,6 +113,8 @@ interface DailyMassViewProps {
   /** Date selected by the priest in the drawer day picker. Always provided before open=true. */
   initialDate: string;
   onSelectFamily?: (family: LectionaryFamily) => Promise<void>;
+  /** Opens the My Homilies drawer over Daily */
+  onOpenList?: () => void;
 }
 
 type DailyMode = "daily" | "preach";
@@ -122,7 +124,7 @@ interface UnsavedGuard {
 }
 
 export default function DailyMassView({
-  open, onClose, lectionaryFamily, initialDate, onSelectFamily,
+  open, onClose, lectionaryFamily, initialDate, onSelectFamily, onOpenList,
 }: DailyMassViewProps) {
   const today = todayIso();
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
@@ -152,6 +154,9 @@ export default function DailyMassView({
   // ── isActive: writing card lifts when the priest focuses or types ──────────
   const isActive = isFocused || noteContent.trim().length > 0;
 
+  // ── headerHidden: immersive preach mode collapses the header ─────────────
+  const [headerHidden, setHeaderHidden] = useState(false);
+
   // ── Auto-size textarea — compact dormant, grows with content ──────────────
   useEffect(() => {
     const ta = textareaRef.current;
@@ -174,6 +179,7 @@ export default function DailyMassView({
     setNoteId(null);
     setHasUnsaved(false);
     setUnsavedGuard(null);
+    setHeaderHidden(false);
     currentNoteRef.current = { date: initialDate, id: null, content: "" };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate]);
@@ -403,14 +409,18 @@ export default function DailyMassView({
         display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
 
-        {/* ── Primary header — no back chevron ─────────────────────────── */}
+        {/* ── Primary header — hides in immersive preach mode ─────────────── */}
         <header style={{
           background: "var(--ambo-header-bg)",
           backdropFilter: "blur(20px) saturate(1.4)",
           WebkitBackdropFilter: "blur(20px) saturate(1.4)",
           borderBottom: "1px solid var(--ambo-border)",
-          paddingTop: "env(safe-area-inset-top)",
+          paddingTop: headerHidden ? 0 : "env(safe-area-inset-top)",
           flexShrink: 0,
+          maxHeight: headerHidden ? 0 : 200,
+          opacity: headerHidden ? 0 : 1,
+          overflow: "hidden",
+          transition: "max-height 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), padding-top 400ms cubic-bezier(0.4, 0, 0.2, 1)",
         }}>
           <div className="ambo-header-inner" style={{
             height: 60, maxWidth: 1180, margin: "0 auto",
@@ -474,36 +484,25 @@ export default function DailyMassView({
 
           {mode === "preach" ? (
             // ── Daily Preach — full PreachView chrome ─────────────────
-            <DailyPreachPanel content={noteContent} title={dayTitle} />
+            <DailyPreachPanel content={noteContent} title={dayTitle} onScrollLock={setHeaderHidden} onExitDaily={requestClose} />
 
           ) : (
             // ── Daily mode — two-column layout ────────────────────────
             <div className="view-fade" style={{
               maxWidth: 1180, margin: "0 auto",
-              padding: "clamp(24px, 4vh, 48px) clamp(16px, 3vw, 40px) 56px",
+              padding: "0 clamp(16px, 3vw, 40px) 56px",
             }}>
 
               {/* ── Secondary chrome row ──────────────────────────────── */}
               <div style={{
                 display: "flex", alignItems: "center",
-                marginBottom: 28, gap: 8, flexWrap: "wrap",
+                marginBottom: 32, gap: 8, flexWrap: "wrap",
               }}>
-                {/* Back chevron — lives here, not in header */}
-                <button
-                  onClick={requestClose}
-                  aria-label="Back to Sunday surface"
-                  style={{
-                    border: "none", background: "none",
-                    color: "var(--ambo-text-muted)", cursor: "pointer",
-                    fontSize: 24, lineHeight: 1,
-                    padding: "0 2px 0 0", flexShrink: 0,
-                    display: "flex", alignItems: "center",
-                  }}
-                >
-                  ‹
-                </button>
-                <PillButton variant="ghost" icon={<StackIcon />} onClick={requestClose}>
+                <PillButton variant="ghost" icon={<StackIcon />} onClick={() => onOpenList?.()}>
                   My homilies
+                </PillButton>
+                <PillButton variant="ghost" onClick={requestClose}>
+                  Exit
                 </PillButton>
                 <div style={{ flex: 1 }} />
                 {/* Contextual pill — day title only, no day-relative prefix */}
@@ -664,23 +663,22 @@ export default function DailyMassView({
 
                 {/* ── Right column: writing card ──────────────────────── */}
                 <div>
-                  {/* Dormant wrapper — lifts on active */}
-                  <div style={{
-                    opacity: isActive ? 1 : 0.68,
-                    transition: "opacity 900ms cubic-bezier(0.4, 0, 0.2, 1)",
-                  }}>
-                    <div
-                      className="ambo-write-panel"
-                      style={{
-                        background: "var(--ambo-surface)",
-                        backdropFilter: "blur(24px) saturate(1.4)",
-                        WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-                        border: "1px solid var(--ambo-border)",
-                        borderRadius: "var(--ambo-radius)",
-                        boxShadow: "var(--ambo-shadow-md)",
-                        padding: "32px 40px 48px",
-                      }}
-                    >
+                  {/* Writing panel — dormant matches Notes panel; lifts on active */}
+                  <div
+                    className="ambo-write-panel"
+                    style={{
+                      border: "1px solid var(--ambo-border)",
+                      borderRadius: 14,
+                      background: isActive ? "var(--ambo-surface)" : "transparent",
+                      backdropFilter: isActive ? "blur(24px) saturate(1.4)" : "none",
+                      WebkitBackdropFilter: isActive ? "blur(24px) saturate(1.4)" : "none",
+                      boxShadow: isActive ? "var(--ambo-shadow-sm)" : "none",
+                      overflow: "hidden",
+                      opacity: isActive ? 1 : 0.68,
+                      transition: "background 1000ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1000ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1000ms cubic-bezier(0.4, 0, 0.2, 1)",
+                      padding: "32px 40px 48px",
+                    }}
+                  >
                       {/* Italic display title */}
                       <div style={{
                         fontFamily: "var(--ambo-font-reading)",
@@ -690,7 +688,7 @@ export default function DailyMassView({
                         color: isActive
                           ? "var(--ambo-text-primary)"
                           : "var(--ambo-text-muted)",
-                        transition: "color 900ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        transition: "color 1000ms cubic-bezier(0.4, 0, 0.2, 1)",
                         marginBottom: 20,
                         minHeight: 30,
                       }}>
@@ -749,7 +747,6 @@ export default function DailyMassView({
                           </span>
                         )}
                       </div>
-                    </div>
                   </div>
                 </div>
 
@@ -831,11 +828,18 @@ const stepBtnStyle = (disabled: boolean): CSSProperties => ({
 });
 
 // ── DailyPreachPanel — full Sunday Preach chrome for Daily ───────────────────
-function DailyPreachPanel({ content, title }: { content: string; title: string }) {
+interface DailyPreachPanelProps {
+  content: string;
+  title: string;
+  onScrollLock: (locked: boolean) => void;
+  onExitDaily: () => void;
+}
+function DailyPreachPanel({ content, title, onScrollLock, onExitDaily }: DailyPreachPanelProps) {
   const [fontSize, setFontSize]             = useState(24);
   const [currentBlock, setCurrentBlock]     = useState(0);
   const [blocks, setBlocks]                 = useState<Block[]>(() => parseBlocks(content));
   const [isScrollMode, setIsScrollMode]     = useState(true);
+  const [committedMode, setCommittedMode]   = useState<null | "scroll" | "step">(null);
   const [isPhone, setIsPhone]               = useState(false);
   const [stepContainerH, setStepContainerH] = useState(400);
   const stepContainerRef = useRef<HTMLDivElement>(null);
@@ -850,8 +854,10 @@ function DailyPreachPanel({ content, title }: { content: string; title: string }
   useEffect(() => {
     setBlocks(parseBlocks(content));
     setCurrentBlock(0);
+    setCommittedMode(null);
+    onScrollLock(false);
     isFirstStep.current = true;
-  }, [content]);
+  }, [content]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect phone viewport
   useEffect(() => {
@@ -935,13 +941,37 @@ function DailyPreachPanel({ content, title }: { content: string; title: string }
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 20, gap: 16,
+        marginBottom: 20, marginTop: 20, gap: 16,
       }}>
-        {/* Left: Scroll | Step */}
+        {/* Left: Exit | Scroll | Step */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* Exit pill — leftmost; pulses when in committed/immersive mode */}
           <PillButton
-            variant={isScrollMode ? "active" : "ghost"}
-            onClick={() => setIsScrollMode(true)}
+            variant="ghost"
+            className={committedMode !== null ? "preach-exit-pulse" : undefined}
+            onClick={() => {
+              if (committedMode !== null) {
+                // Exit immersive mode — stay on Daily Preach
+                setCommittedMode(null);
+                setIsScrollMode(true);
+                onScrollLock(false);
+              } else {
+                // Exit Daily entirely
+                onExitDaily();
+              }
+            }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px" }}
+          >
+            Exit
+          </PillButton>
+          <PillButton
+            variant={isScrollMode && committedMode !== null ? "active" : "ghost"}
+            onClick={() => { setIsScrollMode(true); setCommittedMode("scroll"); onScrollLock(true); }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <line x1="2" y1="3.5" x2="14" y2="3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -952,14 +982,14 @@ function DailyPreachPanel({ content, title }: { content: string; title: string }
             }
             style={{
               height: 34, padding: "0 14px",
-              ...(isScrollMode ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
+              ...(isScrollMode && committedMode !== null ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
             }}
           >
             Scroll
           </PillButton>
           <PillButton
-            variant={!isScrollMode ? "active" : "ghost"}
-            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; }}
+            variant={!isScrollMode && committedMode !== null ? "active" : "ghost"}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; setCommittedMode("step"); onScrollLock(true); }}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -968,7 +998,7 @@ function DailyPreachPanel({ content, title }: { content: string; title: string }
             }
             style={{
               height: 34, padding: "0 14px",
-              ...(!isScrollMode ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
+              ...(!isScrollMode && committedMode !== null ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
             }}
           >
             Step
@@ -1015,12 +1045,18 @@ function DailyPreachPanel({ content, title }: { content: string; title: string }
             </p>
           )}
           {!hasContent ? (
-            <p style={{
-              fontFamily: "var(--ambo-font-reading)", fontSize: 17,
-              fontStyle: "italic", color: "var(--ambo-text-muted)", opacity: 0.6,
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              minHeight: 180,
             }}>
-              No reflection written yet.
-            </p>
+              <p style={{
+                fontFamily: "var(--ambo-font-reading)", fontSize: 17,
+                fontStyle: "italic", color: "var(--ambo-text-muted)", opacity: 0.6,
+                margin: 0,
+              }}>
+                No reflection written yet.
+              </p>
+            </div>
           ) : (
             <div>
               {blocks.map((block, i) => {

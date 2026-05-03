@@ -58,6 +58,8 @@ interface HomilyListProps {
   onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
   onOpenEchoEntry: (entry: ArchiveEntry) => void;
   refreshKey?: number;
+  /** When true (Daily is open), bump drawer z-index above DailyMassView (150) */
+  dailyOpen?: boolean;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -925,6 +927,7 @@ export default function HomilyList({
   onOpenEcho,
   onOpenEchoEntry,
   refreshKey = 0,
+  dailyOpen,
 }: HomilyListProps) {
   const [homilies, setHomilies] = useState<HomilyRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -1181,7 +1184,7 @@ export default function HomilyList({
           background: "rgba(15, 20, 30, 0.24)",
           backdropFilter: "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
-          zIndex: 90,
+          zIndex: dailyOpen ? 170 : 90,
           animation: closingDrawer
             ? "fadeOut 780ms ease-out both"
             : "fadeIn 780ms ease-out",
@@ -1198,7 +1201,7 @@ export default function HomilyList({
           width: "min(400px, 100vw)",
           background: "var(--ambo-bg)",
           borderRight: "1px solid var(--ambo-border)",
-          zIndex: 100,
+          zIndex: dailyOpen ? 180 : 100,
           display: "flex",
           flexDirection: "column",
           boxShadow: "var(--ambo-shadow-md)",

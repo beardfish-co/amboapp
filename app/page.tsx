@@ -579,6 +579,7 @@ export default function AmboApp() {
         onCreateDaily={handleOpenDaily}
         onOpenEchoEntry={handleOpenEchoFromArchive}
         refreshKey={listRefreshKey}
+        dailyOpen={dailyOpen}
       />
       </ErrorBoundary>
 
@@ -610,6 +611,7 @@ export default function AmboApp() {
         lectionaryFamily={lectionaryFamily}
         initialDate={dailyInitialDate}
         onSelectFamily={handleSelectFamily}
+        onOpenList={() => setDrawerOpen(true)}
       />
 
       {/* Onboarding tour */}
