@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadReadings } from "@/lib/readings";
 import type { ReadingsPayload } from "@/lib/readings";
 import type { LectionaryFamily } from "@/lib/jurisdiction";
 import { PillButton } from "@/lib/ui/pill-button";
-import { StackIcon as StackIconShared, BookIcon as BookIconShared } from "@/lib/ui/icons";
+import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
+import { SlideReveal } from "@/lib/ui/slide-reveal";
+import ThemeToggle from "./ThemeToggle";
+import AccountMenu from "./AccountMenu";
 
 // ── US feast-day substitution ─────────────────────────────────────────────────
 const US_FEAST_SUBSTITUTIONS: Record<string, string> = {
@@ -78,6 +82,7 @@ interface DailyMassViewProps {
   lectionaryFamily: LectionaryFamily | null | undefined;
   /** Date selected by the priest in the drawer day picker. Always provided before open=true. */
   initialDate: string;
+  onSelectFamily?: (family: LectionaryFamily) => Promise<void>;
 }
 
 type DailyMode = "daily" | "preach";
@@ -86,7 +91,7 @@ interface UnsavedGuard {
   pendingAction: "close";
 }
 
-export default function DailyMassView({ open, onClose, lectionaryFamily, initialDate }: DailyMassViewProps) {
+export default function DailyMassView({ open, onClose, lectionaryFamily, initialDate, onSelectFamily }: DailyMassViewProps) {
   const today = todayIso();
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [mode, setMode] = useState<DailyMode>("daily");
@@ -94,8 +99,10 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
   const [readings, setReadings] = useState<ReadingsPayload | null>(null);
   const [readingsLoading, setReadingsLoading] = useState(false);
   const [readingsUnavailable, setReadingsUnavailable] = useState(false);
-  const [readingsOpen, setReadingsOpen] = useState(false);
   const [usFeastSubstitution, setUsFeastSubstitution] = useState(false);
+
+  // Which reading card bodies are expanded
+  const [openBodies, setOpenBodies] = useState<Set<string>>(() => new Set(["r1"]));
 
   const [noteContent, setNoteContent] = useState("");
   const [noteId, setNoteId] = useState<string | null>(null);
@@ -120,7 +127,7 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     setReadings(null);
     setReadingsLoading(false);
     setReadingsUnavailable(false);
-    setReadingsOpen(false);
+    setOpenBodies(new Set(["r1"]));
     setNoteContent("");
     setNoteId(null);
     setHasUnsaved(false);
@@ -139,6 +146,7 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     setUsFeastSubstitution(isSubstitution);
     setReadingsLoading(true);
     setReadingsUnavailable(false);
+    setOpenBodies(new Set(["r1"]));
 
     (async () => {
       const source: "universalis" | "evangelizo" = isUs && !isSubstitution ? "evangelizo" : "universalis";
@@ -276,6 +284,15 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     scheduleSave(value);
   }, [scheduleSave]);
 
+  const toggleBody = useCallback((id: string) => {
+    setOpenBodies(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   // ── Close with unsaved guard ──────────────────────────────────────────────
   const requestClose = useCallback(() => {
     if (hasUnsaved) {
@@ -305,19 +322,18 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (readingsOpen) { setReadingsOpen(false); return; }
         if (unsavedGuard) { guardCancel(); return; }
         requestClose();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, readingsOpen, unsavedGuard, guardCancel, requestClose]);
+  }, [open, unsavedGuard, guardCancel, requestClose]);
 
   // ── Cleanup timer on unmount ──────────────────────────────────────────────
   useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
 
-  // Suppress lint — noteId is used in currentNoteRef only; the warning is spurious
+  // Suppress lint — noteId is used in currentNoteRef only
   void noteId;
 
   if (!open) return null;
@@ -325,10 +341,31 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
   const dailyReadings = readings?.readings.filter(r => ["r1", "ps", "gospel"].includes(r.id)) ?? [];
   const displayTitle = readings?.saint || readings?.dayName || shortDayLabel(selectedDate, today);
   const wordCount = noteContent.trim().split(/\s+/).filter(Boolean).length;
+  const contextLabel = `${shortDayLabel(selectedDate, today)}${readings?.saint ? ` · ${readings.saint}` : ""}`;
 
   return (
     <>
-      {/* ── Full-screen overlay ────────────────────────────────────────── */}
+      <style>{`
+        .daily-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+          gap: 32px;
+          align-items: start;
+        }
+        @media (max-width: 880px) {
+          .daily-layout {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
+        .daily-reading-card-btn {
+          width: 100%;
+          border: none;
+          background: none;
+          text-align: left;
+        }
+      `}</style>
+
+      {/* ── Full-screen overlay ──────────────────────────────────────────── */}
       <div style={{
         position: "fixed",
         inset: 0,
@@ -339,7 +376,7 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
         overflow: "hidden",
       }}>
 
-        {/* ── Primary header — mode pill nav ──────────────────────────── */}
+        {/* ── Primary header ────────────────────────────────────────────── */}
         <header style={{
           background: "var(--ambo-header-bg)",
           backdropFilter: "blur(20px) saturate(1.4)",
@@ -348,37 +385,62 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
           paddingTop: "env(safe-area-inset-top)",
           flexShrink: 0,
         }}>
-          <div style={{
+          <div className="ambo-header-inner" style={{
             height: 60,
             maxWidth: 1180,
             margin: "0 auto",
-            padding: "0 16px",
+            padding: "0 24px",
             display: "flex",
             alignItems: "center",
-            gap: 12,
+            justifyContent: "space-between",
           }}>
-            {/* Back chevron */}
-            <button
-              onClick={requestClose}
-              aria-label="Return to Sunday surface"
-              style={{
-                border: "none",
-                background: "none",
-                color: "var(--ambo-text-muted)",
-                cursor: "pointer",
-                fontSize: 24,
-                lineHeight: 1,
-                padding: "0 4px",
-                flexShrink: 0,
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              ‹
-            </button>
 
-            {/* Islands */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+            {/* Left: back chevron + logo + wordmark */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <button
+                onClick={requestClose}
+                aria-label="Return to Sunday surface"
+                style={{
+                  border: "none",
+                  background: "none",
+                  color: "var(--ambo-text-muted)",
+                  cursor: "pointer",
+                  fontSize: 24,
+                  lineHeight: 1,
+                  padding: "0 6px 0 0",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                ‹
+              </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/ambo-mark-64.png"
+                alt="Ambo"
+                width={32}
+                height={32}
+                style={{ display: "block", objectFit: "contain", transform: "translateY(-4px)" }}
+              />
+              <span
+                className="ambo-wordmark"
+                style={{
+                  fontSize: 22,
+                  fontWeight: 400,
+                  fontFamily: "var(--font-newsreader), Georgia, serif",
+                  color: "var(--ambo-accent)",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1,
+                  userSelect: "none",
+                }}
+              >
+                ambo
+              </span>
+            </div>
+
+            {/* Centre: mode islands */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {/* Greyed Sunday island */}
               <nav className="mode-pill" aria-label="Sunday modes (inactive)" style={{ opacity: 0.32, pointerEvents: "none" }}>
                 {["Reflect", "Write", "Preach"].map((label) => (
@@ -399,12 +461,15 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
               </nav>
             </div>
 
-            {/* Saving indicator */}
-            {saving && (
-              <div style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.6, flexShrink: 0 }}>
-                Saving…
-              </div>
-            )}
+            {/* Right: ThemeToggle + AccountMenu */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <ThemeToggle />
+              <AccountMenu
+                lectionaryFamily={lectionaryFamily}
+                onSelectFamily={onSelectFamily ?? (() => Promise.resolve())}
+              />
+            </div>
+
           </div>
         </header>
 
@@ -412,7 +477,7 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
         <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
 
           {mode === "preach" ? (
-            // ── Preach sub-mode ──────────────────────────────────────────
+            // ── Preach sub-mode ────────────────────────────────────────
             <div style={{
               maxWidth: 860,
               margin: "0 auto",
@@ -444,270 +509,287 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
             </div>
 
           ) : (
-            // ── Daily sub-mode — WriteView-style layout ───────────────────
-            <div className="view-fade" style={{ maxWidth: 860, margin: "0 auto", padding: "0 24px 56px" }}>
+            // ── Daily sub-mode — two-column layout ────────────────────
+            <div className="view-fade" style={{
+              maxWidth: 1180,
+              margin: "0 auto",
+              padding: "clamp(24px, 4vh, 48px) clamp(16px, 3vw, 40px) 56px",
+            }}>
 
-              {/* ── Secondary chrome row ─────────────────────────────────── */}
-              <div className="ambo-write-chrome" style={{
+              {/* ── Secondary chrome row ──────────────────────────────── */}
+              <div style={{
                 display: "flex",
                 alignItems: "center",
-                marginBottom: 14,
+                marginBottom: 28,
+                gap: 10,
+                flexWrap: "wrap",
               }}>
-                {/* Left: My homilies pill → closes Daily surface */}
-                <PillButton variant="ghost" icon={<StackIconShared />} onClick={requestClose}>
+                <PillButton variant="ghost" icon={<StackIcon />} onClick={requestClose}>
                   My homilies
                 </PillButton>
-
                 <div style={{ flex: 1 }} />
-
-                {/* Right: day + saint — read-only */}
-                <div style={{
-                  fontSize: 12,
-                  color: "var(--ambo-text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}>
-                  <span>{shortDayLabel(selectedDate, today)}</span>
-                  {readings?.saint && (
-                    <>
-                      <span style={{ opacity: 0.35, margin: "0 1px" }}>·</span>
-                      <span style={{ fontStyle: "italic" }}>{readings.saint}</span>
-                    </>
-                  )}
-                </div>
+                <PillButton
+                  variant="ghost"
+                  icon={<CalendarIcon />}
+                  style={{ cursor: "default", pointerEvents: "none" }}
+                >
+                  {contextLabel}
+                </PillButton>
               </div>
 
-              {/* ── Glass card — matches WriteView's ambo-write-panel ────── */}
-              <div>
-                <div
-                  className="ambo-write-panel"
-                  style={{
-                    background: "var(--ambo-surface)",
-                    backdropFilter: "blur(24px) saturate(1.4)",
-                    WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-                    border: "1px solid var(--ambo-border)",
-                    borderRadius: "var(--ambo-radius)",
-                    boxShadow: "var(--ambo-shadow-md)",
-                    padding: "44px 56px 56px",
-                  }}
-                >
+              {/* ── Two-column grid ───────────────────────────────────── */}
+              <div className="daily-layout">
 
-                  {/* ── Title area ──────────────────────────────────────── */}
-                  <div style={{ marginBottom: 20 }}>
+                {/* ── Left column: reading cards ─────────────────────── */}
+                <div>
+                  {/* Loading skeletons */}
+                  {readingsLoading && (
+                    <>
+                      {["r1", "ps", "gospel"].map((id, idx) => (
+                        <div
+                          key={id}
+                          className="glass-card"
+                          style={{
+                            marginBottom: idx < 2 ? 16 : 0,
+                            padding: "18px 24px",
+                            opacity: 0.45,
+                          }}
+                        >
+                          <div style={{
+                            height: 11,
+                            width: idx === 0 ? "45%" : idx === 1 ? "28%" : "38%",
+                            background: "var(--ambo-text-muted)",
+                            borderRadius: 4,
+                            opacity: 0.4,
+                          }} />
+                        </div>
+                      ))}
+                    </>
+                  )}
 
-                    {/* Saint / liturgical day as the display title */}
+                  {/* Unavailable / not published */}
+                  {!readingsLoading && (readingsUnavailable || (!readings && dailyReadings.length === 0)) && (
+                    <div className="glass-card" style={{ padding: "28px 28px" }}>
+                      {usFeastSubstitution && (
+                        <div style={{
+                          fontSize: 11,
+                          color: "var(--ambo-text-muted)",
+                          fontStyle: "italic",
+                          marginBottom: 16,
+                          lineHeight: 1.55,
+                          padding: "8px 10px",
+                          background: "var(--ambo-accent-faint)",
+                          borderRadius: 6,
+                        }}>
+                          Today's readings are shown in the Jerusalem Bible — NAB data is not available for this feast.
+                        </div>
+                      )}
+                      <div style={{
+                        fontFamily: "var(--ambo-font-reading)",
+                        fontSize: 14,
+                        fontStyle: "italic",
+                        color: "var(--ambo-text-muted)",
+                      }}>
+                        {readingsUnavailable
+                          ? "Readings are temporarily unavailable. Please check your connection."
+                          : "Readings are not yet published for this date."}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reading cards */}
+                  {!readingsLoading && dailyReadings.map((r, idx) => {
+                    const bodyOpen = openBodies.has(r.id);
+                    const paragraphs = r.text.split(/\n\n+/);
+                    return (
+                      <section
+                        key={r.id}
+                        className="glass-card"
+                        style={{
+                          marginBottom: idx < dailyReadings.length - 1 ? 16 : 0,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {/* Card header — tap to expand/collapse */}
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleBody(r.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleBody(r.id);
+                            }
+                          }}
+                          aria-expanded={bodyOpen}
+                          style={{
+                            padding: bodyOpen ? "20px 24px" : "18px 24px",
+                            cursor: "pointer",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "baseline",
+                            gap: 16,
+                            transition: "padding 200ms var(--ambo-ease)",
+                          }}
+                        >
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
+                            <span style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "var(--ambo-text-muted)",
+                            }}>
+                              {r.title}
+                            </span>
+                            {r.reference && (
+                              <span style={{
+                                fontSize: 12,
+                                fontStyle: "italic",
+                                color: "var(--ambo-text-muted)",
+                                marginLeft: 10,
+                              }}>
+                                {r.reference}
+                              </span>
+                            )}
+                          </div>
+                          <span style={{
+                            fontSize: 16,
+                            color: "var(--ambo-text-muted)",
+                            transition: "transform 200ms var(--ambo-ease)",
+                            transform: bodyOpen ? "rotate(90deg)" : "rotate(0deg)",
+                            flexShrink: 0,
+                          }}>
+                            ›
+                          </span>
+                        </div>
+
+                        {/* Collapsible body */}
+                        <SlideReveal open={bodyOpen}>
+                          <div style={{ height: 1, background: "var(--ambo-rule-subtle)" }} />
+                          <div style={{ padding: "26px 24px 28px" }}>
+                            {paragraphs.map((para, i) => (
+                              <p
+                                key={i}
+                                style={{
+                                  fontFamily: "var(--ambo-font-reading)",
+                                  fontSize: 17,
+                                  lineHeight: 2.05,
+                                  color: "var(--ambo-text-primary)",
+                                  margin: `0 0 ${i < paragraphs.length - 1 ? 16 : 0}px`,
+                                }}
+                              >
+                                {para.replace(/\n/g, " ").trim()}
+                              </p>
+                            ))}
+                          </div>
+                        </SlideReveal>
+                      </section>
+                    );
+                  })}
+                </div>
+
+                {/* ── Right column: writing card ──────────────────────── */}
+                <div>
+                  <div
+                    className="ambo-write-panel"
+                    style={{
+                      background: "var(--ambo-surface)",
+                      backdropFilter: "blur(24px) saturate(1.4)",
+                      WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+                      border: "1px solid var(--ambo-border)",
+                      borderRadius: "var(--ambo-radius)",
+                      boxShadow: "var(--ambo-shadow-md)",
+                      padding: "32px 40px 48px",
+                    }}
+                  >
+
+                    {/* Display title — italic, reading font */}
                     <div style={{
                       fontFamily: "var(--ambo-font-reading)",
-                      fontSize: 32,
+                      fontSize: "clamp(20px, 2vw, 28px)",
                       fontStyle: "italic",
                       fontWeight: 400,
                       letterSpacing: "-0.01em",
                       lineHeight: 1.2,
                       color: readingsLoading ? "var(--ambo-text-muted)" : "var(--ambo-text-primary)",
                       opacity: readingsLoading ? 0.4 : 1,
-                      minHeight: 38,
                       transition: "opacity 0.25s",
+                      marginBottom: 14,
                     }}>
                       {readingsLoading ? "Loading…" : displayTitle}
                     </div>
 
-                    {/* Liturgical day sub-label when saint is shown separately */}
-                    {readings?.saint && readings?.dayName && (
-                      <div style={{
-                        fontSize: 13,
-                        fontWeight: 500,
-                        color: "var(--ambo-accent)",
-                        opacity: 0.85,
-                        marginTop: 4,
-                        marginBottom: 0,
-                      }}>
-                        {readings.dayName}
-                      </div>
-                    )}
-
-                    {/* ── Readings dropdown pill ───────────────────────── */}
-                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", position: "relative" }}>
-                      <button
-                        onClick={() => { if (readings && !readingsLoading) setReadingsOpen(v => !v); }}
-                        aria-expanded={readingsOpen}
-                        aria-haspopup="true"
-                        style={{
-                          border: "1px solid var(--ambo-border)",
-                          background: readingsOpen ? "var(--ambo-accent-light)" : "transparent",
-                          color: "var(--ambo-text-secondary)",
-                          fontSize: 12,
-                          fontWeight: 500,
-                          padding: "5px 10px",
-                          borderRadius: 100,
-                          cursor: (readings && !readingsLoading) ? "pointer" : "default",
-                          fontFamily: "inherit",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          opacity: (!readings || readingsLoading) ? 0.45 : 1,
-                          transition: "background 0.15s",
-                        }}
+                    {/* Date + saint tactile pill */}
+                    <div style={{ marginBottom: 18 }}>
+                      <PillButton
+                        variant="ghost"
+                        icon={<CalendarIcon />}
+                        style={{ cursor: "default", pointerEvents: "none" }}
                       >
-                        <BookIconShared />
-                        <span>Readings</span>
-                        <span style={{ fontSize: 10, opacity: 0.6 }}>{readingsOpen ? "▴" : "▾"}</span>
-                      </button>
+                        {contextLabel}
+                      </PillButton>
+                    </div>
 
-                      {/* US feast substitution note inside dropdown */}
-                      {readingsOpen && readings && (
-                        <>
-                          <div
-                            onClick={() => setReadingsOpen(false)}
-                            style={{ position: "fixed", inset: 0, zIndex: 40 }}
-                          />
-                          <div style={{
-                            position: "absolute",
-                            top: "calc(100% + 4px)",
-                            left: 0,
-                            zIndex: 50,
-                            background: "var(--ambo-bg)",
-                            border: "1px solid var(--ambo-border)",
-                            borderRadius: 10,
-                            boxShadow: "var(--ambo-shadow-md)",
-                            padding: "16px 20px 20px",
-                            width: "min(540px, 90vw)",
-                            maxHeight: "min(480px, 70vh)",
-                            overflowY: "auto",
-                          }}>
+                    {/* Divider */}
+                    <div style={{
+                      height: 1,
+                      background: "var(--ambo-rule-subtle)",
+                      marginBottom: 28,
+                    }} />
 
-                            {usFeastSubstitution && (
-                              <div style={{
-                                fontSize: 11,
-                                color: "var(--ambo-text-muted)",
-                                fontStyle: "italic",
-                                marginBottom: 16,
-                                lineHeight: 1.55,
-                                padding: "8px 10px",
-                                background: "var(--ambo-accent-faint)",
-                                borderRadius: 6,
-                              }}>
-                                Today's readings are shown in the Jerusalem Bible — NAB data is not available for this feast.
-                              </div>
-                            )}
+                    {/* Writing surface */}
+                    <textarea
+                      value={noteContent}
+                      onChange={(e) => handleContentChange(e.target.value)}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={() => setIsFocused(false)}
+                      placeholder="Begin writing…"
+                      style={{
+                        width: "100%",
+                        minHeight: 280,
+                        border: "none",
+                        background: "transparent",
+                        resize: "none",
+                        outline: "none",
+                        fontFamily: "var(--ambo-font-reading)",
+                        fontSize: "clamp(15px, 1.5vw, 17px)",
+                        lineHeight: 1.85,
+                        color: noteContent.trim() || isFocused
+                          ? "var(--ambo-text-primary)"
+                          : "var(--ambo-text-muted)",
+                        caretColor: "var(--ambo-accent)",
+                        transition: "color 0.35s",
+                        boxSizing: "border-box",
+                      } as CSSProperties}
+                      spellCheck
+                      autoCapitalize="sentences"
+                    />
 
-                            {dailyReadings.length === 0 ? (
-                              <div style={{
-                                fontFamily: "var(--ambo-font-reading)",
-                                fontSize: 14,
-                                fontStyle: "italic",
-                                color: "var(--ambo-text-muted)",
-                              }}>
-                                Readings not available for this date.
-                              </div>
-                            ) : (
-                              dailyReadings.map((reading, idx) => (
-                                <div key={reading.id} style={{ marginBottom: idx < dailyReadings.length - 1 ? 28 : 0 }}>
-
-                                  {/* Label + reference */}
-                                  <div style={{ marginBottom: 8 }}>
-                                    <span style={{
-                                      fontSize: 10,
-                                      fontWeight: 700,
-                                      letterSpacing: "0.08em",
-                                      textTransform: "uppercase",
-                                      color: "var(--ambo-text-muted)",
-                                      opacity: 0.7,
-                                    }}>
-                                      {reading.title}
-                                    </span>
-                                    {reading.reference && (
-                                      <span style={{
-                                        fontSize: 11,
-                                        color: "var(--ambo-accent)",
-                                        marginLeft: 8,
-                                        opacity: 0.8,
-                                      }}>
-                                        {reading.reference}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  {/* Heading */}
-                                  {reading.heading && (
-                                    <div style={{
-                                      fontSize: 13,
-                                      fontStyle: "italic",
-                                      color: "var(--ambo-text-secondary)",
-                                      marginBottom: 10,
-                                      lineHeight: 1.45,
-                                    }}>
-                                      {reading.heading}
-                                    </div>
-                                  )}
-
-                                  {/* Text */}
-                                  {reading.text.split(/\n\n+/).map((para, pi) => (
-                                    <p key={pi} style={{
-                                      fontFamily: "var(--ambo-font-reading)",
-                                      fontSize: 15,
-                                      lineHeight: 1.85,
-                                      color: "var(--ambo-text-primary)",
-                                      margin: "0 0 0.8em",
-                                    }}>
-                                      {para.replace(/\n/g, " ").trim()}
-                                    </p>
-                                  ))}
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </>
+                    {/* Footer: word count + saving indicator */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      marginTop: 14,
+                      minHeight: 18,
+                    }}>
+                      {noteContent.trim() && (
+                        <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", opacity: 0.5 }}>
+                          {wordCount} {wordCount === 1 ? "word" : "words"}
+                        </span>
+                      )}
+                      {saving && (
+                        <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.55 }}>
+                          Saving…
+                        </span>
                       )}
                     </div>
 
-                    {/* Divider — matches WriteView */}
-                    <div style={{ height: 1, background: "var(--ambo-border)", marginTop: 16 }} />
                   </div>
-
-                  {/* ── Writing surface ──────────────────────────────────── */}
-                  <textarea
-                    value={noteContent}
-                    onChange={(e) => handleContentChange(e.target.value)}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    placeholder="Begin writing…"
-                    style={{
-                      width: "100%",
-                      minHeight: 280,
-                      border: "none",
-                      background: "transparent",
-                      resize: "none",
-                      outline: "none",
-                      fontFamily: "var(--ambo-font-reading)",
-                      fontSize: "clamp(15px, 1.5vw, 17px)",
-                      lineHeight: 1.85,
-                      color: noteContent.trim() || isFocused
-                        ? "var(--ambo-text-primary)"
-                        : "var(--ambo-text-muted)",
-                      caretColor: "var(--ambo-accent)",
-                      transition: "color 0.35s",
-                      boxSizing: "border-box",
-                    } as React.CSSProperties}
-                    spellCheck
-                    autoCapitalize="sentences"
-                  />
-
-                  {/* Word count — appears once there's content */}
-                  {noteContent.trim() && (
-                    <div style={{
-                      marginTop: 16,
-                      fontSize: 11,
-                      color: "var(--ambo-text-muted)",
-                      opacity: 0.5,
-                    }}>
-                      {wordCount} {wordCount === 1 ? "word" : "words"}
-                    </div>
-                  )}
-
                 </div>
-              </div>
 
+              </div>
             </div>
           )}
 

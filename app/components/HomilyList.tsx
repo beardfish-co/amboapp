@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadDayName } from "@/lib/readings";
+import { PillButton } from "@/lib/ui/pill-button";
+import { CalendarIcon, BookIcon } from "@/lib/ui/icons";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface HomilyRow {
@@ -1307,63 +1309,18 @@ export default function HomilyList({
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   {/* Sunday — opens the existing Reflect/Write/Preach flow */}
-                  <button
-                    onClick={onCreate}
-                    style={{
-                      flex: 1,
-                      border: "1px solid rgba(74, 111, 165, 0.28)",
-                      background: "transparent",
-                      color: "var(--ambo-accent)",
-                      fontSize: 12, fontWeight: 500,
-                      padding: "8px 6px", borderRadius: 8,
-                      cursor: "pointer", fontFamily: "inherit",
-                      opacity: 0.85,
-                      transition: "opacity 0.15s, background 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "1";
-                      e.currentTarget.style.background = "var(--ambo-accent-faint)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "0.85";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
+                  <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onCreate}>
                     Sunday
-                  </button>
+                  </PillButton>
                   {/* Daily — shows day picker dropdown */}
-                  <div style={{ position: "relative", flex: 1 }}>
-                    <button
+                  <div style={{ position: "relative" }}>
+                    <PillButton
+                      variant={dailyPickerOpen ? "active" : "ghost"}
+                      icon={<BookIcon />}
                       onClick={() => setDailyPickerOpen(v => !v)}
-                      style={{
-                        width: "100%",
-                        border: dailyPickerOpen
-                          ? "1px solid rgba(74, 111, 165, 0.55)"
-                          : "1px solid rgba(74, 111, 165, 0.28)",
-                        background: dailyPickerOpen ? "var(--ambo-accent-faint)" : "transparent",
-                        color: "var(--ambo-accent)",
-                        fontSize: 12, fontWeight: 500,
-                        padding: "8px 6px", borderRadius: 8,
-                        cursor: "pointer", fontFamily: "inherit",
-                        opacity: 0.85,
-                        transition: "opacity 0.15s, background 0.15s",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 4,
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = "1";
-                        if (!dailyPickerOpen) e.currentTarget.style.background = "var(--ambo-accent-faint)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = "0.85";
-                        if (!dailyPickerOpen) e.currentTarget.style.background = "transparent";
-                      }}
                     >
-                      Daily
-                      <span style={{ fontSize: 9, opacity: 0.7 }}>{dailyPickerOpen ? "▴" : "▾"}</span>
-                    </button>
+                      Daily{" "}<span style={{ fontSize: 9, opacity: 0.6 }}>{dailyPickerOpen ? "▴" : "▾"}</span>
+                    </PillButton>
 
                     {/* Day picker dropdown — matches WriteView Sunday date picker style exactly */}
                     {dailyPickerOpen && (
@@ -1386,6 +1343,10 @@ export default function HomilyList({
                         }}>
                           {buildDailyOptions().map((iso) => {
                             const labels = dailyOptionLabel(iso);
+                            const dateLabel = new Date(iso + "T00:00:00").toLocaleDateString(
+                              undefined,
+                              { day: "numeric", month: "short" },
+                            );
                             return (
                               <button
                                 key={iso}
@@ -1397,7 +1358,7 @@ export default function HomilyList({
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "space-between",
-                                  gap: 10,
+                                  gap: 12,
                                   width: "100%",
                                   textAlign: "left",
                                   border: "none",
@@ -1420,7 +1381,7 @@ export default function HomilyList({
                                   color: "var(--ambo-text-muted)",
                                   flexShrink: 0,
                                 }}>
-                                  {labels.sub}
+                                  {dateLabel}
                                 </span>
                               </button>
                             );
@@ -1430,22 +1391,9 @@ export default function HomilyList({
                     )}
                   </div>
                   {/* Special Occasion — stub, not yet implemented */}
-                  <button
-                    disabled
-                    title="Coming soon"
-                    style={{
-                      flex: 1,
-                      border: "1px solid rgba(74, 111, 165, 0.15)",
-                      background: "transparent",
-                      color: "var(--ambo-text-muted)",
-                      fontSize: 12, fontWeight: 500,
-                      padding: "8px 6px", borderRadius: 8,
-                      cursor: "not-allowed", fontFamily: "inherit",
-                      opacity: 0.45,
-                    }}
-                  >
+                  <PillButton disabled title="Coming soon">
                     Occasion
-                  </button>
+                  </PillButton>
                 </div>
               </div>
             )}

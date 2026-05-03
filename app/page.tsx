@@ -609,6 +609,7 @@ export default function AmboApp() {
         onClose={() => setDailyOpen(false)}
         lectionaryFamily={lectionaryFamily}
         initialDate={dailyInitialDate}
+        onSelectFamily={handleSelectFamily}
       />
 
       {/* Onboarding tour */}
