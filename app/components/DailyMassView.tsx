@@ -734,6 +734,7 @@ export default function DailyMassView({
                     style={{
                       minHeight: cardMinH > 0 ? cardMinH : (minWritingCardHeight > 0 ? minWritingCardHeight : undefined),
                       display: "flex", flexDirection: "column",
+                      position: "relative",
                       border: "1px solid var(--ambo-border)",
                       borderRadius: 14,
                       background: isActive ? "var(--ambo-surface)" : "transparent",
@@ -795,19 +796,26 @@ export default function DailyMassView({
                         autoCapitalize="sentences"
                       />
 
-                      {/* Word count — below textarea, inside card */}
-                      {wordCount >= 1 && (
-                        <div style={{
-                          marginTop: 20,
-                          textAlign: "center",
-                          fontSize: 12,
-                          color: "var(--ambo-text-muted)",
-                          opacity: 0.7,
-                        }}>
-                          {wordCount} {wordCount === 1 ? "word" : "words"}
-                          {wordCount >= 30 && ` · ~${estimatedMinutes} min`}
-                        </div>
-                      )}
+                      {/* Word count — absolutely positioned so it never affects card height */}
+                      <div style={{
+                        position: "absolute",
+                        bottom: 16,
+                        left: 0,
+                        right: 0,
+                        textAlign: "center",
+                        fontSize: 12,
+                        color: "var(--ambo-text-muted)",
+                        opacity: wordCount >= 1 ? 0.7 : 0,
+                        transition: "opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        pointerEvents: "none",
+                      }}>
+                        {wordCount >= 1 && (
+                          <>
+                            {wordCount} {wordCount === 1 ? "word" : "words"}
+                            {wordCount >= 30 && ` · ~${estimatedMinutes} min`}
+                          </>
+                        )}
+                      </div>
 
                   </div>
                 </div>
@@ -829,7 +837,7 @@ export default function DailyMassView({
         }}>
           <PillButton
             variant="ghost"
-            className="preach-exit-pulse"
+            className="daily-exit-pulse"
             onClick={() => {
               setHeaderHidden(false);
               setImmersiveVersion(v => v + 1);
