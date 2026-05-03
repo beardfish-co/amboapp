@@ -672,7 +672,7 @@ export default function ReflectView({
               {...(idx === 0 ? { "data-tour": "reading-panels" } : {})}
               className="glass-card reflect-reading-card"
               style={{
-                marginBottom: 32,
+                marginBottom: idx < readings.readings.length - 1 ? 16 : 32,
                 overflow: "hidden",
               }}
             >

@@ -146,6 +146,10 @@ export default function DailyMassView({
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const readingsColRef = useRef<HTMLDivElement>(null);
+
+  // Writing card min-height — measured from left column when all cards are closed
+  const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
     date: initialDate, id: null, content: "",
   });
@@ -156,14 +160,13 @@ export default function DailyMassView({
   // ── headerHidden: immersive preach mode collapses the header ─────────────
   const [headerHidden, setHeaderHidden] = useState(false);
 
-  // ── Auto-size textarea — compact dormant, grows with content ──────────────
+  // ── Auto-size textarea — grows with content only, no activation jump ────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    const minH = isActive ? 240 : 80;
-    ta.style.height = `${Math.max(ta.scrollHeight, minH)}px`;
-  }, [noteContent, isActive]);
+    ta.style.height = `${Math.max(ta.scrollHeight, 60)}px`;
+  }, [noteContent]);
 
   // ── Reset on each fresh open ──────────────────────────────────────────────
   useEffect(() => {
@@ -179,6 +182,7 @@ export default function DailyMassView({
     setHasUnsaved(false);
     setUnsavedGuard(null);
     setHeaderHidden(false);
+    setMinWritingCardHeight(0);
     currentNoteRef.current = { date: initialDate, id: null, content: "" };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate]);
@@ -259,6 +263,20 @@ export default function DailyMassView({
 
     return () => { cancelled = true; };
   }, [open, selectedDate]);
+
+
+  // ── Capture left-column height for writing card min-height ───────────────
+  useEffect(() => {
+    if (readingsLoading || !readings) return;
+    const el = readingsColRef.current;
+    if (!el) return;
+    // Wait one frame for the DOM to settle before measuring
+    const id = requestAnimationFrame(() => {
+      const h = el.getBoundingClientRect().height;
+      if (h > 0) setMinWritingCardHeight(h);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [readingsLoading, readings]);
 
   // ── Auto-save ─────────────────────────────────────────────────────────────
   const persistNote = useCallback(async (
@@ -381,7 +399,8 @@ export default function DailyMassView({
 
   const dailyReadings = readings?.readings.filter(r => ["r1", "ps", "gospel"].includes(r.id)) ?? [];
   const dayTitle      = readingsLoading ? "" : resolveTitle(readings, selectedDate);
-  const wordCount     = noteContent.trim().split(/\s+/).filter(Boolean).length;
+  const wordCount        = noteContent.trim().split(/\s+/).filter(Boolean).length;
+  const estimatedMinutes = Math.round(wordCount / 130);
   const noReadings    = !readingsLoading && (readingsUnavailable || !readings);
 
   return (
@@ -545,7 +564,7 @@ export default function DailyMassView({
               <div className="daily-layout">
 
                 {/* ── Left column: reading cards ─────────────────────── */}
-                <div>
+                <div ref={readingsColRef}>
                   {/* Unavailability notice */}
                   {noReadings && (
                     <div style={{
@@ -674,6 +693,7 @@ export default function DailyMassView({
                   <div
                     className="ambo-write-panel"
                     style={{
+                      minHeight: minWritingCardHeight > 0 ? minWritingCardHeight : undefined,
                       border: "1px solid var(--ambo-border)",
                       borderRadius: 14,
                       background: isActive ? "var(--ambo-surface)" : "transparent",
@@ -682,7 +702,7 @@ export default function DailyMassView({
                       boxShadow: isActive ? "var(--ambo-shadow-sm)" : "none",
                       overflow: "hidden",
                       opacity: isActive ? 1 : 0.68,
-                      transition: "background 1500ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1500ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1500ms cubic-bezier(0.4, 0, 0.2, 1)",
+                      transition: "background 1800ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1800ms cubic-bezier(0.4, 0, 0.2, 1), opacity 1800ms cubic-bezier(0.4, 0, 0.2, 1)",
                       padding: "32px 40px 48px",
                     }}
                   >
@@ -695,7 +715,7 @@ export default function DailyMassView({
                         color: isActive
                           ? "var(--ambo-text-primary)"
                           : "var(--ambo-text-muted)",
-                        transition: "color 1500ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        transition: "color 1800ms cubic-bezier(0.4, 0, 0.2, 1)",
                         marginBottom: 20,
                         minHeight: 30,
                       }}>
@@ -717,7 +737,7 @@ export default function DailyMassView({
                         placeholder="Begin writing…"
                         style={{
                           width: "100%",
-                          minHeight: isActive ? 240 : 80,
+                          minHeight: 60,
                           border: "none", background: "transparent",
                           resize: "none", outline: "none", overflow: "hidden",
                           fontFamily: "var(--ambo-font-reading)",
@@ -734,24 +754,14 @@ export default function DailyMassView({
                         autoCapitalize="sentences"
                       />
 
-                      {/* Footer: word count + saving indicator */}
-                      <div style={{
-                        display: "flex", alignItems: "center", gap: 12,
-                        marginTop: 14, minHeight: 18,
-                        transition: "opacity 600ms ease",
-                        opacity: isActive ? 1 : 0,
-                      }}>
-                        {noteContent.trim() && (
-                          <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", opacity: 0.5 }}>
-                            {wordCount} {wordCount === 1 ? "word" : "words"}
-                          </span>
-                        )}
-                        {saving && (
+                      {/* Saving indicator — word count moved to fixed status bar */}
+                      {saving && (
+                        <div style={{ marginTop: 10, minHeight: 18 }}>
                           <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.55 }}>
                             Saving…
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                   </div>
                 </div>
 
@@ -760,6 +770,29 @@ export default function DailyMassView({
           )}
         </div>
       </div>
+
+      {/* ── Status bar — matches Sunday Write footer (fixed, centred) ───────── */}
+      {mode === "daily" && wordCount > 0 && (
+        <div style={{
+          position: "fixed",
+          bottom: 0, left: 0, right: 0,
+          padding: "12px 24px",
+          background: "var(--ambo-surface-raised)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderTop: "1px solid var(--ambo-border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          zIndex: 152,
+        }}>
+          <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
+            {wordCount} {wordCount === 1 ? "word" : "words"}
+            {wordCount > 0 && ` · ~${estimatedMinutes} min`}
+          </span>
+        </div>
+      )}
 
       {/* ── Unsaved-edits guard modal ────────────────────────────────────── */}
       {unsavedGuard && (
@@ -943,7 +976,36 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachP
         ["--print-font-size" as string]: `${displayFontSize}px`,
       }}
     >
-      {/* ── Controls bar (mirrors PreachView) ───────────────────────────── */}
+      {/* ── Fixed Exit pill — visible only in committed/immersive mode ────── */}
+      {committedMode !== null && (
+        <div style={{
+          position: "fixed",
+          top: "calc(20px + env(safe-area-inset-top))",
+          left: 20,
+          zIndex: 200,
+        }}>
+          <PillButton
+            variant="ghost"
+            className="preach-exit-pulse"
+            onClick={() => {
+              setCommittedMode(null);
+              setIsScrollMode(true);
+              onScrollLock(false);
+            }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px" }}
+          >
+            Exit
+          </PillButton>
+        </div>
+      )}
+
+      {/* ── Controls bar — hidden in immersive mode (Exit pill floats above) ── */}
+      {committedMode === null && (
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
         justifyContent: "space-between",
@@ -1038,6 +1100,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack }: DailyPreachP
           </PillButton>
         </div>
       </div>
+      )}
 
       {/* ── Scroll mode ──────────────────────────────────────────────────── */}
       {isScrollMode && (
