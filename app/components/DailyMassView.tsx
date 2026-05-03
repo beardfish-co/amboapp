@@ -145,8 +145,9 @@ export default function DailyMassView({
   const [unsavedGuard, setUnsavedGuard] = useState<UnsavedGuard | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const textareaRef  = useRef<HTMLTextAreaElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const readingsColRef = useRef<HTMLDivElement>(null);
+  const writingCardRef = useRef<HTMLDivElement>(null);
 
   // Writing card min-height — measured from left column when all cards are closed
   const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
@@ -166,24 +167,19 @@ export default function DailyMassView({
   // Incremented when the DailyMassView-level Exit pill fires; resets DailyPreachPanel
   const [immersiveVersion, setImmersiveVersion] = useState(0);
 
-  // ── Auto-size textarea — grows with content only, no activation jump ────────
+  // ── Writing card growth — only when content overflows the dormant card ───────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
-    // Measure scroll height before resetting (avoids collapse-then-measure artifact)
-    const needed = Math.max(ta.scrollHeight, 60);
-    ta.style.height = "auto";
-    ta.style.height = `${needed}px`;
 
-    // High-water mark: keep card tall while content needs the space
-    const estimatedCardH = needed + CARD_FIXED_H;
-    if (estimatedCardH > minWritingCardHeight) {
+    const overflow = ta.scrollHeight > ta.clientHeight;
+    if (overflow) {
+      const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
       if (estimatedCardH > cardHighWaterRef.current) {
         cardHighWaterRef.current = estimatedCardH;
         setCardMinH(estimatedCardH);
       }
     } else {
-      // Content fits inside dormant size — release high-water
       cardHighWaterRef.current = 0;
       setCardMinH(0);
     }
@@ -290,16 +286,22 @@ export default function DailyMassView({
   }, [open, selectedDate]);
 
 
-  // ── Capture left-column height for writing card min-height ───────────────
+  // ── Align writing card bottom with Gospel card bottom ───────────────────────
   useEffect(() => {
     if (readingsLoading || !readings) return;
-    const el = readingsColRef.current;
-    if (!el) return;
-    // Wait one frame for the DOM to settle before measuring
+    const readingsEl = readingsColRef.current;
+    const writingEl  = writingCardRef.current;
+    if (!readingsEl || !writingEl) return;
+
     const id = requestAnimationFrame(() => {
-      const h = el.getBoundingClientRect().height;
-      if (h > 0) setMinWritingCardHeight(h);
+      const lastCard = readingsEl.lastElementChild as HTMLElement | null;
+      if (!lastCard) return;
+      const gospelBottom = lastCard.getBoundingClientRect().bottom;
+      const writingTop   = writingEl.getBoundingClientRect().top;
+      const target = gospelBottom - writingTop;
+      if (target > 0) setMinWritingCardHeight(target);
     });
+
     return () => cancelAnimationFrame(id);
   }, [readingsLoading, readings]);
 
@@ -727,9 +729,11 @@ export default function DailyMassView({
                 <div>
                   {/* Writing panel — dormant matches Notes panel; lifts on active */}
                   <div
+                    ref={writingCardRef}
                     className="ambo-write-panel"
                     style={{
                       minHeight: cardMinH > 0 ? cardMinH : (minWritingCardHeight > 0 ? minWritingCardHeight : undefined),
+                      display: "flex", flexDirection: "column",
                       border: "1px solid var(--ambo-border)",
                       borderRadius: 14,
                       background: isActive ? "var(--ambo-surface)" : "transparent",
@@ -773,9 +777,10 @@ export default function DailyMassView({
                         placeholder="Begin writing…"
                         style={{
                           width: "100%",
+                          flex: 1,
                           minHeight: 60,
                           border: "none", background: "transparent",
-                          resize: "none", outline: "none", overflow: "hidden",
+                          resize: "none", outline: "none", overflow: "auto",
                           fontFamily: "var(--ambo-font-reading)",
                           fontSize: "clamp(15px, 1.5vw, 17px)",
                           lineHeight: 1.85,
