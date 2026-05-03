@@ -657,20 +657,31 @@ export default function DailyMassView({
                           }}
                         >
                           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
-                            <span style={{
-                              fontSize: 11, fontWeight: 700,
-                              letterSpacing: "0.08em", textTransform: "uppercase",
-                              color: "var(--ambo-text-muted)",
-                            }}>
-                              {r.title}
-                            </span>
-                            {r.reference && (
+                            <div>
                               <span style={{
-                                fontSize: 12, fontStyle: "italic",
-                                color: "var(--ambo-text-muted)", marginLeft: 10,
+                                fontSize: 11, fontWeight: 700,
+                                letterSpacing: "0.08em", textTransform: "uppercase",
+                                color: "var(--ambo-text-muted)",
                               }}>
-                                {r.reference}
+                                {r.title}
                               </span>
+                              {r.reference && (
+                                <span style={{
+                                  fontSize: 12, fontStyle: "italic",
+                                  color: "var(--ambo-text-muted)", marginLeft: 10,
+                                }}>
+                                  {r.reference}
+                                </span>
+                              )}
+                            </div>
+                            {r.heading && (
+                              <div style={{
+                                fontFamily: "var(--ambo-font-reading)",
+                                fontSize: 13, fontStyle: "italic",
+                                color: "var(--ambo-text-secondary)", lineHeight: 1.5,
+                              }}>
+                                {r.heading}
+                              </div>
                             )}
                           </div>
                           <span style={{
@@ -779,6 +790,19 @@ export default function DailyMassView({
                         autoCapitalize="sentences"
                       />
 
+                      {/* Word count — below textarea, inside card */}
+                      {wordCount >= 1 && (
+                        <div style={{
+                          marginTop: 20,
+                          textAlign: "center",
+                          fontSize: 12,
+                          color: "var(--ambo-text-muted)",
+                          opacity: 0.7,
+                        }}>
+                          {wordCount} {wordCount === 1 ? "word" : "words"}
+                          {wordCount >= 30 && ` · ~${estimatedMinutes} min`}
+                        </div>
+                      )}
 
                   </div>
                 </div>
@@ -817,28 +841,7 @@ export default function DailyMassView({
         </div>
       )}
 
-      {/* ── Status bar — matches Sunday Write footer (fixed, centred) ───────── */}
-      {mode === "daily" && wordCount > 0 && (
-        <div style={{
-          position: "fixed",
-          bottom: 0, left: 0, right: 0,
-          padding: "12px 24px",
-          background: "var(--ambo-surface-raised)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderTop: "1px solid var(--ambo-border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 16,
-          zIndex: 152,
-        }}>
-          <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
-            {wordCount} {wordCount === 1 ? "word" : "words"}
-            {wordCount > 0 && ` · ~${estimatedMinutes} min`}
-          </span>
-        </div>
-      )}
+      {/* word count is now rendered inside the writing card */}
 
       {/* ── Unsaved-edits guard modal ────────────────────────────────────── */}
       {unsavedGuard && (
