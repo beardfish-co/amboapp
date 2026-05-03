@@ -9,6 +9,7 @@ import type { LectionaryFamily } from "@/lib/jurisdiction";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
+import { renderInline } from "@/lib/inline-markdown";
 import ThemeToggle from "./ThemeToggle";
 import AccountMenu from "./AccountMenu";
 
@@ -64,14 +65,43 @@ function isoToDate(iso: string): Date {
   return new Date(y, m - 1, d);
 }
 
-function shortDayLabel(iso: string, todayStr: string): string {
-  if (iso === todayStr) return "Today";
+// ── Day-title resolution — saint > liturgical name > date fallback ────────────
+// Same string used in contextual pill and writing-card display title.
+function resolveTitle(readings: ReadingsPayload | null, iso: string): string {
+  if (readings?.saint)   return readings.saint;
+  if (readings?.dayName) return readings.dayName;
+  // Date fallback — "Thursday 7 May"
   const d = isoToDate(iso);
-  const tomorrow = isoToDate(todayStr);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-  if (iso === tomorrowIso) return "Tomorrow";
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const weekday  = d.toLocaleDateString(undefined, { weekday: "long" });
+  const dayNum   = d.getDate();
+  const month    = d.toLocaleDateString(undefined, { month: "long" });
+  return `${weekday} ${dayNum} ${month}`;
+}
+
+// ── Preach block types + parsing (mirrors PreachView) ────────────────────────
+type Block =
+  | { kind: "body";   text: string }
+  | { kind: "breath" }
+  | { kind: "quote";  text: string; citation?: string };
+
+function parseBlocks(text: string): Block[] {
+  return text
+    .split("\n\n")
+    .map((b) => b.replace(/[ \t]+$|^[ \t]+/g, ""))
+    .map((b): Block => {
+      if (b === "") return { kind: "breath" };
+      const lines = b.split("\n");
+      if (lines.some((l) => l.startsWith("> "))) {
+        let citation: string | undefined;
+        if (lines.length > 0 && /^—\s+/.test(lines[lines.length - 1])) {
+          citation = lines[lines.length - 1].replace(/^—\s+/, "").trim();
+          lines.pop();
+        }
+        const quoteText = lines.map((l) => l.replace(/^>\s?/, "")).join("\n").trim();
+        return { kind: "quote", text: quoteText, citation };
+      }
+      return { kind: "body", text: b };
+    });
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -91,7 +121,9 @@ interface UnsavedGuard {
   pendingAction: "close";
 }
 
-export default function DailyMassView({ open, onClose, lectionaryFamily, initialDate, onSelectFamily }: DailyMassViewProps) {
+export default function DailyMassView({
+  open, onClose, lectionaryFamily, initialDate, onSelectFamily,
+}: DailyMassViewProps) {
   const today = todayIso();
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [mode, setMode] = useState<DailyMode>("daily");
@@ -101,23 +133,33 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
   const [readingsUnavailable, setReadingsUnavailable] = useState(false);
   const [usFeastSubstitution, setUsFeastSubstitution] = useState(false);
 
-  // Which reading card bodies are expanded
-  const [openBodies, setOpenBodies] = useState<Set<string>>(() => new Set(["r1"]));
+  // All reading cards start collapsed on Daily (unlike Sunday Reflect)
+  const [openBodies, setOpenBodies] = useState<Set<string>>(() => new Set());
 
   const [noteContent, setNoteContent] = useState("");
   const [noteId, setNoteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-
   const [unsavedGuard, setUnsavedGuard] = useState<UnsavedGuard | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef  = useRef<HTMLTextAreaElement>(null);
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
-    date: initialDate,
-    id: null,
-    content: "",
+    date: initialDate, id: null, content: "",
   });
+
+  // ── isActive: writing card lifts when the priest focuses or types ──────────
+  const isActive = isFocused || noteContent.trim().length > 0;
+
+  // ── Auto-size textarea — compact dormant, grows with content ──────────────
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    const minH = isActive ? 240 : 80;
+    ta.style.height = `${Math.max(ta.scrollHeight, minH)}px`;
+  }, [noteContent, isActive]);
 
   // ── Reset on each fresh open ──────────────────────────────────────────────
   useEffect(() => {
@@ -127,7 +169,7 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     setReadings(null);
     setReadingsLoading(false);
     setReadingsUnavailable(false);
-    setOpenBodies(new Set(["r1"]));
+    setOpenBodies(new Set());          // all collapsed on load
     setNoteContent("");
     setNoteId(null);
     setHasUnsaved(false);
@@ -146,14 +188,20 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     setUsFeastSubstitution(isSubstitution);
     setReadingsLoading(true);
     setReadingsUnavailable(false);
-    setOpenBodies(new Set(["r1"]));
+    setOpenBodies(new Set());          // reset on date change too
 
     (async () => {
-      const source: "universalis" | "evangelizo" = isUs && !isSubstitution ? "evangelizo" : "universalis";
-      const jurisdiction: string | undefined = isSubstitution ? "usa" : universalisJurisdiction(lectionaryFamily);
+      const source: "universalis" | "evangelizo" =
+        isUs && !isSubstitution ? "evangelizo" : "universalis";
+      const jurisdiction: string | undefined =
+        isSubstitution ? "usa" : universalisJurisdiction(lectionaryFamily);
       const result = await loadReadings(selectedDate, null, source, jurisdiction);
       if (cancelled) return;
-      if (result.status === "not_published" || result.status === "unavailable" || !result.payload) {
+      if (
+        result.status === "not_published" ||
+        result.status === "unavailable" ||
+        !result.payload
+      ) {
         setReadings(null);
         setReadingsUnavailable(result.status === "unavailable");
       } else {
@@ -220,7 +268,6 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return existingId;
-
       const row = {
         user_id: user.id,
         note_type: "daily",
@@ -233,7 +280,6 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
         readings_snapshot_date: readingsPayload ? date : null,
         updated_at: new Date().toISOString(),
       };
-
       if (existingId) {
         await supabase.from("homilies").update(row).eq("id", existingId);
         return existingId;
@@ -302,20 +348,12 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     }
   }, [hasUnsaved, onClose]);
 
-  const guardSave = useCallback(async () => {
-    await flushSave();
-    setUnsavedGuard(null);
-    onClose();
-  }, [flushSave, onClose]);
-
+  const guardSave    = useCallback(async () => { await flushSave(); setUnsavedGuard(null); onClose(); }, [flushSave, onClose]);
   const guardDiscard = useCallback(() => {
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null; }
-    setHasUnsaved(false);
-    setUnsavedGuard(null);
-    onClose();
+    setHasUnsaved(false); setUnsavedGuard(null); onClose();
   }, [onClose]);
-
-  const guardCancel = useCallback(() => setUnsavedGuard(null), []);
+  const guardCancel  = useCallback(() => setUnsavedGuard(null), []);
 
   // ── Keyboard: Escape → close ──────────────────────────────────────────────
   useEffect(() => {
@@ -330,18 +368,16 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
     return () => window.removeEventListener("keydown", onKey);
   }, [open, unsavedGuard, guardCancel, requestClose]);
 
-  // ── Cleanup timer on unmount ──────────────────────────────────────────────
   useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); }, []);
 
-  // Suppress lint — noteId is used in currentNoteRef only
-  void noteId;
+  void noteId; // used only via currentNoteRef
 
   if (!open) return null;
 
   const dailyReadings = readings?.readings.filter(r => ["r1", "ps", "gospel"].includes(r.id)) ?? [];
-  const displayTitle = readings?.saint || readings?.dayName || shortDayLabel(selectedDate, today);
-  const wordCount = noteContent.trim().split(/\s+/).filter(Boolean).length;
-  const contextLabel = `${shortDayLabel(selectedDate, today)}${readings?.saint ? ` · ${readings.saint}` : ""}`;
+  const dayTitle      = readingsLoading ? "" : resolveTitle(readings, selectedDate);
+  const wordCount     = noteContent.trim().split(/\s+/).filter(Boolean).length;
+  const noReadings    = !readingsLoading && (readingsUnavailable || !readings);
 
   return (
     <>
@@ -357,26 +393,17 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
             grid-template-columns: minmax(0, 1fr) !important;
           }
         }
-        .daily-reading-card-btn {
-          width: 100%;
-          border: none;
-          background: none;
-          text-align: left;
-        }
+        .step-scroll-container::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* ── Full-screen overlay ──────────────────────────────────────────── */}
       <div style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 150,
+        position: "fixed", inset: 0, zIndex: 150,
         background: "var(--ambo-bg)",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden",
+        display: "flex", flexDirection: "column", overflow: "hidden",
       }}>
 
-        {/* ── Primary header ────────────────────────────────────────────── */}
+        {/* ── Primary header — no back chevron ─────────────────────────── */}
         <header style={{
           background: "var(--ambo-header-bg)",
           backdropFilter: "blur(20px) saturate(1.4)",
@@ -386,53 +413,24 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
           flexShrink: 0,
         }}>
           <div className="ambo-header-inner" style={{
-            height: 60,
-            maxWidth: 1180,
-            margin: "0 auto",
-            padding: "0 24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            height: 60, maxWidth: 1180, margin: "0 auto",
+            padding: "0 24px", display: "flex",
+            alignItems: "center", justifyContent: "space-between",
           }}>
-
-            {/* Left: back chevron + logo + wordmark */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <button
-                onClick={requestClose}
-                aria-label="Return to Sunday surface"
-                style={{
-                  border: "none",
-                  background: "none",
-                  color: "var(--ambo-text-muted)",
-                  cursor: "pointer",
-                  fontSize: 24,
-                  lineHeight: 1,
-                  padding: "0 6px 0 0",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                ‹
-              </button>
+            {/* Left: logo + wordmark */}
+            <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/ambo-mark-64.png"
-                alt="Ambo"
-                width={32}
-                height={32}
+                src="/ambo-mark-64.png" alt="Ambo" width={32} height={32}
                 style={{ display: "block", objectFit: "contain", transform: "translateY(-4px)" }}
               />
               <span
                 className="ambo-wordmark"
                 style={{
-                  fontSize: 22,
-                  fontWeight: 400,
+                  fontSize: 22, fontWeight: 400,
                   fontFamily: "var(--font-newsreader), Georgia, serif",
-                  color: "var(--ambo-accent)",
-                  letterSpacing: "-0.01em",
-                  lineHeight: 1,
-                  userSelect: "none",
+                  color: "var(--ambo-accent)", letterSpacing: "-0.01em",
+                  lineHeight: 1, userSelect: "none",
                 }}
               >
                 ambo
@@ -441,13 +439,12 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
 
             {/* Centre: mode islands */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* Greyed Sunday island */}
-              <nav className="mode-pill" aria-label="Sunday modes (inactive)" style={{ opacity: 0.32, pointerEvents: "none" }}>
+              <nav className="mode-pill" aria-label="Sunday modes (inactive)"
+                style={{ opacity: 0.32, pointerEvents: "none" }}>
                 {["Reflect", "Write", "Preach"].map((label) => (
                   <button key={label} className="mode-pill-btn" tabIndex={-1}>{label}</button>
                 ))}
               </nav>
-              {/* Active Daily island */}
               <nav className="mode-pill" aria-label="Daily modes">
                 {(["daily", "preach"] as DailyMode[]).map((m) => (
                   <button
@@ -469,7 +466,6 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
                 onSelectFamily={onSelectFamily ?? (() => Promise.resolve())}
               />
             </div>
-
           </div>
         </header>
 
@@ -477,64 +473,66 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
         <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
 
           {mode === "preach" ? (
-            // ── Preach sub-mode ────────────────────────────────────────
-            <div style={{
-              maxWidth: 860,
-              margin: "0 auto",
-              padding: "clamp(32px, 6vh, 72px) clamp(24px, 7vw, 96px)",
-            }}>
-              {noteContent.trim() ? (
-                noteContent.split(/\n\n+/).map((para, i) => (
-                  <p key={i} style={{
-                    fontFamily: "var(--ambo-font-reading)",
-                    fontSize: "clamp(20px, 2.5vw, 28px)",
-                    lineHeight: 1.75,
-                    color: "var(--ambo-text-primary)",
-                    margin: "0 0 1.2em",
-                  }}>
-                    {para.replace(/\n/g, " ").trim()}
-                  </p>
-                ))
-              ) : (
-                <p style={{
-                  fontFamily: "var(--ambo-font-reading)",
-                  fontSize: "clamp(16px, 2vw, 22px)",
-                  fontStyle: "italic",
-                  color: "var(--ambo-text-muted)",
-                  opacity: 0.5,
-                }}>
-                  No reflection written yet.
-                </p>
-              )}
-            </div>
+            // ── Daily Preach — full PreachView chrome ─────────────────
+            <DailyPreachPanel content={noteContent} title={dayTitle} />
 
           ) : (
-            // ── Daily sub-mode — two-column layout ────────────────────
+            // ── Daily mode — two-column layout ────────────────────────
             <div className="view-fade" style={{
-              maxWidth: 1180,
-              margin: "0 auto",
+              maxWidth: 1180, margin: "0 auto",
               padding: "clamp(24px, 4vh, 48px) clamp(16px, 3vw, 40px) 56px",
             }}>
 
               {/* ── Secondary chrome row ──────────────────────────────── */}
               <div style={{
-                display: "flex",
-                alignItems: "center",
-                marginBottom: 28,
-                gap: 10,
-                flexWrap: "wrap",
+                display: "flex", alignItems: "center",
+                marginBottom: 28, gap: 8, flexWrap: "wrap",
               }}>
+                {/* Back chevron — lives here, not in header */}
+                <button
+                  onClick={requestClose}
+                  aria-label="Back to Sunday surface"
+                  style={{
+                    border: "none", background: "none",
+                    color: "var(--ambo-text-muted)", cursor: "pointer",
+                    fontSize: 24, lineHeight: 1,
+                    padding: "0 2px 0 0", flexShrink: 0,
+                    display: "flex", alignItems: "center",
+                  }}
+                >
+                  ‹
+                </button>
                 <PillButton variant="ghost" icon={<StackIcon />} onClick={requestClose}>
                   My homilies
                 </PillButton>
                 <div style={{ flex: 1 }} />
-                <PillButton
-                  variant="ghost"
-                  icon={<CalendarIcon />}
-                  style={{ cursor: "default", pointerEvents: "none" }}
-                >
-                  {contextLabel}
-                </PillButton>
+                {/* Contextual pill — day title only, no day-relative prefix */}
+                {readingsLoading ? (
+                  <PillButton
+                    variant="ghost"
+                    icon={<CalendarIcon />}
+                    style={{
+                      cursor: "default", pointerEvents: "none",
+                      opacity: 0.45,
+                      transition: "opacity 600ms ease-in-out",
+                    }}
+                  >
+                    Loading…
+                  </PillButton>
+                ) : (
+                  <PillButton
+                    variant="ghost"
+                    icon={<CalendarIcon />}
+                    style={{
+                      cursor: "default", pointerEvents: "none",
+                      overflow: "hidden", textOverflow: "ellipsis",
+                      maxWidth: "min(280px, 48vw)",
+                      transition: "opacity 600ms ease-in-out",
+                    }}
+                  >
+                    {dayTitle}
+                  </PillButton>
+                )}
               </div>
 
               {/* ── Two-column grid ───────────────────────────────────── */}
@@ -542,143 +540,106 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
 
                 {/* ── Left column: reading cards ─────────────────────── */}
                 <div>
+                  {/* Unavailability notice */}
+                  {noReadings && (
+                    <div style={{
+                      fontSize: 11, color: "var(--ambo-text-muted)",
+                      fontStyle: "italic", marginBottom: 12, opacity: 0.7,
+                    }}>
+                      {readingsUnavailable
+                        ? "Readings unavailable — try again"
+                        : "Readings not yet published for this date"}
+                    </div>
+                  )}
+
+                  {/* US feast substitution note */}
+                  {!readingsLoading && usFeastSubstitution && readings && (
+                    <div style={{
+                      fontSize: 11, color: "var(--ambo-text-muted)",
+                      fontStyle: "italic", marginBottom: 12, lineHeight: 1.55,
+                      padding: "8px 10px", background: "var(--ambo-accent-faint)",
+                      borderRadius: 6,
+                    }}>
+                      Today's readings are shown in the Jerusalem Bible — NAB data is not available for this feast.
+                    </div>
+                  )}
+
                   {/* Loading skeletons */}
                   {readingsLoading && (
                     <>
                       {["r1", "ps", "gospel"].map((id, idx) => (
-                        <div
-                          key={id}
-                          className="glass-card"
-                          style={{
-                            marginBottom: idx < 2 ? 16 : 0,
-                            padding: "18px 24px",
-                            opacity: 0.45,
-                          }}
-                        >
+                        <div key={id} className="glass-card" style={{
+                          marginBottom: idx < 2 ? 16 : 0,
+                          padding: "18px 24px", opacity: 0.4,
+                        }}>
                           <div style={{
                             height: 11,
                             width: idx === 0 ? "45%" : idx === 1 ? "28%" : "38%",
                             background: "var(--ambo-text-muted)",
-                            borderRadius: 4,
-                            opacity: 0.4,
+                            borderRadius: 4, opacity: 0.4,
                           }} />
                         </div>
                       ))}
                     </>
                   )}
 
-                  {/* Unavailable / not published */}
-                  {!readingsLoading && (readingsUnavailable || (!readings && dailyReadings.length === 0)) && (
-                    <div className="glass-card" style={{ padding: "28px 28px" }}>
-                      {usFeastSubstitution && (
-                        <div style={{
-                          fontSize: 11,
-                          color: "var(--ambo-text-muted)",
-                          fontStyle: "italic",
-                          marginBottom: 16,
-                          lineHeight: 1.55,
-                          padding: "8px 10px",
-                          background: "var(--ambo-accent-faint)",
-                          borderRadius: 6,
-                        }}>
-                          Today's readings are shown in the Jerusalem Bible — NAB data is not available for this feast.
-                        </div>
-                      )}
-                      <div style={{
-                        fontFamily: "var(--ambo-font-reading)",
-                        fontSize: 14,
-                        fontStyle: "italic",
-                        color: "var(--ambo-text-muted)",
-                      }}>
-                        {readingsUnavailable
-                          ? "Readings are temporarily unavailable. Please check your connection."
-                          : "Readings are not yet published for this date."}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reading cards */}
+                  {/* Reading cards — all start collapsed */}
                   {!readingsLoading && dailyReadings.map((r, idx) => {
-                    const bodyOpen = openBodies.has(r.id);
+                    const bodyOpen  = openBodies.has(r.id);
                     const paragraphs = r.text.split(/\n\n+/);
                     return (
-                      <section
-                        key={r.id}
-                        className="glass-card"
-                        style={{
-                          marginBottom: idx < dailyReadings.length - 1 ? 16 : 0,
-                          overflow: "hidden",
-                        }}
-                      >
-                        {/* Card header — tap to expand/collapse */}
+                      <section key={r.id} className="glass-card" style={{
+                        marginBottom: idx < dailyReadings.length - 1 ? 16 : 0,
+                        overflow: "hidden",
+                      }}>
                         <div
-                          role="button"
-                          tabIndex={0}
+                          role="button" tabIndex={0}
                           onClick={() => toggleBody(r.id)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleBody(r.id);
-                            }
+                            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleBody(r.id); }
                           }}
                           aria-expanded={bodyOpen}
                           style={{
                             padding: bodyOpen ? "20px 24px" : "18px 24px",
-                            cursor: "pointer",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "baseline",
-                            gap: 16,
-                            transition: "padding 200ms var(--ambo-ease)",
+                            cursor: "pointer", display: "flex",
+                            justifyContent: "space-between", alignItems: "baseline",
+                            gap: 16, transition: "padding 200ms var(--ambo-ease)",
                           }}
                         >
                           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}>
                             <span style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              letterSpacing: "0.08em",
-                              textTransform: "uppercase",
+                              fontSize: 11, fontWeight: 700,
+                              letterSpacing: "0.08em", textTransform: "uppercase",
                               color: "var(--ambo-text-muted)",
                             }}>
                               {r.title}
                             </span>
                             {r.reference && (
                               <span style={{
-                                fontSize: 12,
-                                fontStyle: "italic",
-                                color: "var(--ambo-text-muted)",
-                                marginLeft: 10,
+                                fontSize: 12, fontStyle: "italic",
+                                color: "var(--ambo-text-muted)", marginLeft: 10,
                               }}>
                                 {r.reference}
                               </span>
                             )}
                           </div>
                           <span style={{
-                            fontSize: 16,
-                            color: "var(--ambo-text-muted)",
+                            fontSize: 16, color: "var(--ambo-text-muted)",
                             transition: "transform 200ms var(--ambo-ease)",
                             transform: bodyOpen ? "rotate(90deg)" : "rotate(0deg)",
                             flexShrink: 0,
-                          }}>
-                            ›
-                          </span>
+                          }}>›</span>
                         </div>
 
-                        {/* Collapsible body */}
                         <SlideReveal open={bodyOpen}>
                           <div style={{ height: 1, background: "var(--ambo-rule-subtle)" }} />
                           <div style={{ padding: "26px 24px 28px" }}>
                             {paragraphs.map((para, i) => (
-                              <p
-                                key={i}
-                                style={{
-                                  fontFamily: "var(--ambo-font-reading)",
-                                  fontSize: 17,
-                                  lineHeight: 2.05,
-                                  color: "var(--ambo-text-primary)",
-                                  margin: `0 0 ${i < paragraphs.length - 1 ? 16 : 0}px`,
-                                }}
-                              >
+                              <p key={i} style={{
+                                fontFamily: "var(--ambo-font-reading)", fontSize: 17,
+                                lineHeight: 2.05, color: "var(--ambo-text-primary)",
+                                margin: `0 0 ${i < paragraphs.length - 1 ? 16 : 0}px`,
+                              }}>
                                 {para.replace(/\n/g, " ").trim()}
                               </p>
                             ))}
@@ -687,197 +648,536 @@ export default function DailyMassView({ open, onClose, lectionaryFamily, initial
                       </section>
                     );
                   })}
+
+                  {/* Unavailable fallback card */}
+                  {noReadings && (
+                    <div className="glass-card" style={{
+                      padding: "28px 24px",
+                      fontFamily: "var(--ambo-font-reading)",
+                      fontSize: 14, fontStyle: "italic",
+                      color: "var(--ambo-text-muted)",
+                    }}>
+                      You can still write your reflection below — readings will appear when they become available.
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Right column: writing card ──────────────────────── */}
                 <div>
-                  <div
-                    className="ambo-write-panel"
-                    style={{
-                      background: "var(--ambo-surface)",
-                      backdropFilter: "blur(24px) saturate(1.4)",
-                      WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-                      border: "1px solid var(--ambo-border)",
-                      borderRadius: "var(--ambo-radius)",
-                      boxShadow: "var(--ambo-shadow-md)",
-                      padding: "32px 40px 48px",
-                    }}
-                  >
-
-                    {/* Display title — italic, reading font */}
-                    <div style={{
-                      fontFamily: "var(--ambo-font-reading)",
-                      fontSize: "clamp(20px, 2vw, 28px)",
-                      fontStyle: "italic",
-                      fontWeight: 400,
-                      letterSpacing: "-0.01em",
-                      lineHeight: 1.2,
-                      color: readingsLoading ? "var(--ambo-text-muted)" : "var(--ambo-text-primary)",
-                      opacity: readingsLoading ? 0.4 : 1,
-                      transition: "opacity 0.25s",
-                      marginBottom: 14,
-                    }}>
-                      {readingsLoading ? "Loading…" : displayTitle}
-                    </div>
-
-                    {/* Date + saint tactile pill */}
-                    <div style={{ marginBottom: 18 }}>
-                      <PillButton
-                        variant="ghost"
-                        icon={<CalendarIcon />}
-                        style={{ cursor: "default", pointerEvents: "none" }}
-                      >
-                        {contextLabel}
-                      </PillButton>
-                    </div>
-
-                    {/* Divider */}
-                    <div style={{
-                      height: 1,
-                      background: "var(--ambo-rule-subtle)",
-                      marginBottom: 28,
-                    }} />
-
-                    {/* Writing surface */}
-                    <textarea
-                      value={noteContent}
-                      onChange={(e) => handleContentChange(e.target.value)}
-                      onFocus={() => setIsFocused(true)}
-                      onBlur={() => setIsFocused(false)}
-                      placeholder="Begin writing…"
+                  {/* Dormant wrapper — lifts on active */}
+                  <div style={{
+                    opacity: isActive ? 1 : 0.68,
+                    transition: "opacity 900ms cubic-bezier(0.4, 0, 0.2, 1)",
+                  }}>
+                    <div
+                      className="ambo-write-panel"
                       style={{
-                        width: "100%",
-                        minHeight: 280,
-                        border: "none",
-                        background: "transparent",
-                        resize: "none",
-                        outline: "none",
+                        background: "var(--ambo-surface)",
+                        backdropFilter: "blur(24px) saturate(1.4)",
+                        WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+                        border: "1px solid var(--ambo-border)",
+                        borderRadius: "var(--ambo-radius)",
+                        boxShadow: "var(--ambo-shadow-md)",
+                        padding: "32px 40px 48px",
+                      }}
+                    >
+                      {/* Italic display title */}
+                      <div style={{
                         fontFamily: "var(--ambo-font-reading)",
-                        fontSize: "clamp(15px, 1.5vw, 17px)",
-                        lineHeight: 1.85,
-                        color: noteContent.trim() || isFocused
+                        fontSize: "clamp(18px, 2vw, 26px)",
+                        fontStyle: "italic", fontWeight: 400,
+                        letterSpacing: "-0.01em", lineHeight: 1.25,
+                        color: isActive
                           ? "var(--ambo-text-primary)"
                           : "var(--ambo-text-muted)",
-                        caretColor: "var(--ambo-accent)",
-                        transition: "color 0.35s",
-                        boxSizing: "border-box",
-                      } as CSSProperties}
-                      spellCheck
-                      autoCapitalize="sentences"
-                    />
+                        transition: "color 900ms cubic-bezier(0.4, 0, 0.2, 1)",
+                        marginBottom: 20,
+                        minHeight: 30,
+                      }}>
+                        {readingsLoading ? " " : (dayTitle || " ")}
+                      </div>
 
-                    {/* Footer: word count + saving indicator */}
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      marginTop: 14,
-                      minHeight: 18,
-                    }}>
-                      {noteContent.trim() && (
-                        <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", opacity: 0.5 }}>
-                          {wordCount} {wordCount === 1 ? "word" : "words"}
-                        </span>
-                      )}
-                      {saving && (
-                        <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.55 }}>
-                          Saving…
-                        </span>
-                      )}
+                      {/* Divider */}
+                      <div style={{
+                        height: 1,
+                        background: "var(--ambo-rule-subtle)",
+                        marginBottom: 28,
+                      }} />
+
+                      {/* Writing surface — auto-sizes via ref */}
+                      <textarea
+                        ref={textareaRef}
+                        value={noteContent}
+                        onChange={(e) => handleContentChange(e.target.value)}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                        placeholder="Begin writing…"
+                        style={{
+                          width: "100%",
+                          minHeight: isActive ? 240 : 80,
+                          border: "none", background: "transparent",
+                          resize: "none", outline: "none", overflow: "hidden",
+                          fontFamily: "var(--ambo-font-reading)",
+                          fontSize: "clamp(15px, 1.5vw, 17px)",
+                          lineHeight: 1.85,
+                          color: noteContent.trim() || isFocused
+                            ? "var(--ambo-text-primary)"
+                            : "var(--ambo-text-muted)",
+                          caretColor: "var(--ambo-accent)",
+                          transition: "color 0.35s",
+                          boxSizing: "border-box",
+                        } as CSSProperties}
+                        spellCheck
+                        autoCapitalize="sentences"
+                      />
+
+                      {/* Footer: word count + saving indicator */}
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 12,
+                        marginTop: 14, minHeight: 18,
+                        transition: "opacity 600ms ease",
+                        opacity: isActive ? 1 : 0,
+                      }}>
+                        {noteContent.trim() && (
+                          <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", opacity: 0.5 }}>
+                            {wordCount} {wordCount === 1 ? "word" : "words"}
+                          </span>
+                        )}
+                        {saving && (
+                          <span style={{ fontSize: 11, color: "var(--ambo-text-muted)", fontStyle: "italic", opacity: 0.55 }}>
+                            Saving…
+                          </span>
+                        )}
+                      </div>
                     </div>
-
                   </div>
                 </div>
 
               </div>
             </div>
           )}
-
         </div>
       </div>
 
       {/* ── Unsaved-edits guard modal ────────────────────────────────────── */}
       {unsavedGuard && (
         <>
-          <div
-            onClick={guardCancel}
-            style={{
-              position: "fixed", inset: 0,
-              background: "rgba(15, 20, 30, 0.45)",
-              backdropFilter: "blur(3px)",
-              WebkitBackdropFilter: "blur(3px)",
-              zIndex: 300,
-            }}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="daily-guard-title"
-            style={{
-              position: "fixed", inset: 0,
-              margin: "auto", height: "fit-content",
-              zIndex: 301,
-              background: "var(--ambo-bg)",
-              border: "1px solid var(--ambo-border)",
-              borderRadius: 18,
-              boxShadow: "var(--ambo-shadow-md)",
-              padding: "28px 28px 24px",
-              width: "min(360px, 90vw)",
-            }}
-          >
+          <div onClick={guardCancel} style={{
+            position: "fixed", inset: 0,
+            background: "rgba(15, 20, 30, 0.45)",
+            backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)",
+            zIndex: 300,
+          }} />
+          <div role="dialog" aria-modal="true" aria-labelledby="daily-guard-title" style={{
+            position: "fixed", inset: 0, margin: "auto", height: "fit-content",
+            zIndex: 301, background: "var(--ambo-bg)",
+            border: "1px solid var(--ambo-border)", borderRadius: 18,
+            boxShadow: "var(--ambo-shadow-md)", padding: "28px 28px 24px",
+            width: "min(360px, 90vw)",
+          }}>
             <p id="daily-guard-title" style={{
-              fontFamily: "var(--ambo-font-reading)",
-              fontSize: 16,
-              fontStyle: "italic",
-              color: "var(--ambo-text-primary)",
-              margin: "0 0 8px",
-              lineHeight: 1.35,
+              fontFamily: "var(--ambo-font-reading)", fontSize: 16,
+              fontStyle: "italic", color: "var(--ambo-text-primary)",
+              margin: "0 0 8px", lineHeight: 1.35,
             }}>
               You have unsaved notes.
             </p>
             <p style={{
-              fontSize: 13,
-              color: "var(--ambo-text-secondary)",
-              lineHeight: 1.55,
-              margin: "0 0 24px",
+              fontSize: 13, color: "var(--ambo-text-secondary)",
+              lineHeight: 1.55, margin: "0 0 24px",
             }}>
               Save before leaving, or discard your changes.
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={guardCancel} style={{
-                border: "1px solid var(--ambo-border)",
-                background: "transparent",
-                color: "var(--ambo-text-secondary)",
-                cursor: "pointer",
-                padding: "9px 16px", borderRadius: 100,
-                fontSize: 13, fontWeight: 500, fontFamily: "inherit",
-              }}>
-                Cancel
-              </button>
-              <button onClick={guardDiscard} style={{
-                border: "1px solid var(--ambo-border)",
-                background: "transparent",
-                color: "var(--ambo-text-muted)",
-                cursor: "pointer",
-                padding: "9px 16px", borderRadius: 100,
-                fontSize: 13, fontWeight: 500, fontFamily: "inherit",
-              }}>
-                Discard
-              </button>
-              <button onClick={guardSave} style={{
-                border: "none",
-                background: "var(--ambo-accent)",
-                color: "white",
-                cursor: "pointer",
-                padding: "9px 20px", borderRadius: 100,
-                fontSize: 13, fontWeight: 600, fontFamily: "inherit",
-              }}>
-                Save
-              </button>
+              <button onClick={guardCancel} style={guardBtnStyle}>Cancel</button>
+              <button onClick={guardDiscard} style={guardBtnStyle}>Discard</button>
+              <button onClick={guardSave} style={guardSaveBtnStyle}>Save</button>
             </div>
           </div>
         </>
       )}
     </>
+  );
+}
+
+// ── Guard modal button styles ─────────────────────────────────────────────────
+const guardBtnStyle: CSSProperties = {
+  border: "1px solid var(--ambo-border)", background: "transparent",
+  color: "var(--ambo-text-secondary)", cursor: "pointer",
+  padding: "9px 16px", borderRadius: 100,
+  fontSize: 13, fontWeight: 500, fontFamily: "inherit",
+};
+const guardSaveBtnStyle: CSSProperties = {
+  border: "none", background: "var(--ambo-accent)", color: "white", cursor: "pointer",
+  padding: "9px 20px", borderRadius: 100,
+  fontSize: 13, fontWeight: 600, fontFamily: "inherit",
+};
+
+// ── Preach-mode font button style (mirrors PreachView) ────────────────────────
+const preachFontBtnStyle: CSSProperties = {
+  border: "1px solid var(--ambo-border)", background: "transparent",
+  color: "var(--ambo-text-muted)", fontSize: 13, fontWeight: 600,
+  padding: "4px 10px", borderRadius: 8, cursor: "pointer",
+  fontFamily: "inherit", lineHeight: 1,
+};
+
+const stepBtnStyle = (disabled: boolean): CSSProperties => ({
+  border: "1px solid " + (disabled ? "var(--ambo-border)" : "var(--ambo-accent)"),
+  background: "transparent",
+  color: disabled ? "var(--ambo-text-muted)" : "var(--ambo-accent)",
+  fontSize: 14, fontWeight: 500, padding: "10px 22px", borderRadius: 100,
+  cursor: disabled ? "default" : "pointer", fontFamily: "inherit",
+  opacity: disabled ? 0.4 : 1, transition: "all 0.15s",
+});
+
+// ── DailyPreachPanel — full Sunday Preach chrome for Daily ───────────────────
+function DailyPreachPanel({ content, title }: { content: string; title: string }) {
+  const [fontSize, setFontSize]             = useState(24);
+  const [currentBlock, setCurrentBlock]     = useState(0);
+  const [blocks, setBlocks]                 = useState<Block[]>(() => parseBlocks(content));
+  const [isScrollMode, setIsScrollMode]     = useState(true);
+  const [isPhone, setIsPhone]               = useState(false);
+  const [stepContainerH, setStepContainerH] = useState(400);
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+  const blockRefsArr     = useRef<(HTMLDivElement | null)[]>([]);
+  const isFirstStep      = useRef(true);
+
+  const maxFontSize    = isPhone ? 28 : 36;
+  const hasContent     = content.trim().length > 0;
+  const displayFontSize = Math.min(fontSize, maxFontSize);
+
+  // Update blocks when content changes (priest switches to Preach tab)
+  useEffect(() => {
+    setBlocks(parseBlocks(content));
+    setCurrentBlock(0);
+    isFirstStep.current = true;
+  }, [content]);
+
+  // Detect phone viewport
+  useEffect(() => {
+    const check = () => setIsPhone(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Smooth sine scroll
+  const smoothScrollTo = (el: HTMLElement, to: number, dur: number) => {
+    const from = el.scrollTop;
+    const delta = to - from;
+    if (Math.abs(delta) < 1) return;
+    const start = performance.now();
+    const ease  = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
+    const tick  = (now: number) => {
+      const t = Math.min((now - start) / dur, 1);
+      el.scrollTop = from + delta * ease(t);
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+
+  // Centre active block in step mode
+  useEffect(() => {
+    if (isScrollMode) return;
+    const block     = blockRefsArr.current[currentBlock];
+    const container = stepContainerRef.current;
+    if (!block || !container) return;
+    const cRect = container.getBoundingClientRect();
+    const bRect = block.getBoundingClientRect();
+    const target = block.clientHeight > container.clientHeight
+      ? container.scrollTop + (bRect.top - cRect.top) - 16
+      : container.scrollTop + (bRect.top + bRect.height / 2) - (cRect.top + cRect.height / 2);
+    if (isFirstStep.current) {
+      container.scrollTop = target;
+      isFirstStep.current = false;
+    } else {
+      smoothScrollTo(container, target, 650);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentBlock, isScrollMode]);
+
+  // Prevent scroll hijack in step mode
+  useEffect(() => {
+    if (isScrollMode) return;
+    const el = stepContainerRef.current;
+    const preventWheel = (e: WheelEvent)  => e.preventDefault();
+    const preventTouch = (e: TouchEvent)  => e.preventDefault();
+    if (el) el.addEventListener("wheel", preventWheel, { passive: false });
+    document.addEventListener("touchmove", preventTouch, { passive: false });
+    return () => {
+      if (el) el.removeEventListener("wheel", preventWheel);
+      document.removeEventListener("touchmove", preventTouch);
+    };
+  }, [isScrollMode]);
+
+  // Track step container height
+  useEffect(() => {
+    if (isScrollMode) return;
+    const el = stepContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setStepContainerH(el.clientHeight));
+    ro.observe(el);
+    setStepContainerH(el.clientHeight);
+    return () => ro.disconnect();
+  }, [isScrollMode]);
+
+  return (
+    <div
+      className="view-fade preach-print-root"
+      style={{
+        maxWidth: 840, margin: "0 auto",
+        padding: isScrollMode ? "0 20px 80px" : "0 20px 0",
+        ...(isScrollMode ? {} : { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" as const }),
+        ["--print-font-size" as string]: `${displayFontSize}px`,
+      }}
+    >
+      {/* ── Controls bar (mirrors PreachView) ───────────────────────────── */}
+      <div className="preach-controls" style={{
+        display: "flex", alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 20, gap: 16,
+      }}>
+        {/* Left: Scroll | Step */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <PillButton
+            variant={isScrollMode ? "active" : "ghost"}
+            onClick={() => setIsScrollMode(true)}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <line x1="2" y1="3.5" x2="14" y2="3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="2" y1="7.5" x2="14" y2="7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="2" y1="11.5" x2="9" y2="11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <polyline points="11,9.5 13.5,12 11,14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            }
+            style={{
+              height: 34, padding: "0 14px",
+              ...(isScrollMode ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
+            }}
+          >
+            Scroll
+          </PillButton>
+          <PillButton
+            variant={!isScrollMode ? "active" : "ghost"}
+            onClick={() => { setIsScrollMode(false); setCurrentBlock(0); isFirstStep.current = true; }}
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <polyline points="3.5,4 9,8 3.5,12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                <line x1="12.5" y1="4" x2="12.5" y2="12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            }
+            style={{
+              height: 34, padding: "0 14px",
+              ...(!isScrollMode ? { border: "1px solid rgba(74,111,165,0.45)", background: "var(--ambo-accent-faint)" } : {}),
+            }}
+          >
+            Step
+          </PillButton>
+        </div>
+
+        {/* Right: A / A / Print */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setFontSize(f => Math.max(18, f - 2))} style={preachFontBtnStyle} title="Smaller">A</button>
+          <button onClick={() => setFontSize(f => Math.min(maxFontSize, f + 2))} style={{ ...preachFontBtnStyle, fontSize: 18 }} title="Larger">A</button>
+          <PillButton
+            variant="ghost"
+            onClick={() => window.print()}
+            title="Print or save as PDF"
+            className="preach-print-btn"
+            icon={
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+                <rect x="3" y="1" width="10" height="5" rx="1" fill="currentColor" opacity="0.7" />
+                <rect x="1" y="5" width="14" height="7" rx="1.5" fill="currentColor" />
+                <rect x="3" y="9" width="10" height="6" rx="1" fill="var(--ambo-bg)" />
+                <rect x="5" y="11" width="6" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+                <rect x="5" y="13" width="4" height="1.2" rx="0.6" fill="currentColor" opacity="0.5" />
+                <circle cx="12.5" cy="7.5" r="0.8" fill="var(--ambo-bg)" />
+              </svg>
+            }
+            style={{ height: 34, padding: "0 14px", marginLeft: 4 }}
+          >
+            Print
+          </PillButton>
+        </div>
+      </div>
+
+      {/* ── Scroll mode ──────────────────────────────────────────────────── */}
+      {isScrollMode && (
+        <div className="glass-card" style={{ padding: "56px 28px", marginBottom: 40 }}>
+          {title && (
+            <p style={{
+              fontFamily: "var(--ambo-font-reading)",
+              fontSize: 24, fontStyle: "italic", fontWeight: 400,
+              letterSpacing: "-0.01em", lineHeight: 1.3,
+              color: "var(--ambo-text-primary)", marginBottom: 32,
+            }}>
+              {title}
+            </p>
+          )}
+          {!hasContent ? (
+            <p style={{
+              fontFamily: "var(--ambo-font-reading)", fontSize: 17,
+              fontStyle: "italic", color: "var(--ambo-text-muted)", opacity: 0.6,
+            }}>
+              No reflection written yet.
+            </p>
+          ) : (
+            <div>
+              {blocks.map((block, i) => {
+                if (block.kind === "quote")  return <DailyQuoteBlock key={i} block={block} fontSize={displayFontSize} />;
+                if (block.kind === "breath") return <div key={i} aria-hidden style={{ height: "1.8em", marginBottom: "1.6em" }} />;
+                return (
+                  <p key={i} style={{
+                    fontFamily: "var(--ambo-font-reading)", fontSize: displayFontSize,
+                    lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
+                    marginBottom: "2em", letterSpacing: "0.01em", whiteSpace: "pre-wrap",
+                  }}>
+                    {renderInline(block.text)}
+                  </p>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Step mode ────────────────────────────────────────────────────── */}
+      {!isScrollMode && (() => {
+        const stepBlocks = blocks.filter(
+          (b): b is Extract<Block, { kind: "body" | "quote" }> => b.kind !== "breath",
+        );
+        if (stepBlocks.length === 0) {
+          return (
+            <div className="glass-card" style={{ padding: "56px 28px" }}>
+              {title && (
+                <p style={{
+                  fontFamily: "var(--ambo-font-reading)", fontSize: 24,
+                  fontStyle: "italic", fontWeight: 400, color: "var(--ambo-text-primary)",
+                  marginBottom: 32,
+                }}>
+                  {title}
+                </p>
+              )}
+              <p style={{
+                fontFamily: "var(--ambo-font-reading)", fontSize: 17,
+                fontStyle: "italic", color: "var(--ambo-text-muted)", opacity: 0.6,
+              }}>
+                No reflection written yet.
+              </p>
+            </div>
+          );
+        }
+        const safeIdx = Math.min(currentBlock, stepBlocks.length - 1);
+        const halfH   = Math.round(stepContainerH / 2);
+
+        return (
+          <div className="glass-card" style={{
+            flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
+            overflow: "hidden", padding: 0,
+          }}>
+            {title && (
+              <p style={{
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
+                textTransform: "uppercase", color: "var(--ambo-text-muted)",
+                margin: 0, padding: "20px 28px 0", flexShrink: 0,
+              }}>
+                {title}
+              </p>
+            )}
+
+            <div
+              ref={stepContainerRef}
+              style={{ flex: 1, minHeight: 0, overflowY: "scroll", scrollbarWidth: "none" }}
+              className="step-scroll-container"
+            >
+              <div style={{ padding: `${halfH}px 28px` }}>
+                {stepBlocks.map((block, i) => {
+                  const dist    = Math.abs(i - safeIdx);
+                  const opacity = dist === 0 ? 1 : dist === 1 ? 0.5 : dist === 2 ? 0.22 : 0.06;
+                  return (
+                    <div
+                      key={i}
+                      ref={(el) => { blockRefsArr.current[i] = el; }}
+                      style={{
+                        opacity,
+                        transition: "opacity 0.7s ease",
+                        marginBottom: i < stepBlocks.length - 1 ? 48 : 0,
+                        pointerEvents: i === safeIdx ? undefined : "none",
+                      }}
+                    >
+                      {block.kind === "quote" ? (
+                        <DailyQuoteBlock block={block} fontSize={displayFontSize} />
+                      ) : (
+                        <p style={{
+                          fontFamily: "var(--ambo-font-reading)", fontSize: displayFontSize,
+                          lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
+                          letterSpacing: "0.01em", whiteSpace: "pre-wrap", margin: 0,
+                        }}>
+                          {renderInline(block.text)}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Navigation bar */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 28px 24px", flexShrink: 0,
+              borderTop: "1px solid var(--ambo-border)",
+            }}>
+              <button
+                onClick={() => setCurrentBlock(c => Math.max(0, c - 1))}
+                disabled={safeIdx === 0}
+                style={stepBtnStyle(safeIdx === 0)}
+              >
+                ← Previous
+              </button>
+              <span style={{ fontSize: 13, color: "var(--ambo-text-muted)" }}>
+                {safeIdx + 1} of {stepBlocks.length}
+              </span>
+              <button
+                onClick={() => setCurrentBlock(c => Math.min(stepBlocks.length - 1, c + 1))}
+                disabled={safeIdx === stepBlocks.length - 1}
+                style={stepBtnStyle(safeIdx === stepBlocks.length - 1)}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ── Quote block (mirrors PreachView's QuoteDisplay) ────────────────────────
+function DailyQuoteBlock({
+  block, fontSize,
+}: { block: Extract<Block, { kind: "quote" }>; fontSize: number }) {
+  return (
+    <div style={{
+      margin: "0 0 1.6em",
+      borderLeft: "3px solid var(--ambo-accent)",
+      paddingLeft: 18, paddingTop: 4, paddingBottom: 4,
+    }}>
+      <p style={{
+        fontFamily: "var(--ambo-font-reading)", fontSize,
+        lineHeight: "var(--ambo-lh-reading)", color: "var(--ambo-text-primary)",
+        letterSpacing: "0.01em", fontStyle: "italic", margin: 0, whiteSpace: "pre-wrap",
+      }}>
+        {renderInline(block.text)}
+      </p>
+      {block.citation && (
+        <div style={{
+          marginTop: 10, fontSize: Math.max(13, Math.round(fontSize * 0.6)),
+          color: "var(--ambo-text-muted)", fontStyle: "normal", letterSpacing: "0.01em",
+        }}>
+          — {block.citation}
+        </div>
+      )}
+    </div>
   );
 }
