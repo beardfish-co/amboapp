@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { loadReadings } from "@/lib/readings";
 import type { ReadingsPayload } from "@/lib/readings";
 import type { LectionaryFamily } from "@/lib/jurisdiction";
+import { SOURCE_ATTRIBUTION } from "@/lib/jurisdiction";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
@@ -153,6 +154,7 @@ export default function DailyMassView({
   const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
   // High-water mark for writing card — prevents snap-back during content growth
   const cardHighWaterRef = useRef(0);
+  const minWritingCardHeightRef = useRef(0); // always-current mirror of minWritingCardHeight
   const [cardMinH, setCardMinH] = useState(0);
   const CARD_FIXED_H = 180; // conservative estimate: padding + title + divider
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
@@ -301,7 +303,7 @@ export default function DailyMassView({
       const gospelBottom = lastCard.getBoundingClientRect().bottom;
       const writingTop   = writingEl.getBoundingClientRect().top;
       const target = gospelBottom - writingTop;
-      if (target > 0) setMinWritingCardHeight(target);
+      if (target > 0) { setMinWritingCardHeight(target); minWritingCardHeightRef.current = target; }
     });
 
     return () => cancelAnimationFrame(id);
@@ -389,7 +391,7 @@ export default function DailyMassView({
       ta.style.height = `${ta.scrollHeight}px`;
       if (value.trim().length > 0) {
         const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
-        if (estimatedCardH > cardHighWaterRef.current) {
+        if (estimatedCardH > minWritingCardHeightRef.current && estimatedCardH > cardHighWaterRef.current) {
           cardHighWaterRef.current = estimatedCardH;
           setCardMinH(estimatedCardH);
         }
@@ -674,8 +676,7 @@ export default function DailyMassView({
                     return (
                       <section key={r.id} className="glass-card" style={{
                         marginBottom: idx < dailyReadings.length - 1 ? 16 : 0,
-                        overflow: "hidden",
-                      }}>
+                        }}>
                         <div
                           role="button" tabIndex={0}
                           onClick={() => toggleBody(r.id)}
@@ -764,7 +765,7 @@ export default function DailyMassView({
                     ref={writingCardRef}
                     className="ambo-write-panel"
                     style={{
-                      minHeight: cardMinH > 0 ? cardMinH : (minWritingCardHeight > 0 ? minWritingCardHeight : undefined),
+                      minHeight: Math.max(cardMinH, minWritingCardHeight) > 0 ? Math.max(cardMinH, minWritingCardHeight) : undefined,
                       display: "flex", flexDirection: "column",
                       position: "relative",
                       border: "1px solid var(--ambo-border)",
@@ -773,9 +774,8 @@ export default function DailyMassView({
                       backdropFilter: isActive ? "blur(24px) saturate(1.4)" : "none",
                       WebkitBackdropFilter: isActive ? "blur(24px) saturate(1.4)" : "none",
                       boxShadow: isActive ? "var(--ambo-shadow-sm)" : "none",
-                      overflow: "hidden",
                       opacity: isActive ? 1 : 0.68,
-                      transition: "background 2000ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 2000ms cubic-bezier(0.4, 0, 0.2, 1), opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1), min-height 2000ms cubic-bezier(0.4, 0, 0.2, 1)",
+                      transition: "background 2000ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 2000ms cubic-bezier(0.4, 0, 0.2, 1), opacity 2000ms cubic-bezier(0.4, 0, 0.2, 1)",
                       padding: "32px 40px 48px",
                     }}
                   >
@@ -855,6 +855,32 @@ export default function DailyMassView({
             </div>
           )}
         </div>
+
+        {/* ── Attribution footer — always visible at overlay bottom, matches Sunday page ── */}
+        {(() => {
+          const attributionSource = (lectionaryFamily === "us_nab" && !usFeastSubstitution) ? "evangelizo" : "universalis";
+          const attr = SOURCE_ATTRIBUTION[attributionSource];
+          return (
+            <footer style={{
+              flexShrink: 0, padding: "10px 24px", textAlign: "center",
+            }}>
+              <p style={{
+                fontSize: 11, color: "var(--ambo-text-muted)",
+                letterSpacing: "0.02em", margin: 0,
+              }}>
+                Scripture readings provided by{" "}
+                <a
+                  href={attr.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "var(--ambo-accent)", textDecoration: "none" }}
+                >
+                  {attr.name}
+                </a>
+              </p>
+            </footer>
+          );
+        })()}
       </div>
 
       {/* ── Immersive Exit pill — rendered at overlay level (not inside DailyPreachPanel)
