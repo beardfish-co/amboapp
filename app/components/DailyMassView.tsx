@@ -381,14 +381,14 @@ export default function DailyMassView({
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
     scheduleSave(value);
 
-    // Measure card growth synchronously with the input event so word-wrap
-    // and card expansion happen in the same render cycle — no staccato lag.
+    // Size textarea to content and grow card if content exceeds dormant capacity.
+    // height:1px forces a reflow so scrollHeight is accurate after the new content.
     const ta = textareaRef.current;
-    if (ta && value.trim().length > 0) {
-      const scrollH = ta.scrollHeight;
-      const overflow = scrollH > ta.clientHeight;
-      if (overflow) {
-        const estimatedCardH = scrollH + CARD_FIXED_H;
+    if (ta) {
+      ta.style.height = "1px";
+      ta.style.height = `${ta.scrollHeight}px`;
+      if (value.trim().length > 0) {
+        const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
         if (estimatedCardH > cardHighWaterRef.current) {
           cardHighWaterRef.current = estimatedCardH;
           setCardMinH(estimatedCardH);
@@ -553,6 +553,7 @@ export default function DailyMassView({
             <DailyPreachPanel
               content={noteContent}
               title={dayTitle}
+              isDesktop={isDesktop}
               onScrollLock={(locked, isScroll) => {
                 // On desktop (≥1280px) the header stays visible — pill island is the exit affordance
                 setHeaderHidden(locked && !isDesktop);
@@ -809,7 +810,6 @@ export default function DailyMassView({
                         placeholder="Begin writing…"
                         style={{
                           width: "100%",
-                          flex: 1,
                           minHeight: 60,
                           border: "none", background: "transparent",
                           resize: "none", outline: "none", overflow: "hidden",
@@ -967,8 +967,10 @@ interface DailyPreachPanelProps {
   onBack: () => void;
   /** Incremented by DailyMassView when the overlay-level Exit pill fires */
   immersiveVersion: number;
+  /** True when viewport ≥ 1280px — controls bar stays visible, no immersive collapse */
+  isDesktop: boolean;
 }
-function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersion }: DailyPreachPanelProps) {
+function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersion, isDesktop }: DailyPreachPanelProps) {
   const [fontSize, setFontSize]             = useState(24);
   const [currentBlock, setCurrentBlock]     = useState(0);
   const [blocks, setBlocks]                 = useState<Block[]>(() => parseBlocks(content));
@@ -1079,8 +1081,8 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
         ["--print-font-size" as string]: `${displayFontSize}px`,
       }}
     >
-      {/* ── Controls bar — hidden in immersive mode (Exit pill is in DailyMassView) ── */}
-      {committedMode === null && (
+      {/* ── Controls bar — hidden in immersive mode (mobile/tablet only); always visible on desktop ── */}
+      {(committedMode === null || isDesktop) && (
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
         justifyContent: "space-between",
@@ -1095,13 +1097,13 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
             variant="ghost"
             className={committedMode !== null ? "preach-exit-pulse" : undefined}
             onClick={() => {
-              if (committedMode !== null) {
-                // Exit immersive mode — restore chrome, stay on Daily Preach
+              if (committedMode !== null && !isDesktop) {
+                // Mobile/tablet: exit immersive mode — restore chrome, stay on Daily Preach
                 setCommittedMode(null);
                 setIsScrollMode(true);
                 onScrollLock(false);
               } else {
-                // Back to Daily Write
+                // Desktop or non-committed: back to Daily Write
                 onBack();
               }
             }}
@@ -1112,7 +1114,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
             }
             style={{ height: 34, padding: "0 14px" }}
           >
-            {committedMode !== null ? "Exit" : "Back"}
+            {committedMode !== null && !isDesktop ? "Exit" : "Back"}
           </PillButton>
           <PillButton
             variant={isScrollMode && committedMode !== null ? "active" : "ghost"}
