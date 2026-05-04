@@ -152,8 +152,7 @@ export default function DailyMassView({
 
   // Writing card min-height — measured from left column when all cards are closed
   const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
-  // Tracks the last content value set by the user (typing) vs loaded externally
-  const lastUserTypedRef = useRef<string | null>(null);
+
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
     date: initialDate, id: null, content: "",
   });
@@ -364,39 +363,28 @@ export default function DailyMassView({
     setHasUnsaved(false);
   }, [persistNote, readings]);
 
+  // ── autosizeTextarea — pins current px height, measures target via height:auto,
+  // restores current, then sets target on the next animation frame so the CSS
+  // height transition has two real pixel values to animate between.
+  // This is called on every noteContent change (typing AND external loads).
+  const autosizeTextarea = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const current = ta.getBoundingClientRect().height;
+    ta.style.height = "auto";
+    const target = ta.scrollHeight;
+    ta.style.height = `${current}px`;
+    requestAnimationFrame(() => { ta.style.height = `${target}px`; });
+  }, []);
+
+  useEffect(() => { autosizeTextarea(); }, [noteContent, autosizeTextarea]);
+
   const handleContentChange = useCallback((value: string) => {
-    // Mark this change as user-typed so the resize effect skips instant-resize
-    lastUserTypedRef.current = value;
     setNoteContent(value);
     setHasUnsaved(true);
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
     scheduleSave(value);
-
-    // Resize textarea to fit content — CSS transition handles smooth easing.
-    // height:1px first forces scrollHeight to reflect content (not element) height.
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.style.height = "1px";
-      ta.style.height = `${ta.scrollHeight}px`;
-    }
   }, [scheduleSave]);
-
-  // ── Instant resize on mount and on external content load ──────────────────
-  // "External" = content changed by something other than the user typing
-  // (e.g. initial mount, Supabase note load, date change).
-  // We suppress the CSS height transition so there is no animation on load.
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    // If this content was just set by the user typing, handleContentChange
-    // already sized the textarea — skip to avoid fighting the CSS transition.
-    if (lastUserTypedRef.current === noteContent) return;
-    // Suppress transition, set correct height, then restore transition next frame.
-    ta.style.transition = "none";
-    ta.style.height = "1px";
-    ta.style.height = `${ta.scrollHeight}px`;
-    requestAnimationFrame(() => { ta.style.transition = ""; });
-  }, [noteContent]);
 
   const toggleBody = useCallback((id: string) => {
     setOpenBodies(prev => {
@@ -819,7 +807,7 @@ export default function DailyMassView({
                             ? "var(--ambo-text-primary)"
                             : "var(--ambo-text-muted)",
                           caretColor: "var(--ambo-accent)",
-                          transition: "height 1.5s ease-in-out, color 0.35s",
+                          transition: "height 2500ms cubic-bezier(0.16, 1, 0.3, 1), color 0.35s",
                           boxSizing: "border-box",
                         } as CSSProperties}
                         spellCheck
