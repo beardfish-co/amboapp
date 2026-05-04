@@ -152,11 +152,8 @@ export default function DailyMassView({
 
   // Writing card min-height — measured from left column when all cards are closed
   const [minWritingCardHeight, setMinWritingCardHeight] = useState(0);
-  // High-water mark for writing card — prevents snap-back during content growth
-  const cardHighWaterRef = useRef(0);
-  const minWritingCardHeightRef = useRef(0); // always-current mirror of minWritingCardHeight
-  const [cardMinH, setCardMinH] = useState(0);
-  const CARD_FIXED_H = 180; // conservative estimate: padding + title + divider
+  // Tracks the last content value set by the user (typing) vs loaded externally
+  const lastUserTypedRef = useRef<string | null>(null);
   const currentNoteRef = useRef<{ date: string; id: string | null; content: string }>({
     date: initialDate, id: null, content: "",
   });
@@ -180,14 +177,6 @@ export default function DailyMassView({
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // ── Writing card shrink — resets to dormant only when content is empty ────────
-  useEffect(() => {
-    if (noteContent.trim().length === 0) {
-      cardHighWaterRef.current = 0;
-      setCardMinH(0);
-    }
-  }, [noteContent]);
-
   // ── Reset on each fresh open ──────────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
@@ -206,8 +195,6 @@ export default function DailyMassView({
     setIsDesktop(typeof window !== "undefined" && window.innerWidth >= 1280);
     setImmersiveVersion(0);
     setMinWritingCardHeight(0);
-    cardHighWaterRef.current = 0;
-    setCardMinH(0);
     currentNoteRef.current = { date: initialDate, id: null, content: "" };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialDate]);
@@ -303,7 +290,7 @@ export default function DailyMassView({
       const gospelBottom = lastCard.getBoundingClientRect().bottom;
       const writingTop   = writingEl.getBoundingClientRect().top;
       const target = gospelBottom - writingTop;
-      if (target > 0) { setMinWritingCardHeight(target); minWritingCardHeightRef.current = target; }
+      if (target > 0) setMinWritingCardHeight(target);
     });
 
     return () => cancelAnimationFrame(id);
@@ -378,26 +365,38 @@ export default function DailyMassView({
   }, [persistNote, readings]);
 
   const handleContentChange = useCallback((value: string) => {
+    // Mark this change as user-typed so the resize effect skips instant-resize
+    lastUserTypedRef.current = value;
     setNoteContent(value);
     setHasUnsaved(true);
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
     scheduleSave(value);
 
-    // Size textarea to content and grow card if content exceeds dormant capacity.
-    // height:1px forces a reflow so scrollHeight is accurate after the new content.
+    // Resize textarea to fit content — CSS transition handles smooth easing.
+    // height:1px first forces scrollHeight to reflect content (not element) height.
     const ta = textareaRef.current;
     if (ta) {
       ta.style.height = "1px";
       ta.style.height = `${ta.scrollHeight}px`;
-      if (value.trim().length > 0) {
-        const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
-        if (estimatedCardH > minWritingCardHeightRef.current && estimatedCardH > cardHighWaterRef.current) {
-          cardHighWaterRef.current = estimatedCardH;
-          setCardMinH(estimatedCardH);
-        }
-      }
     }
   }, [scheduleSave]);
+
+  // ── Instant resize on mount and on external content load ──────────────────
+  // "External" = content changed by something other than the user typing
+  // (e.g. initial mount, Supabase note load, date change).
+  // We suppress the CSS height transition so there is no animation on load.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    // If this content was just set by the user typing, handleContentChange
+    // already sized the textarea — skip to avoid fighting the CSS transition.
+    if (lastUserTypedRef.current === noteContent) return;
+    // Suppress transition, set correct height, then restore transition next frame.
+    ta.style.transition = "none";
+    ta.style.height = "1px";
+    ta.style.height = `${ta.scrollHeight}px`;
+    requestAnimationFrame(() => { ta.style.transition = ""; });
+  }, [noteContent]);
 
   const toggleBody = useCallback((id: string) => {
     setOpenBodies(prev => {
@@ -765,7 +764,7 @@ export default function DailyMassView({
                     ref={writingCardRef}
                     className="ambo-write-panel"
                     style={{
-                      minHeight: Math.max(cardMinH, minWritingCardHeight) > 0 ? Math.max(cardMinH, minWritingCardHeight) : undefined,
+                      minHeight: minWritingCardHeight > 0 ? minWritingCardHeight : undefined,
                       display: "flex", flexDirection: "column",
                       position: "relative",
                       border: "1px solid var(--ambo-border)",
@@ -820,7 +819,7 @@ export default function DailyMassView({
                             ? "var(--ambo-text-primary)"
                             : "var(--ambo-text-muted)",
                           caretColor: "var(--ambo-accent)",
-                          transition: "color 0.35s",
+                          transition: "height 1.5s ease-in-out, color 0.35s",
                           boxSizing: "border-box",
                         } as CSSProperties}
                         spellCheck
@@ -1107,8 +1106,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
         ["--print-font-size" as string]: `${displayFontSize}px`,
       }}
     >
-      {/* ── Controls bar — hidden in immersive mode (mobile/tablet only); always visible on desktop ── */}
-      {(committedMode === null || isDesktop) && (
+      {/* ── Controls bar — always visible in all modes (default, Scroll, Step) ── */}
       <div className="preach-controls" style={{
         display: "flex", alignItems: "center",
         justifyContent: "space-between",
@@ -1116,23 +1114,10 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
       }}>
         {/* Left: Exit | Scroll | Step */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* Back / Exit pill — leftmost
-               Out of mode: "Back" → returns to Daily Write
-               In committed/immersive mode: "Exit" (pulses) → exits immersive */}
+          {/* Back — always visible, always returns to Daily Write */}
           <PillButton
             variant="ghost"
-            className={committedMode !== null ? "preach-exit-pulse" : undefined}
-            onClick={() => {
-              if (committedMode !== null && !isDesktop) {
-                // Mobile/tablet: exit immersive mode — restore chrome, stay on Daily Preach
-                setCommittedMode(null);
-                setIsScrollMode(true);
-                onScrollLock(false);
-              } else {
-                // Desktop or non-committed: back to Daily Write
-                onBack();
-              }
-            }}
+            onClick={onBack}
             icon={
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
                 <polyline points="10,3 4,8 10,13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1140,7 +1125,7 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
             }
             style={{ height: 34, padding: "0 14px" }}
           >
-            {committedMode !== null && !isDesktop ? "Exit" : "Back"}
+            Back
           </PillButton>
           <PillButton
             variant={isScrollMode && committedMode !== null ? "active" : "ghost"}
@@ -1203,7 +1188,6 @@ function DailyPreachPanel({ content, title, onScrollLock, onBack, immersiveVersi
           </PillButton>
         </div>
       </div>
-      )}
 
       {/* ── Scroll mode ──────────────────────────────────────────────────── */}
       {isScrollMode && (
