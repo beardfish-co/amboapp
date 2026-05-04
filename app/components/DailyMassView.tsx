@@ -168,11 +168,20 @@ export default function DailyMassView({
   // Incremented when the DailyMassView-level Exit pill fires; resets DailyPreachPanel
   const [immersiveVersion, setImmersiveVersion] = useState(0);
 
-  // ── Writing card growth — only when content overflows the dormant card ───────
+  // ── Writing card growth — high-water mark, resets only on empty ─────────────
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
 
+    // Empty content → reset everything to dormant state
+    if (noteContent.trim().length === 0) {
+      cardHighWaterRef.current = 0;
+      setCardMinH(0);
+      return;
+    }
+
+    // Content present → grow the card if textarea genuinely overflows
+    // Never shrink while content is still present (high-water mark holds)
     const overflow = ta.scrollHeight > ta.clientHeight;
     if (overflow) {
       const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
@@ -180,10 +189,8 @@ export default function DailyMassView({
         cardHighWaterRef.current = estimatedCardH;
         setCardMinH(estimatedCardH);
       }
-    } else {
-      cardHighWaterRef.current = 0;
-      setCardMinH(0);
     }
+    // No else branch: content present, not overflowing → hold existing high-water mark
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteContent]);
 
