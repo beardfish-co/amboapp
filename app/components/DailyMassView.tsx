@@ -396,16 +396,21 @@ export default function DailyMassView({
     requestAnimationFrame(() => { ta.style.transition = ""; });
   }, []);
 
-  // Fires on every noteContent change. Routes to the right resize fn:
-  // - user keystroke  → autosizeEased (CSS transition, smooth)
-  // - external load   → autosizeInstant (no transition, snaps to full height)
+  // Fires on every noteContent change AND when mode returns to "daily".
+  // Routing:
+  //   user keystroke            → autosizeEased  (CSS transition, smooth)
+  //   external load / nav back  → autosizeInstant (no transition, full height)
+  // mode is in the dep array so that navigating back from Preach re-triggers
+  // the effect even when noteContent hasn't changed (textarea was unmounted
+  // while in Preach mode and remounts without a content change).
   useEffect(() => {
+    if (mode !== "daily") return; // textarea not in DOM in preach mode
     if (lastUserTypedRef.current === noteContent) {
       autosizeEased();
     } else {
       autosizeInstant();
     }
-  }, [noteContent, autosizeEased, autosizeInstant]);
+  }, [noteContent, mode, autosizeEased, autosizeInstant]);
 
   const handleContentChange = useCallback((value: string) => {
     lastUserTypedRef.current = value; // mark before setNoteContent so effect can identify it
