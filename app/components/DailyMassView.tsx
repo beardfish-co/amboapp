@@ -363,23 +363,52 @@ export default function DailyMassView({
     setHasUnsaved(false);
   }, [persistNote, readings]);
 
-  // ── autosizeTextarea — pins current px height, measures target via height:auto,
-  // restores current, then sets target on the next animation frame so the CSS
-  // height transition has two real pixel values to animate between.
-  // This is called on every noteContent change (typing AND external loads).
-  const autosizeTextarea = useCallback(() => {
+  // ── lastUserTypedRef: tracks content set by user keystrokes vs external loads
+  const lastUserTypedRef = useRef<string | null>(null);
+
+  // ── autosizeEased — for user typing.
+  // Pins current px height → measures target via height:auto → restores current
+  // → sets target on next rAF so the CSS transition has two real pixel values.
+  // Also resets scrollTop to 0 so text stays top-anchored during the easing.
+  const autosizeEased = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
     const current = ta.getBoundingClientRect().height;
     ta.style.height = "auto";
     const target = ta.scrollHeight;
     ta.style.height = `${current}px`;
-    requestAnimationFrame(() => { ta.style.height = `${target}px`; });
+    requestAnimationFrame(() => {
+      ta.style.height = `${target}px`;
+      ta.scrollTop = 0; // anchor text to top while box eases open/closed
+    });
   }, []);
 
-  useEffect(() => { autosizeTextarea(); }, [noteContent, autosizeTextarea]);
+  // ── autosizeInstant — for external content loads (mount, Supabase, date change).
+  // Disables the transition, snaps to full scrollHeight, forces a reflow so the
+  // browser commits the height before the transition is restored.
+  const autosizeInstant = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.transition = "none";
+    ta.style.height = "auto";
+    ta.style.height = `${ta.scrollHeight}px`;
+    void ta.offsetHeight; // force reflow so height commits before transition restores
+    requestAnimationFrame(() => { ta.style.transition = ""; });
+  }, []);
+
+  // Fires on every noteContent change. Routes to the right resize fn:
+  // - user keystroke  → autosizeEased (CSS transition, smooth)
+  // - external load   → autosizeInstant (no transition, snaps to full height)
+  useEffect(() => {
+    if (lastUserTypedRef.current === noteContent) {
+      autosizeEased();
+    } else {
+      autosizeInstant();
+    }
+  }, [noteContent, autosizeEased, autosizeInstant]);
 
   const handleContentChange = useCallback((value: string) => {
+    lastUserTypedRef.current = value; // mark before setNoteContent so effect can identify it
     setNoteContent(value);
     setHasUnsaved(true);
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
