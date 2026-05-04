@@ -165,33 +165,25 @@ export default function DailyMassView({
   // ── headerHidden: immersive preach mode collapses the header ─────────────
   const [headerHidden, setHeaderHidden] = useState(false);
   const [stepLocked, setStepLocked]     = useState(false);
+  const [isDesktop, setIsDesktop]       = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1280
+  );
   // Incremented when the DailyMassView-level Exit pill fires; resets DailyPreachPanel
   const [immersiveVersion, setImmersiveVersion] = useState(0);
 
-  // ── Writing card growth — high-water mark, resets only on empty ─────────────
+  // ── Track desktop viewport ───────────────────────────────────────────────────
   useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
+    const onResize = () => setIsDesktop(window.innerWidth >= 1280);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
-    // Empty content → reset everything to dormant state
+  // ── Writing card shrink — resets to dormant only when content is empty ────────
+  useEffect(() => {
     if (noteContent.trim().length === 0) {
       cardHighWaterRef.current = 0;
       setCardMinH(0);
-      return;
     }
-
-    // Content present → grow the card if textarea genuinely overflows
-    // Never shrink while content is still present (high-water mark holds)
-    const overflow = ta.scrollHeight > ta.clientHeight;
-    if (overflow) {
-      const estimatedCardH = ta.scrollHeight + CARD_FIXED_H;
-      if (estimatedCardH > cardHighWaterRef.current) {
-        cardHighWaterRef.current = estimatedCardH;
-        setCardMinH(estimatedCardH);
-      }
-    }
-    // No else branch: content present, not overflowing → hold existing high-water mark
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [noteContent]);
 
   // ── Reset on each fresh open ──────────────────────────────────────────────
@@ -209,6 +201,7 @@ export default function DailyMassView({
     setUnsavedGuard(null);
     setHeaderHidden(false);
     setStepLocked(false);
+    setIsDesktop(typeof window !== "undefined" && window.innerWidth >= 1280);
     setImmersiveVersion(0);
     setMinWritingCardHeight(0);
     cardHighWaterRef.current = 0;
@@ -387,6 +380,21 @@ export default function DailyMassView({
     setHasUnsaved(true);
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
     scheduleSave(value);
+
+    // Measure card growth synchronously with the input event so word-wrap
+    // and card expansion happen in the same render cycle — no staccato lag.
+    const ta = textareaRef.current;
+    if (ta && value.trim().length > 0) {
+      const scrollH = ta.scrollHeight;
+      const overflow = scrollH > ta.clientHeight;
+      if (overflow) {
+        const estimatedCardH = scrollH + CARD_FIXED_H;
+        if (estimatedCardH > cardHighWaterRef.current) {
+          cardHighWaterRef.current = estimatedCardH;
+          setCardMinH(estimatedCardH);
+        }
+      }
+    }
   }, [scheduleSave]);
 
   const toggleBody = useCallback((id: string) => {
@@ -546,7 +554,8 @@ export default function DailyMassView({
               content={noteContent}
               title={dayTitle}
               onScrollLock={(locked, isScroll) => {
-                setHeaderHidden(locked);
+                // On desktop (≥1280px) the header stays visible — pill island is the exit affordance
+                setHeaderHidden(locked && !isDesktop);
                 setStepLocked(locked && isScroll === false);
               }}
               onBack={() => setMode("daily")}
