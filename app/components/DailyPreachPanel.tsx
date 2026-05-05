@@ -195,7 +195,7 @@ export function DailyPreachPanel({ content, title, onScrollLock, onBack, immersi
     <div
       className="view-fade preach-print-root"
       style={{
-        maxWidth: 840, margin: "0 auto",
+        width: "100%", maxWidth: 840, margin: "0 auto",
         padding: isScrollMode ? "36px 20px 80px" : "36px 20px 0",
         ...(isScrollMode ? {} : { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" as const }),
         ["--print-font-size" as string]: `${displayFontSize}px`,
