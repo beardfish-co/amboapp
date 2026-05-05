@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PillButton } from "@/lib/ui/pill-button";
 import { CandleIcon } from "@/lib/ui/icons";
 import RichEditor from "./RichEditor";
-import { DailyPreachPanel } from "./DailyPreachPanel";
+import PreachView from "./PreachView";
 import ThemeToggle from "./ThemeToggle";
 import AccountMenu from "./AccountMenu";
 import {
@@ -95,12 +95,13 @@ export default function SpecialOccasionsView({
   const [paragraphs, setParagraphs]   = useState<Paragraph[]>([]);
   const [initialHtml, setInitialHtml] = useState("");
   const [editorMountKey, setEditorMountKey] = useState(0);
-  const [headerHidden, setHeaderHidden]     = useState(false);
   const [stepLocked, setStepLocked]         = useState(false);
-  const [immersiveVersion, setImmersiveVersion] = useState(0);
+  const [soImmersive, setSoImmersive]       = useState(false);
   const [isDesktop, setIsDesktop]           = useState(
     typeof window !== "undefined" && window.innerWidth >= 1280
   );
+  // Header hides on mobile/tablet when in preach mode (matches Sunday Preach behaviour)
+  const headerHidden = soImmersive && !isDesktop;
   const [saveStatus, setSaveStatus]   = useState<"saved" | "saving" | "unsaved">("saved");
 
   const editorRef     = useRef<Editor | null>(null);
@@ -119,9 +120,8 @@ export default function SpecialOccasionsView({
     setParagraphs([]);
     setInitialHtml("");
     setEditorMountKey((k) => k + 1);
-    setHeaderHidden(false);
+    setSoImmersive(false);
     setStepLocked(false);
-    setImmersiveVersion(0);
     setSaveStatus("saved");
     noteIdRef.current = null;
   }, [open, category]);
@@ -130,7 +130,7 @@ export default function SpecialOccasionsView({
   useEffect(() => {
     if (!open) {
       setMode("write");
-      setHeaderHidden(false);
+      setSoImmersive(false);
       setStepLocked(false);
     }
   }, [open]);
@@ -285,10 +285,11 @@ export default function SpecialOccasionsView({
                     className={`mode-pill-btn ${mode === m ? "active" : ""}`}
                     onClick={() => {
                       setMode(m);
-                      if (m === "write") {
+                      if (m === "preach") {
+                        setSoImmersive(true);
+                      } else {
+                        setSoImmersive(false);
                         setStepLocked(false);
-                        setHeaderHidden(false);
-                        setImmersiveVersion((v) => v + 1);
                       }
                     }}
                   >
@@ -317,18 +318,12 @@ export default function SpecialOccasionsView({
         }}>
 
           {mode === "preach" ? (
-            // ── Preach mode — reuses DailyPreachPanel ──────────────────────
-            <DailyPreachPanel
-              content={preachContent}
-              title={title || capitalise(category)}
-              isDesktop={isDesktop}
-              onScrollLock={(locked, isScroll) => {
-                // On desktop (≥1280px) the header stays visible — pill island is the exit affordance
-                setHeaderHidden(locked && !isDesktop);
-                setStepLocked(locked && isScroll === false);
-              }}
-              onBack={() => setMode("write")}
-              immersiveVersion={immersiveVersion}
+            // ── Preach mode — same component as Sunday Preach ──────────────
+            <PreachView
+              currentId={null}
+              liveContent={{ title: title || capitalise(category), content: preachContent }}
+              onScrollLock={(locked) => setStepLocked(locked)}
+              onExitImmersive={() => setSoImmersive(false)}
             />
 
           ) : (
@@ -446,7 +441,7 @@ export default function SpecialOccasionsView({
 
 
         {/* ── Universalis attribution footer — preach mode only ────────────── */}
-        {mode === "preach" && !stepLocked && (
+        {mode === "preach" && (
           <footer style={{ padding: "16px 24px", textAlign: "center", flexShrink: 0 }}>
             <p style={{ fontSize: 11, color: "var(--ambo-text-muted)", letterSpacing: "0.02em", margin: 0 }}>
               Scripture readings provided by{" "}
@@ -462,26 +457,7 @@ export default function SpecialOccasionsView({
           </footer>
         )}
 
-        {/* ── Immersive Exit pill — tablet/phone only; desktop retains header ── */}
-        {mode === "preach" && stepLocked && !isDesktop && (
-          <div style={{
-            position: "fixed", top: 16, left: "50%",
-            transform: "translateX(-50%)", zIndex: 160,
-          }}>
-            <PillButton
-              variant="ghost"
-              className="preach-exit-pulse"
-              onClick={() => {
-                setImmersiveVersion((v) => v + 1);
-                setHeaderHidden(false);
-                setStepLocked(false);
-              }}
-              style={{ height: 34, padding: "0 14px" }}
-            >
-              Exit
-            </PillButton>
-          </div>
-        )}
+
       </div>
     </>
   );

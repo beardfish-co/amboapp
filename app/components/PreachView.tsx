@@ -57,6 +57,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     setContent(liveContent.content);
     setBlocks(parseBlocks(liveContent.content));
     setCurrentBlock(0);
+    setLoading(false); // show immediately, skip the loading spinner
   }, [liveContent]);
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(24);
@@ -157,6 +158,9 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
 
   // Load the homily (Supabase by id; or most-recent; fall back to localStorage)
   useEffect(() => {
+    // If live content is provided, we already have the most-current data — skip Supabase
+    if (liveContent) { setLoading(false); return; }
+
     let cancelled = false;
 
     (async () => {
@@ -210,7 +214,7 @@ export default function PreachView({ currentId, preachVersion, liveContent, onEx
     })();
 
     return () => { cancelled = true; };
-  }, [currentId, preachVersion]);
+  }, [currentId, preachVersion, liveContent]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const hasContent = content.trim().length > 0;
