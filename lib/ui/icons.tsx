@@ -54,3 +54,17 @@ export function ExamineIcon() {
     </svg>
   );
 }
+
+// CandleIcon — a slim pillar with a teardrop flame.
+// Used for the Special Occasions "New homily" pill.
+// Liturgically present at every rite the Special Occasions type covers:
+// wedding, funeral, baptism, ordination, jubilee.
+export function CandleIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="8" y="9" width="4" height="9" rx="1" />
+      <line x1="10" y1="9" x2="10" y2="7" />
+      <path d="M10 7 Q12.5 5.5 10 2.5 Q7.5 5.5 10 7" />
+    </svg>
+  );
+}

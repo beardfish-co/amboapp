@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loadDayName } from "@/lib/readings";
 import { PillButton } from "@/lib/ui/pill-button";
-import { CalendarIcon, BookIcon } from "@/lib/ui/icons";
+import { CalendarIcon, BookIcon, CandleIcon } from "@/lib/ui/icons";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface HomilyRow {
@@ -13,6 +13,7 @@ export interface HomilyRow {
   content: string | null;
   sunday_date: string | null;
   note_type: string | null;      // 'sunday' | 'daily' | 'special'
+  category: string | null;       // 'wedding' | 'funeral' | 'baptism' | 'other' (special only)
   liturgical_day: string | null; // e.g. "Friday of the Fourth Week of Easter"
   saint_name: string | null;     // saint name on memorial days
   updated_at: string;
@@ -54,6 +55,8 @@ interface HomilyListProps {
   onCreate: () => void;
   /** Opens the Daily Mass surface */
   onCreateDaily: (date: string) => void;
+  /** Opens the Special Occasions surface with the chosen category */
+  onCreateSpecial: (category: string) => void;
   onOpenInWrite: (homily: HomilyRow) => void;
   onOpenEcho: (sundayLabel: string, homilyText: string, homilyId: string) => void;
   onOpenEchoEntry: (entry: ArchiveEntry) => void;
@@ -179,6 +182,7 @@ interface ArchiveCardProps {
   title: string | null;
   sunday_date: string | null;
   note_type?: string | null;
+  category?: string | null;
   liturgical_day?: string | null;
   updated_at: string;
   content: string | null;
@@ -192,16 +196,24 @@ interface ArchiveCardProps {
 }
 
 function ArchiveCard({
-  id, title, sunday_date, note_type, liturgical_day, updated_at, content,
+  id, title, sunday_date, note_type, category, liturgical_day, updated_at, content,
   onOpen, onDelete,
   excerpt, layer, confidence, onOpenEcho, onEchoInteract,
 }: ArchiveCardProps) {
   const sundayName = sunday_date ? sundayNameCache.get(sunday_date) : undefined;
-  const isDaily = note_type === "daily";
-  const displayTitle = (title && title.trim()) || (isDaily ? liturgical_day : sundayName) || "Untitled";
-  const subtitle = sunday_date
-    ? `${sundayName ?? "Sunday"} · ${lectionaryYear(sunday_date)}`
+  const isDaily   = note_type === "daily";
+  const isSpecial = note_type === "special";
+  const displayTitle = (title && title.trim()) || (isDaily ? liturgical_day : isSpecial ? null : sundayName) || "Untitled";
+  const specialSubtitle = isSpecial && category
+    ? category.charAt(0).toUpperCase() + category.slice(1)
     : null;
+  const subtitle = isSpecial
+    ? specialSubtitle
+    : sunday_date
+      ? `${sundayName ?? "Sunday"} · ${lectionaryYear(sunday_date)}`
+      : null;
+  // Echo is available for Sunday homilies (has subtitle from lectionary) and special occasions
+  const echoAvailable = !isSpecial ? !!subtitle : true;
   const isSearchResult = excerpt !== undefined;
   const isLoose = confidence === "loose";
   const layerLabel = layer && layer !== "content" ? LAYER_LABELS[layer] : null;
@@ -306,12 +318,12 @@ function ArchiveCard({
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {onOpenEcho && subtitle && (
+          {onOpenEcho && echoAvailable && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEchoInteract?.();
-                onOpenEcho(subtitle, content ?? "", id);
+                onOpenEcho(subtitle ?? displayTitle, content ?? "", id);
               }}
               aria-label="Open Echo for this homily"
               style={{
@@ -923,6 +935,7 @@ export default function HomilyList({
   onSelect,
   onCreate,
   onCreateDaily,
+  onCreateSpecial,
   onOpenInWrite,
   onOpenEcho,
   onOpenEchoEntry,
@@ -942,7 +955,8 @@ export default function HomilyList({
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
   const [, bumpNames] = useState(0);
-  const [dailyPickerOpen, setDailyPickerOpen] = useState(false);
+  const [dailyPickerOpen, setDailyPickerOpen]     = useState(false);
+  const [specialPickerOpen, setSpecialPickerOpen] = useState(false);
 
   // One-time Echo onboarding tooltip state
   const [showTooltip, setShowTooltip] = useState(false);
@@ -989,7 +1003,7 @@ export default function HomilyList({
         if (!user) { if (!cancelled) setLoadError("Not signed in"); return; }
         const { data, error } = await supabase
           .from("homilies")
-          .select("id, title, content, sunday_date, note_type, liturgical_day, saint_name, updated_at, created_at")
+          .select("id, title, content, sunday_date, note_type, category, liturgical_day, saint_name, updated_at, created_at")
           .eq("user_id", user.id)
           .order("sunday_date", { ascending: false, nullsFirst: false });
         if (error) throw error;
@@ -1057,6 +1071,7 @@ export default function HomilyList({
       setSearchResults(null);
       setSearchStatus("idle");
       setDailyPickerOpen(false);
+      setSpecialPickerOpen(false);
     }
   }, [open, closingReading]);
 
@@ -1393,10 +1408,67 @@ export default function HomilyList({
                       </>
                     )}
                   </div>
-                  {/* Special Occasion — stub, not yet implemented */}
-                  <PillButton disabled title="Coming soon">
-                    Occasion
-                  </PillButton>
+                  {/* Special Occasions — category picker dropdown */}
+                  <div style={{ position: "relative" }}>
+                    <PillButton
+                      variant={specialPickerOpen ? "active" : "ghost"}
+                      icon={<CandleIcon />}
+                      onClick={() => setSpecialPickerOpen(v => !v)}
+                    >
+                      Special Occasions{" "}<span style={{ fontSize: 9, opacity: 0.6 }}>{specialPickerOpen ? "▴" : "▾"}</span>
+                    </PillButton>
+
+                    {specialPickerOpen && (
+                      <>
+                        <div
+                          onClick={() => setSpecialPickerOpen(false)}
+                          style={{ position: "fixed", inset: 0, zIndex: 40 }}
+                        />
+                        <div style={{
+                          position: "absolute",
+                          top: "calc(100% + 4px)",
+                          left: 0,
+                          zIndex: 50,
+                          background: "var(--ambo-bg)",
+                          border: "1px solid var(--ambo-border)",
+                          borderRadius: 10,
+                          boxShadow: "var(--ambo-shadow-md)",
+                          padding: 4,
+                          minWidth: 220,
+                        }}>
+                          {(["wedding", "funeral", "baptism", "other"] as const).map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => {
+                                setSpecialPickerOpen(false);
+                                onCreateSpecial(cat);
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                width: "100%",
+                                textAlign: "left",
+                                border: "none",
+                                background: "transparent",
+                                color: "var(--ambo-text-primary)",
+                                padding: "8px 10px",
+                                borderRadius: 8,
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                                fontSize: 13,
+                                fontWeight: 500,
+                                transition: "background 0.1s",
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ambo-accent-faint)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                            >
+                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1493,8 +1565,9 @@ export default function HomilyList({
                     id={h.id}
                     title={h.title}
                     sunday_date={h.sunday_date}
-                        note_type={h.note_type}
-                        liturgical_day={h.liturgical_day}
+                    note_type={h.note_type}
+                    category={h.category}
+                    liturgical_day={h.liturgical_day}
                     updated_at={h.updated_at}
                     content={h.content}
                     onOpen={() => setViewingHomily(h)}
@@ -1515,8 +1588,9 @@ export default function HomilyList({
                     id={h.id}
                     title={h.title}
                     sunday_date={h.sunday_date}
-                        note_type={h.note_type}
-                        liturgical_day={h.liturgical_day}
+                    note_type={h.note_type}
+                    category={h.category}
+                    liturgical_day={h.liturgical_day}
                     updated_at={h.updated_at}
                     content={h.content}
                     onOpen={() => setViewingHomily(h)}

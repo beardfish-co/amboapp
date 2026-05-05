@@ -12,6 +12,7 @@ import HomilyList, { HomilyRow } from "./components/HomilyList";
 import EchoWorkspace, { ArchiveEntry } from "./components/EchoWorkspace";
 import MobileEchoWorkspace from "./components/MobileEchoWorkspace";
 import DailyMassView from "./components/DailyMassView";
+import SpecialOccasionsView from "./components/SpecialOccasionsView";
 import OnboardingTour from "./components/OnboardingTour";
 import ThemeToggle from "./components/ThemeToggle";
 import DormancyBanner from "./components/DormancyBanner";
@@ -108,6 +109,9 @@ export default function AmboApp() {
   const isMobile = useIsMobile();
   const [echoOpen, setEchoOpen] = useState(false);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [specialOpen, setSpecialOpen]         = useState(false);
+  const [specialCategory, setSpecialCategory] = useState("wedding");
+
   const [dailyInitialDate, setDailyInitialDate] = useState<string>(() => {
     const t = new Date();
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
@@ -316,6 +320,12 @@ export default function AmboApp() {
     setEchoHomilyText("");
     setEchoHomilyId(entry.homily_id ?? undefined);
     setEchoOpen(true);
+  }, []);
+
+  const handleOpenSpecial = useCallback((category: string) => {
+    setSpecialCategory(category);
+    setDrawerOpen(false);
+    setSpecialOpen(true);
   }, []);
 
   const handleOpenDaily = useCallback((date: string) => {
@@ -577,6 +587,7 @@ export default function AmboApp() {
         onOpenInWrite={handleOpenInWrite}
         onOpenEcho={handleOpenEcho}
         onCreateDaily={handleOpenDaily}
+        onCreateSpecial={handleOpenSpecial}
         onOpenEchoEntry={handleOpenEchoFromArchive}
         refreshKey={listRefreshKey}
         dailyOpen={dailyOpen}
@@ -612,6 +623,14 @@ export default function AmboApp() {
         initialDate={dailyInitialDate}
         onSelectFamily={handleSelectFamily}
         onOpenList={() => setDrawerOpen(true)}
+      />
+
+      {/* Special Occasions surface */}
+      <SpecialOccasionsView
+        open={specialOpen}
+        category={specialCategory}
+        onClose={() => setSpecialOpen(false)}
+        onSaved={() => setListRefreshKey((k) => k + 1)}
       />
 
       {/* Onboarding tour */}
