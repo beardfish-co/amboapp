@@ -284,13 +284,17 @@ export default function SpecialOccasionsView({
                     key={m}
                     className={`mode-pill-btn ${mode === m ? "active" : ""}`}
                     onClick={() => {
-                      setMode(m);
                       if (m === "preach") {
+                        // Snapshot editor content into initialHtml before Write unmounts.
+                        // When the priest returns to Write, RichEditor remounts from this
+                        // snapshot instead of the empty initialHtml set on first open.
+                        setInitialHtml(paragraphsToHtml(paragraphs));
                         setSoImmersive(true);
                       } else {
                         setSoImmersive(false);
                         setStepLocked(false);
                       }
+                      setMode(m);
                     }}
                   >
                     {m === "write" ? "Write" : "Preach"}
