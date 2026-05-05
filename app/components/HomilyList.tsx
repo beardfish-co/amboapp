@@ -1326,9 +1326,9 @@ export default function HomilyList({
                 }}>
                   New homily
                 </div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 4 }}>
                   {/* Sunday — opens the existing Reflect/Write/Preach flow */}
-                  <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onCreate}>
+                  <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onCreate} style={{ padding: "8px 10px" }}>
                     Sunday
                   </PillButton>
                   {/* Daily — shows day picker dropdown */}
@@ -1337,6 +1337,7 @@ export default function HomilyList({
                       variant={dailyPickerOpen ? "active" : "ghost"}
                       icon={<BookIcon />}
                       onClick={() => setDailyPickerOpen(v => !v)}
+                      style={{ padding: "8px 10px" }}
                     >
                       Daily{" "}<span style={{ fontSize: 9, opacity: 0.6 }}>{dailyPickerOpen ? "▴" : "▾"}</span>
                     </PillButton>
@@ -1415,6 +1416,7 @@ export default function HomilyList({
                       variant={specialPickerOpen ? "active" : "ghost"}
                       icon={<CandleIcon />}
                       onClick={() => setSpecialPickerOpen(v => !v)}
+                      style={{ padding: "8px 10px" }}
                     >
                       Special Occasions{" "}<span style={{ fontSize: 9, opacity: 0.6 }}>{specialPickerOpen ? "▴" : "▾"}</span>
                     </PillButton>

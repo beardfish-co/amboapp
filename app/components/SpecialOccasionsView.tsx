@@ -283,7 +283,14 @@ export default function SpecialOccasionsView({
                   <button
                     key={m}
                     className={`mode-pill-btn ${mode === m ? "active" : ""}`}
-                    onClick={() => setMode(m)}
+                    onClick={() => {
+                      setMode(m);
+                      if (m === "write") {
+                        setStepLocked(false);
+                        setHeaderHidden(false);
+                        setImmersiveVersion((v) => v + 1);
+                      }
+                    }}
                   >
                     {m === "write" ? "Write" : "Preach"}
                   </button>
@@ -436,21 +443,23 @@ export default function SpecialOccasionsView({
           )}
         </div>
 
-        {/* ── Status bar ──────────────────────────────────────────────────── */}
-        {mode === "write" && (
-          <div style={{
-            position: "fixed", bottom: 0, left: 0, right: 0,
-            padding: "12px 24px",
-            background: "var(--ambo-surface-raised)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderTop: "1px solid var(--ambo-border)",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
-          }}>
-            <span style={{ fontSize: 12, color: "var(--ambo-text-muted)" }}>
-              {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "Unsaved changes"}
-            </span>
-          </div>
+
+
+        {/* ── Universalis attribution footer — preach mode only ────────────── */}
+        {mode === "preach" && !stepLocked && (
+          <footer style={{ padding: "16px 24px", textAlign: "center", flexShrink: 0 }}>
+            <p style={{ fontSize: 11, color: "var(--ambo-text-muted)", letterSpacing: "0.02em", margin: 0 }}>
+              Scripture readings provided by{" "}
+              <a
+                href="https://universalis.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--ambo-accent)", textDecoration: "none" }}
+              >
+                Universalis
+              </a>
+            </p>
+          </footer>
         )}
 
         {/* ── Immersive Exit pill — tablet/phone only; desktop retains header ── */}
