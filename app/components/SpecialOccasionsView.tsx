@@ -314,6 +314,7 @@ export default function SpecialOccasionsView({
         <div style={{
           flex: 1, minHeight: 0,
           overflowY: stepLocked ? "hidden" : "auto",
+          padding: mode === "preach" ? "36px 0 0" : "36px 0",
           ...(stepLocked ? { display: "flex", flexDirection: "column" as const } : {}),
         }}>
 
