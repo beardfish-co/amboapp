@@ -98,6 +98,9 @@ export default function SpecialOccasionsView({
   const [headerHidden, setHeaderHidden]     = useState(false);
   const [stepLocked, setStepLocked]         = useState(false);
   const [immersiveVersion, setImmersiveVersion] = useState(0);
+  const [isDesktop, setIsDesktop]           = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1280
+  );
   const [saveStatus, setSaveStatus]   = useState<"saved" | "saving" | "unsaved">("saved");
 
   const editorRef     = useRef<Editor | null>(null);
@@ -131,6 +134,13 @@ export default function SpecialOccasionsView({
       setStepLocked(false);
     }
   }, [open]);
+
+  // Track desktop viewport (≥1280px — header never hides on desktop)
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1280);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Escape closes (unless immersive preach)
   useEffect(() => {
@@ -304,8 +314,10 @@ export default function SpecialOccasionsView({
             <DailyPreachPanel
               content={preachContent}
               title={title || capitalise(category)}
+              isDesktop={isDesktop}
               onScrollLock={(locked, isScroll) => {
-                setHeaderHidden(locked);
+                // On desktop (≥1280px) the header stays visible — pill island is the exit affordance
+                setHeaderHidden(locked && !isDesktop);
                 setStepLocked(locked && isScroll === false);
               }}
               onBack={() => setMode("write")}
@@ -441,8 +453,8 @@ export default function SpecialOccasionsView({
           </div>
         )}
 
-        {/* ── Immersive Exit pill — shown only in preach step mode ────────── */}
-        {mode === "preach" && stepLocked && (
+        {/* ── Immersive Exit pill — tablet/phone only; desktop retains header ── */}
+        {mode === "preach" && stepLocked && !isDesktop && (
           <div style={{
             position: "fixed", top: 16, left: "50%",
             transform: "translateX(-50%)", zIndex: 160,

@@ -1326,7 +1326,7 @@ export default function HomilyList({
                 }}>
                   New homily
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {/* Sunday — opens the existing Reflect/Write/Preach flow */}
                   <PillButton variant="ghost" icon={<CalendarIcon />} onClick={onCreate}>
                     Sunday
