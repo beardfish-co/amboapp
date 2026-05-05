@@ -629,6 +629,7 @@ function ReadingView({ homily, closing, onClose, onOpenInWrite, onOpenEcho, onOp
     note_type: (homily as HomilyRow).note_type ?? "sunday",
     liturgical_day: (homily as HomilyRow).liturgical_day ?? null,
     saint_name: (homily as HomilyRow).saint_name ?? null,
+    category: (homily as HomilyRow).category ?? null,
     updated_at: homily.updated_at,
     created_at: homily.created_at,
   };
