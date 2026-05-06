@@ -128,6 +128,9 @@ export default function ReflectView({
   const draftIdRef = useRef<string | null>(null);
   const notesRef = useRef<HTMLTextAreaElement | null>(null);
   const threadRef = useRef<HTMLTextAreaElement | null>(null);
+  const seedWhyNowRef = useRef<HTMLTextAreaElement | null>(null);
+  const seedEucharistRef = useRef<HTMLTextAreaElement | null>(null);
+  const seedResponseRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Load the homily (sunday_date, notes, title) for currentId
   useEffect(() => {
@@ -446,6 +449,16 @@ export default function ReflectView({
     el.style.height = "auto";
     el.style.height = el.scrollHeight + "px";
   }, [notes]);
+
+  // Auto-size supplementary question textareas on external loads
+  useEffect(() => {
+    for (const ref of [seedWhyNowRef, seedEucharistRef, seedResponseRef]) {
+      const el = ref.current;
+      if (!el) continue;
+      el.style.height = "auto";
+      el.style.height = el.scrollHeight + "px";
+    }
+  }, [seedWhyNow, seedEucharist, seedResponse]);
 
   // Collapse sub-questions if the priest clears the thread
   useEffect(() => {
@@ -1657,7 +1670,7 @@ export default function ReflectView({
 
             {/* Single expanding wrapper — height opens as one motion, content fades within */}
             <div style={{
-              maxHeight: seed.trim() ? "280px" : "0px",
+              maxHeight: seed.trim() ? "2000px" : "0px",
               overflow: "hidden",
               transition: "max-height 3.2s ease-in-out 0.6s",
             }}>
@@ -1709,31 +1722,48 @@ export default function ReflectView({
                     gap: 10,
                   }}>
                     {[
-                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?" },
-                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?" },
-                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?" },
+                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?",          label: "Why do my people need this now?",          ref: seedWhyNowRef    },
+                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?",  label: "How does this lead toward the Eucharist?",  ref: seedEucharistRef },
+                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?",  label: "What is the Lord asking of these people?",  ref: seedResponseRef  },
                     ].map((f) => (
-                      <textarea
-                        key={f.col}
-                        value={f.value}
-                        onChange={(e) => { f.set(e.target.value); saveField(f.col, e.target.value); }}
-                        placeholder={f.placeholder}
-                        disabled={!currentId}
-                        rows={2}
-                        style={{
-                          width: "100%",
-                          border: "none",
-                          outline: "none",
-                          resize: "none",
-                          background: "transparent",
-                          color: "var(--ambo-text-secondary)",
-                          fontFamily: "var(--ambo-font-reading)",
-                          fontSize: "var(--rf-cite-size)",
+                      <div key={f.col}>
+                        <div style={{
+                          fontSize: 11,
                           fontStyle: "italic",
-                          lineHeight: 1.55,
-                          padding: 0,
-                        }}
-                      />
+                          color: "var(--ambo-text-muted)",
+                          lineHeight: 1.4,
+                          marginBottom: 8,
+                        }}>
+                          {f.label}
+                        </div>
+                        <textarea
+                          ref={f.ref}
+                          value={f.value}
+                          onChange={(e) => {
+                            f.set(e.target.value);
+                            saveField(f.col, e.target.value);
+                            e.target.style.height = "auto";
+                            e.target.style.height = e.target.scrollHeight + "px";
+                          }}
+                          placeholder={f.placeholder}
+                          disabled={!currentId}
+                          rows={1}
+                          style={{
+                            width: "100%",
+                            border: "none",
+                            outline: "none",
+                            resize: "none",
+                            overflow: "hidden",
+                            background: "transparent",
+                            color: "var(--ambo-text-secondary)",
+                            fontFamily: "var(--ambo-font-reading)",
+                            fontSize: "var(--rf-cite-size)",
+                            fontStyle: "italic",
+                            lineHeight: 1.55,
+                            padding: 0,
+                          }}
+                        />
+                      </div>
                     ))}
                   </div>
                 </SlideReveal>
@@ -1789,13 +1819,13 @@ export default function ReflectView({
           </div>
         </div>
 
-        {/* Notes pad — unchanged */}
+        {/* Notes pad */}
         <aside
           className="reflect-notes"
           data-tour="reflect-notes"
           style={{
-            flex: 1,
-            minHeight: 0,
+            flex: "none",
+            minHeight: 109,
             display: "flex",
             flexDirection: "column",
             border: "1px solid var(--ambo-border)",
@@ -1825,6 +1855,8 @@ export default function ReflectView({
           value={notes}
           onChange={(e) => {
             handleNotesChange(e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = e.target.scrollHeight + "px";
           }}
           placeholder={
             currentId
@@ -1834,16 +1866,16 @@ export default function ReflectView({
           disabled={!currentId}
           rows={1}
           style={{
-            flex: 1,
             border: "none",
             outline: "none",
             resize: "none",
-            overflow: "auto",
-            padding: "14px 16px 20px",
+            overflow: "hidden",
+            padding: "14px 16px",
             background: "transparent",
             color: "var(--ambo-text-primary)",
             fontFamily: "inherit",
             fontSize: 15,
+            fontStyle: "italic",
             lineHeight: 1.6,
           }}
         />

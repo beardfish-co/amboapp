@@ -212,6 +212,7 @@ export default function WriteView({
   // different value, guaranteeing the editor remounts with the correct content.
   const [editorMountKey, setEditorMountKey] = useState<string>("");
   const editorRef = useRef<Editor | null>(null);
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   // editorInstance mirrors editorRef into state so effects re-run when the
   // editor mounts. Set in onReady alongside the ref. Used by the citation
   // helper to track whether the cursor is inside a quote.
@@ -619,6 +620,14 @@ export default function WriteView({
     }, 1200);
   };
 
+  // Auto-size the notes textarea on external loads (mount, DB, homily switch)
+  useEffect(() => {
+    const el = notesTextareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [notes]);
+
   // Citation-mode syncer. Subscribes to the editor's selection/update
   // events and computes whether the current selection sits inside a quote
   // block (and whether that quote already has a "— " citation line).
@@ -797,16 +806,20 @@ export default function WriteView({
             </span>
           </div>
           <textarea
+            ref={notesTextareaRef}
             value={notes}
-            onChange={(e) => handleNotesChange(e.target.value)}
+            onChange={(e) => {
+              handleNotesChange(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
             placeholder="Your notes from Reflect. Edit freely."
             style={{
               width: "100%",
-              minHeight: 140,
-              maxHeight: 280,
               border: "none",
               outline: "none",
-              resize: "vertical",
+              resize: "none",
+              overflow: "hidden",
               padding: "14px 20px",
               background: "transparent",
               color: "var(--ambo-text-primary)",
