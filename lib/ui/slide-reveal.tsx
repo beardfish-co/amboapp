@@ -141,7 +141,11 @@ export function SlideReveal({
     <div
       style={{
         maxHeight: isAuto ? "none" : height,
-        overflow: isAuto ? "visible" : "hidden",
+        // overflow:visible + clipPath lets vertical clipping work for the
+        // animation while allowing box-shadows to bleed horizontally.
+        // overflow:hidden would clip shadows on the left and right sides.
+        overflow: "visible",
+        clipPath: isAuto ? "none" : "inset(0 -60px)",
         opacity: noOpacity ? 1 : (open ? 1 : 0),
         transform: noTransform ? "none" : (open ? "translateY(0)" : "translateY(-4px)"),
         marginTop: open ? marginTop : 0,

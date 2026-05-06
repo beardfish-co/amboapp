@@ -1665,6 +1665,7 @@ export default function ReflectView({
                 fontStyle: "italic",
                 lineHeight: 1.65,
                 padding: 0,
+                transition: "height 1000ms ease-in-out",
               }}
             />
 
@@ -1721,7 +1722,15 @@ export default function ReflectView({
                   </span>
                 </button>
 
-                <SlideReveal open={seedExpanded} marginTop={seedExpanded ? 10 : 0}>
+                <SlideReveal
+                  open={seedExpanded}
+                  marginTop={seedExpanded ? 10 : 0}
+                  durationOpenMs={3200}
+                  easeOpen="ease-in-out"
+                  delayOpenMs={600}
+                  durationCloseMs={3200}
+                  delayCloseMs={600}
+                >
                   <div style={{
                     paddingTop: 4,
                     display: "flex",
@@ -1768,6 +1777,7 @@ export default function ReflectView({
                             fontStyle: "italic",
                             lineHeight: 1.55,
                             padding: 0,
+                            transition: "height 1000ms ease-in-out",
                           }}
                         />
                       </div>
@@ -1884,6 +1894,7 @@ export default function ReflectView({
             fontSize: 15,
             fontStyle: "italic",
             lineHeight: 1.6,
+            transition: "height 1000ms ease-in-out",
           }}
         />
         {lastAdded && (
