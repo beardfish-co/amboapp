@@ -18,6 +18,16 @@
 // clipped. On close, we snapshot the current scrollHeight first, then
 // drop to 0 on the next frame so the browser has a start value to
 // interpolate from.
+//
+// Optional override props (all default to standard behaviour so existing
+// callers are unaffected):
+//   durationOpenMs  — bypasses height-based duration calculation for open
+//   easeOpen        — overrides EASE_OPEN for the open direction
+//   delayOpenMs     — CSS transition delay applied on open (ms)
+//   durationCloseMs — bypasses height-based duration calculation for close
+//   delayCloseMs    — CSS transition delay applied on close (ms)
+//   noOpacity       — disables the opacity animation entirely (opacity stays 1)
+//   noTransform     — disables the translateY animation (transform stays none)
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -49,13 +59,35 @@ type Props = {
   marginTop?: number;
   marginBottom?: number;
   style?: CSSProperties;
+  // Animation overrides — all optional, default to standard SlideReveal behaviour
+  durationOpenMs?: number;   // override height-based open duration
+  easeOpen?: string;         // override EASE_OPEN
+  delayOpenMs?: number;      // delay before open animation starts (ms)
+  durationCloseMs?: number;  // override height-based close duration
+  delayCloseMs?: number;     // delay before close animation starts (ms)
+  noOpacity?: boolean;       // disable opacity animation (keep at 1 always)
+  noTransform?: boolean;     // disable translateY animation
 };
 
-export function SlideReveal({ open, children, marginTop = 0, marginBottom = 0, style }: Props) {
+export function SlideReveal({
+  open,
+  children,
+  marginTop = 0,
+  marginBottom = 0,
+  style,
+  durationOpenMs,
+  easeOpen: easeOpenProp,
+  delayOpenMs = 0,
+  durationCloseMs,
+  delayCloseMs = 0,
+  noOpacity = false,
+  noTransform = false,
+}: Props) {
   const inner = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">(open ? "auto" : 0);
   const [duration, setDuration] = useState(MIN_MS);
   const [ease, setEase] = useState(EASE_OPEN);
+  const [delay, setDelay] = useState(0);
   const firstRun = useRef(true);
 
   useEffect(() => {
@@ -68,22 +100,24 @@ export function SlideReveal({ open, children, marginTop = 0, marginBottom = 0, s
 
     if (open) {
       const target = inner.current.scrollHeight;
-      const d = openDurationFor(target);
+      const d = durationOpenMs ?? openDurationFor(target);
       setDuration(d);
-      setEase(EASE_OPEN);
+      setEase(easeOpenProp ?? EASE_OPEN);
+      setDelay(delayOpenMs);
       setHeight(target);
-      const t = setTimeout(() => setHeight("auto"), d + 20);
+      const t = setTimeout(() => setHeight("auto"), d + delayOpenMs + 20);
       return () => clearTimeout(t);
     } else {
       // Snapshot current height, then drop to 0 on the next frame.
       const current = inner.current.scrollHeight;
-      const d = closeDurationFor(current);
+      const d = durationCloseMs ?? closeDurationFor(current);
       setDuration(d);
       setEase(EASE_CLOSE);
+      setDelay(delayCloseMs);
       setHeight(current);
       requestAnimationFrame(() => requestAnimationFrame(() => setHeight(0)));
     }
-  }, [open]);
+  }, [open, durationOpenMs, easeOpenProp, delayOpenMs, durationCloseMs, delayCloseMs]);
 
   const isAuto = height === "auto";
   // Opacity finishes before the box so content feels "arrived" without
@@ -93,23 +127,26 @@ export function SlideReveal({ open, children, marginTop = 0, marginBottom = 0, s
   // the box has had a chance to reveal. On close, opacity outruns the
   // box so the tail collapse isn't visible.
   const opacityMs = Math.round(duration * (open ? 0.85 : 0.5));
+  const delayStr = delay > 0 ? ` ${delay}ms` : "";
+
+  const transitions: string[] = [
+    `max-height ${duration}ms ${ease}${delayStr}`,
+    ...(!noOpacity ? [`opacity ${opacityMs}ms ${ease}${delayStr}`] : []),
+    ...(!noTransform ? [`transform ${duration}ms ${ease}${delayStr}`] : []),
+    `margin-top ${duration}ms ${ease}${delayStr}`,
+    `margin-bottom ${duration}ms ${ease}${delayStr}`,
+  ];
 
   return (
     <div
       style={{
         maxHeight: isAuto ? "none" : height,
         overflow: isAuto ? "visible" : "hidden",
-        opacity: open ? 1 : 0,
-        transform: open ? "translateY(0)" : "translateY(-4px)",
+        opacity: noOpacity ? 1 : (open ? 1 : 0),
+        transform: noTransform ? "none" : (open ? "translateY(0)" : "translateY(-4px)"),
         marginTop: open ? marginTop : 0,
         marginBottom: open ? marginBottom : 0,
-        transition: [
-          `max-height ${duration}ms ${ease}`,
-          `opacity ${opacityMs}ms ${ease}`,
-          `transform ${duration}ms ${ease}`,
-          `margin-top ${duration}ms ${ease}`,
-          `margin-bottom ${duration}ms ${ease}`,
-        ].join(", "),
+        transition: transitions.join(", "),
         ...style,
       }}
     >

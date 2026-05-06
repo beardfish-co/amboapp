@@ -1668,12 +1668,19 @@ export default function ReflectView({
               }}
             />
 
-            {/* Single expanding wrapper — height opens as one motion, content fades within */}
-            <div style={{
-              maxHeight: seed.trim() ? "2000px" : "0px",
-              overflow: "hidden",
-              transition: "max-height 3.2s ease-in-out 0.6s",
-            }}>
+            {/* Single expanding wrapper — SlideReveal preserves the original
+                3.2s ease-in-out 0.6s pace; noOpacity/noTransform let the
+                inner divs manage their own opacity animations unchanged. */}
+            <SlideReveal
+              open={!!seed.trim()}
+              durationOpenMs={3200}
+              easeOpen="ease-in-out"
+              delayOpenMs={600}
+              durationCloseMs={3200}
+              delayCloseMs={600}
+              noOpacity
+              noTransform
+            >
 
               {/* Deeper questions — opacity only, height handled by parent */}
               <div style={{
@@ -1815,7 +1822,7 @@ export default function ReflectView({
               </button>
             </div>
             </div>
-            </div>
+            </SlideReveal>
           </div>
         </div>
 
