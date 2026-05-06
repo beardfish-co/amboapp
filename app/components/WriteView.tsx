@@ -213,6 +213,9 @@ export default function WriteView({
   const [editorMountKey, setEditorMountKey] = useState<string>("");
   const editorRef = useRef<Editor | null>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // Tracks content written by the user for the notes textarea so we can
+  // route typing → autosizeEased and DB/external loads → autosizeInstant.
+  const lastUserTypedNotesRef = useRef<string | null>(null);
   // editorInstance mirrors editorRef into state so effects re-run when the
   // editor mounts. Set in onReady alongside the ref. Used by the citation
   // helper to track whether the cursor is inside a quote.
@@ -620,13 +623,39 @@ export default function WriteView({
     }, 1200);
   };
 
-  // Auto-size the notes textarea on external loads (mount, DB, homily switch)
-  useEffect(() => {
+  // ── autosizeEased — for user typing in the notes field.
+  const autosizeNotesEased = useCallback(() => {
     const el = notesTextareaRef.current;
     if (!el) return;
+    const current = el.getBoundingClientRect().height;
     el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }, [notes]);
+    const target = el.scrollHeight;
+    el.style.height = `${current}px`;
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`;
+      el.scrollTop = 0;
+    });
+  }, []);
+
+  // ── autosizeInstant — for external content loads (mount, DB, homily switch).
+  const autosizeNotesInstant = useCallback(() => {
+    const el = notesTextareaRef.current;
+    if (!el) return;
+    el.style.transition = "none";
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+    void el.offsetHeight;
+    requestAnimationFrame(() => { el.style.transition = ""; });
+  }, []);
+
+  // Auto-size the notes textarea — routes typing → eased, DB load → instant.
+  useEffect(() => {
+    if (lastUserTypedNotesRef.current === notes) {
+      autosizeNotesEased();
+    } else {
+      autosizeNotesInstant();
+    }
+  }, [notes, autosizeNotesEased, autosizeNotesInstant]);
 
   // Citation-mode syncer. Subscribes to the editor's selection/update
   // events and computes whether the current selection sits inside a quote
@@ -809,9 +838,9 @@ export default function WriteView({
             ref={notesTextareaRef}
             value={notes}
             onChange={(e) => {
-              handleNotesChange(e.target.value);
-              e.target.style.height = "auto";
-              e.target.style.height = e.target.scrollHeight + "px";
+              const value = e.target.value;
+              lastUserTypedNotesRef.current = value;
+              handleNotesChange(value);
             }}
             placeholder="Your notes from Reflect. Edit freely."
             style={{

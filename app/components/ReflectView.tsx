@@ -131,6 +131,9 @@ export default function ReflectView({
   const seedWhyNowRef = useRef<HTMLTextAreaElement | null>(null);
   const seedEucharistRef = useRef<HTMLTextAreaElement | null>(null);
   const seedResponseRef = useRef<HTMLTextAreaElement | null>(null);
+  // Tracks content written by the user (vs external DB loads) per field.
+  // Used by autosizeEased/autosizeInstant routing below.
+  const lastUserTypedRef = useRef<Map<string, string | null>>(new Map());
 
   // Load the homily (sunday_date, notes, title) for currentId
   useEffect(() => {
@@ -442,38 +445,74 @@ export default function ReflectView({
     timers.set(column, t);
   }, []);
 
-  // Auto-size the notes textarea whenever notes loads from DB
+  // ── autosizeEased — for user typing.
+  // Pins current px height → measures target via height:auto → restores current
+  // → sets target on next rAF so the CSS transition has two real pixel values.
+  const autosizeEased = useCallback((el: HTMLTextAreaElement) => {
+    const current = el.getBoundingClientRect().height;
+    el.style.height = "auto";
+    const target = el.scrollHeight;
+    el.style.height = `${current}px`;
+    requestAnimationFrame(() => {
+      el.style.height = `${target}px`;
+      el.scrollTop = 0;
+    });
+  }, []);
+
+  // ── autosizeInstant — for external content loads (mount, Supabase, id swap).
+  // Disables the transition, snaps to full scrollHeight, forces a reflow so the
+  // browser commits the height before the transition is restored.
+  const autosizeInstant = useCallback((el: HTMLTextAreaElement) => {
+    el.style.transition = "none";
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+    void el.offsetHeight; // force reflow so height commits before transition restores
+    requestAnimationFrame(() => { el.style.transition = ""; });
+  }, []);
+
+  // Auto-size the notes textarea — routes typing → eased, DB load → instant.
   useEffect(() => {
     const el = notesRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }, [notes]);
-
-  // Auto-size supplementary question textareas on external loads
-  useEffect(() => {
-    for (const ref of [seedWhyNowRef, seedEucharistRef, seedResponseRef]) {
-      const el = ref.current;
-      if (!el) continue;
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
+    if (lastUserTypedRef.current.get("notes") === notes) {
+      autosizeEased(el);
+    } else {
+      autosizeInstant(el);
     }
-  }, [seedWhyNow, seedEucharist, seedResponse]);
+  }, [notes, autosizeEased, autosizeInstant]);
+
+  // Auto-size supplementary question textareas — routes typing → eased, DB load → instant.
+  useEffect(() => {
+    const entries: [string, HTMLTextAreaElement | null, string][] = [
+      ["seed_why_now",   seedWhyNowRef.current,   seedWhyNow],
+      ["seed_eucharist", seedEucharistRef.current, seedEucharist],
+      ["seed_response",  seedResponseRef.current,  seedResponse],
+    ];
+    for (const [col, el, val] of entries) {
+      if (!el) continue;
+      if (lastUserTypedRef.current.get(col) === val) {
+        autosizeEased(el);
+      } else {
+        autosizeInstant(el);
+      }
+    }
+  }, [seedWhyNow, seedEucharist, seedResponse, autosizeEased, autosizeInstant]);
 
   // Collapse sub-questions if the priest clears the thread
   useEffect(() => {
     if (!seed.trim()) setSeedExpanded(false);
   }, [seed]);
 
-  // Auto-size the thread textarea whenever seed changes (handles initial load
-  // from DB as well as live typing — the onChange handler covers typing, but
-  // the effect catches the first render with a pre-existing thread value).
+  // Auto-size the thread textarea — routes typing → eased, DB load → instant.
   useEffect(() => {
     const el = threadRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }, [seed]);
+    if (lastUserTypedRef.current.get("seed") === seed) {
+      autosizeEased(el);
+    } else {
+      autosizeInstant(el);
+    }
+  }, [seed, autosizeEased, autosizeInstant]);
 
   // Flush any pending save when the component unmounts or id swaps
   useEffect(() => {
@@ -1643,11 +1682,10 @@ export default function ReflectView({
               ref={threadRef}
               value={seed}
               onChange={(e) => {
-                setSeed(e.target.value);
-                saveField("seed", e.target.value);
-                // Grow the field instantly as the priest types
-                e.target.style.height = "auto";
-                e.target.style.height = e.target.scrollHeight + "px";
+                const value = e.target.value;
+                lastUserTypedRef.current.set("seed", value);
+                setSeed(value);
+                saveField("seed", value);
               }}
               placeholder="A thread, when one has come."
               disabled={!currentId}
@@ -1756,10 +1794,10 @@ export default function ReflectView({
                           ref={f.ref}
                           value={f.value}
                           onChange={(e) => {
-                            f.set(e.target.value);
-                            saveField(f.col, e.target.value);
-                            e.target.style.height = "auto";
-                            e.target.style.height = e.target.scrollHeight + "px";
+                            const value = e.target.value;
+                            lastUserTypedRef.current.set(f.col, value);
+                            f.set(value);
+                            saveField(f.col, value);
                           }}
                           placeholder={f.placeholder}
                           disabled={!currentId}
@@ -1871,9 +1909,9 @@ export default function ReflectView({
           ref={notesRef}
           value={notes}
           onChange={(e) => {
-            handleNotesChange(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = e.target.scrollHeight + "px";
+            const value = e.target.value;
+            lastUserTypedRef.current.set("notes", value);
+            handleNotesChange(value);
           }}
           placeholder={
             currentId
