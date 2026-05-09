@@ -65,9 +65,9 @@ function WrapperGrown({
   return (
     <div
       ref={wrapperRef}
-      className="test-textarea-wrapper"
       style={{
         overflow: "hidden",
+        outline: "2px solid blue",
         transition: "max-height 1000ms ease-in-out",
       }}
     >
@@ -76,7 +76,6 @@ function WrapperGrown({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="test-textarea-element"
         onInput={startReadoutLoop}
         onHeightChange={(height) => {
           const wrapper = wrapperRef.current;
@@ -128,12 +127,6 @@ export default function TestTextareaPage() {
 
   return (
     <>
-      {/* Diagnostic CSS — test page only, never production */}
-      <style>{`
-        .test-textarea-element { outline: 2px solid red !important; }
-        .test-textarea-wrapper { outline: 2px solid blue !important; }
-      `}</style>
-
       <div
         style={{
           minHeight: "100svh",
@@ -277,7 +270,7 @@ export default function TestTextareaPage() {
               value={value}
               onChange={handleChange}
               placeholder="Type here until the text wraps…"
-              textareaStyle={{ ...baseStyle, padding: 0 }}
+              textareaStyle={{ ...baseStyle, padding: 0, outline: "2px solid red" }}
               onReadout={setReadout}
             />
           </div>
