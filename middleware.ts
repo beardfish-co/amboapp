@@ -1,7 +1,16 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// ── Public-build switch ──────────────────────────────────────────────────────
+// While we're showing the app publicly during the build phase, the login gate
+// is bypassed: every route is reachable without authentication. To re-enable
+// the gate for beta, flip this single line to `false` — no other code changes
+// required.
+const PUBLIC_BUILD = true;
+
 export async function middleware(request: NextRequest) {
+  if (PUBLIC_BUILD) return NextResponse.next();
+
   const { pathname } = request.nextUrl;
 
   // Skip auth entirely for API routes and auth callbacks —
