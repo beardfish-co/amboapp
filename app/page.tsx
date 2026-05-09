@@ -512,7 +512,7 @@ export default function AmboApp() {
         minHeight: 0,
         overflowY: preachScrollLocked ? "hidden" : "auto",
         scrollbarGutter: "stable" as any,
-        padding: mode === "preach" ? "36px 0 0" : "36px 12px",
+        padding: mode === "preach" ? "36px 0 0" : "36px 0",
         // Preach needs a flex column so the view-wrapper can use flex:1 to fill
         // the exact remaining height — without this, height:100% on children
         // may not resolve to a definite value and the step container won't clip.

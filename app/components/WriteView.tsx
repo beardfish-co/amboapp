@@ -631,6 +631,7 @@ export default function WriteView({
     el.style.height = "auto";
     const target = el.scrollHeight;
     el.style.height = `${current}px`;
+    void el.offsetHeight; // force reflow so Safari commits the starting height before the rAF
     requestAnimationFrame(() => {
       el.style.height = `${target}px`;
       el.scrollTop = 0;

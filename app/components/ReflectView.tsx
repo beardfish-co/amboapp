@@ -453,6 +453,7 @@ export default function ReflectView({
     el.style.height = "auto";
     const target = el.scrollHeight;
     el.style.height = `${current}px`;
+    void el.offsetHeight; // force reflow so Safari commits the starting height before the rAF
     requestAnimationFrame(() => {
       el.style.height = `${target}px`;
       el.scrollTop = 0;
@@ -1634,6 +1635,9 @@ export default function ReflectView({
           gap: 12,
           maxHeight: "calc(100svh - 96px)",
           overflowY: "auto",
+          // Padding gives the glass-card box-shadow room before hitting the
+          // scroll-container clipping edge (overflowY:auto forces overflowX:auto).
+          padding: "0 10px",
         }}
       >
         {/* DISCERNMENT panel */}
