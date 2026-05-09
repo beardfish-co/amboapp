@@ -1710,7 +1710,7 @@ export default function ReflectView({
                 fontStyle: "italic",
                 lineHeight: 1.65,
                 padding: 0,
-                transition: "height 1000ms ease-in-out",
+                transition: "height 5000ms ease-in-out",
               }}
             />
 
@@ -1822,7 +1822,7 @@ export default function ReflectView({
                             fontStyle: "italic",
                             lineHeight: 1.55,
                             padding: 0,
-                            transition: "height 1000ms ease-in-out",
+                            transition: "height 5000ms ease-in-out",
                           }}
                         />
                       </div>
@@ -1939,7 +1939,7 @@ export default function ReflectView({
             fontSize: 15,
             fontStyle: "italic",
             lineHeight: 1.6,
-            transition: "height 1000ms ease-in-out",
+            transition: "height 5000ms ease-in-out",
           }}
         />
         {lastAdded && (
