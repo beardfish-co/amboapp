@@ -130,14 +130,17 @@ function PanelBreathing({
         border: "1px solid #d4d6db",
         borderRadius: 12,
         background: "#fff",
-        padding: "16px 20px",
+        // Generous bottom padding so the last line of text never feels close
+        // to the panel's bottom edge in the resting state (and gives the
+        // wrapped line a cushion during the easing transition).
+        padding: "16px 20px 32px 20px",
         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03)",
         // Panel breathes by easing its content-height toward the textarea's
         // reported height. content-box means `height` refers to the inner
         // content area, which is exactly what the textarea fills.
         boxSizing: "content-box",
         height: taHeight ? `${taHeight}px` : "auto",
-        transition: "height 1000ms ease-in-out",
+        transition: "height 2000ms ease-in-out",
       }}
     >
       <TextareaAutosize
