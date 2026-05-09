@@ -10,6 +10,7 @@ import { StackIcon as StackIconShared, BookIcon as BookIconShared, NoteIcon, Exa
 import { loadDayName } from "@/lib/readings";
 import type { Editor } from "@tiptap/react";
 import RichEditor from "./RichEditor";
+import TextareaAutosize from "react-textarea-autosize";
 import {
   paragraphsToHtml,
   paragraphsFromDoc,
@@ -214,8 +215,6 @@ export default function WriteView({
   const editorRef = useRef<Editor | null>(null);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   // Tracks content written by the user for the notes textarea so we can
-  // route typing → autosizeEased and DB/external loads → autosizeInstant.
-  const lastUserTypedNotesRef = useRef<string | null>(null);
   // editorInstance mirrors editorRef into state so effects re-run when the
   // editor mounts. Set in onReady alongside the ref. Used by the citation
   // helper to track whether the cursor is inside a quote.
@@ -623,40 +622,6 @@ export default function WriteView({
     }, 1200);
   };
 
-  // ── autosizeEased — for user typing in the notes field.
-  const autosizeNotesEased = useCallback(() => {
-    const el = notesTextareaRef.current;
-    if (!el) return;
-    const current = el.getBoundingClientRect().height;
-    el.style.height = "auto";
-    const target = el.scrollHeight;
-    el.style.height = `${current}px`;
-    void el.offsetHeight; // force reflow so Safari commits the starting height before the rAF
-    requestAnimationFrame(() => {
-      el.style.height = `${target}px`;
-      el.scrollTop = 0;
-    });
-  }, []);
-
-  // ── autosizeInstant — for external content loads (mount, DB, homily switch).
-  const autosizeNotesInstant = useCallback(() => {
-    const el = notesTextareaRef.current;
-    if (!el) return;
-    el.style.transition = "none";
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-    void el.offsetHeight;
-    requestAnimationFrame(() => { el.style.transition = ""; });
-  }, []);
-
-  // Auto-size the notes textarea — routes typing → eased, DB load → instant.
-  useEffect(() => {
-    if (lastUserTypedNotesRef.current === notes) {
-      autosizeNotesEased();
-    } else {
-      autosizeNotesInstant();
-    }
-  }, [notes, autosizeNotesEased, autosizeNotesInstant]);
 
   // Citation-mode syncer. Subscribes to the editor's selection/update
   // events and computes whether the current selection sits inside a quote
@@ -835,12 +800,11 @@ export default function WriteView({
               Notes
             </span>
           </div>
-          <textarea
+          <TextareaAutosize
             ref={notesTextareaRef}
             value={notes}
             onChange={(e) => {
               const value = e.target.value;
-              lastUserTypedNotesRef.current = value;
               handleNotesChange(value);
             }}
             placeholder="Your notes from Reflect. Edit freely."
@@ -857,7 +821,7 @@ export default function WriteView({
               fontSize: 14,
               lineHeight: 1.6,
               boxSizing: "border-box",
-              transition: "height 5000ms ease-in-out",
+              transition: "height 1000ms ease-in-out",
             }}
           />
         </div>

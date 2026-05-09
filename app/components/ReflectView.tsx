@@ -9,6 +9,7 @@ import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 import { loadReadings, type ReadingsStatus } from "@/lib/readings";
+import TextareaAutosize from "react-textarea-autosize";
 
 interface Reading {
   id: string;
@@ -132,8 +133,6 @@ export default function ReflectView({
   const seedEucharistRef = useRef<HTMLTextAreaElement | null>(null);
   const seedResponseRef = useRef<HTMLTextAreaElement | null>(null);
   // Tracks content written by the user (vs external DB loads) per field.
-  // Used by autosizeEased/autosizeInstant routing below.
-  const lastUserTypedRef = useRef<Map<string, string | null>>(new Map());
 
   // Load the homily (sunday_date, notes, title) for currentId
   useEffect(() => {
@@ -445,75 +444,10 @@ export default function ReflectView({
     timers.set(column, t);
   }, []);
 
-  // ── autosizeEased — for user typing.
-  // Pins current px height → measures target via height:auto → restores current
-  // → sets target on next rAF so the CSS transition has two real pixel values.
-  const autosizeEased = useCallback((el: HTMLTextAreaElement) => {
-    const current = el.getBoundingClientRect().height;
-    el.style.height = "auto";
-    const target = el.scrollHeight;
-    el.style.height = `${current}px`;
-    void el.offsetHeight; // force reflow so Safari commits the starting height before the rAF
-    requestAnimationFrame(() => {
-      el.style.height = `${target}px`;
-      el.scrollTop = 0;
-    });
-  }, []);
-
-  // ── autosizeInstant — for external content loads (mount, Supabase, id swap).
-  // Disables the transition, snaps to full scrollHeight, forces a reflow so the
-  // browser commits the height before the transition is restored.
-  const autosizeInstant = useCallback((el: HTMLTextAreaElement) => {
-    el.style.transition = "none";
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-    void el.offsetHeight; // force reflow so height commits before transition restores
-    requestAnimationFrame(() => { el.style.transition = ""; });
-  }, []);
-
-  // Auto-size the notes textarea — routes typing → eased, DB load → instant.
-  useEffect(() => {
-    const el = notesRef.current;
-    if (!el) return;
-    if (lastUserTypedRef.current.get("notes") === notes) {
-      autosizeEased(el);
-    } else {
-      autosizeInstant(el);
-    }
-  }, [notes, autosizeEased, autosizeInstant]);
-
-  // Auto-size supplementary question textareas — routes typing → eased, DB load → instant.
-  useEffect(() => {
-    const entries: [string, HTMLTextAreaElement | null, string][] = [
-      ["seed_why_now",   seedWhyNowRef.current,   seedWhyNow],
-      ["seed_eucharist", seedEucharistRef.current, seedEucharist],
-      ["seed_response",  seedResponseRef.current,  seedResponse],
-    ];
-    for (const [col, el, val] of entries) {
-      if (!el) continue;
-      if (lastUserTypedRef.current.get(col) === val) {
-        autosizeEased(el);
-      } else {
-        autosizeInstant(el);
-      }
-    }
-  }, [seedWhyNow, seedEucharist, seedResponse, autosizeEased, autosizeInstant]);
-
   // Collapse sub-questions if the priest clears the thread
   useEffect(() => {
     if (!seed.trim()) setSeedExpanded(false);
   }, [seed]);
-
-  // Auto-size the thread textarea — routes typing → eased, DB load → instant.
-  useEffect(() => {
-    const el = threadRef.current;
-    if (!el) return;
-    if (lastUserTypedRef.current.get("seed") === seed) {
-      autosizeEased(el);
-    } else {
-      autosizeInstant(el);
-    }
-  }, [seed, autosizeEased, autosizeInstant]);
 
   // Flush any pending save when the component unmounts or id swaps
   useEffect(() => {
@@ -1685,18 +1619,16 @@ export default function ReflectView({
             </label>
 
             {/* Hinge field — italic Newsreader, auto-grows with content */}
-            <textarea
+            <TextareaAutosize
               ref={threadRef}
               value={seed}
               onChange={(e) => {
                 const value = e.target.value;
-                lastUserTypedRef.current.set("seed", value);
                 setSeed(value);
                 saveField("seed", value);
               }}
               placeholder="A thread, when one has come."
               disabled={!currentId}
-              rows={1}
               style={{
                 width: "100%",
                 border: "none",
@@ -1710,7 +1642,7 @@ export default function ReflectView({
                 fontStyle: "italic",
                 lineHeight: 1.65,
                 padding: 0,
-                transition: "height 5000ms ease-in-out",
+                transition: "height 1000ms ease-in-out",
               }}
             />
 
@@ -1797,18 +1729,16 @@ export default function ReflectView({
                         }}>
                           {f.label}
                         </div>
-                        <textarea
+                        <TextareaAutosize
                           ref={f.ref}
                           value={f.value}
                           onChange={(e) => {
                             const value = e.target.value;
-                            lastUserTypedRef.current.set(f.col, value);
                             f.set(value);
                             saveField(f.col, value);
                           }}
                           placeholder={f.placeholder}
                           disabled={!currentId}
-                          rows={1}
                           style={{
                             width: "100%",
                             border: "none",
@@ -1822,7 +1752,7 @@ export default function ReflectView({
                             fontStyle: "italic",
                             lineHeight: 1.55,
                             padding: 0,
-                            transition: "height 5000ms ease-in-out",
+                            transition: "height 1000ms ease-in-out",
                           }}
                         />
                       </div>
@@ -1912,12 +1842,11 @@ export default function ReflectView({
             Notes
           </span>
         </div>
-        <textarea
+        <TextareaAutosize
           ref={notesRef}
           value={notes}
           onChange={(e) => {
             const value = e.target.value;
-            lastUserTypedRef.current.set("notes", value);
             handleNotesChange(value);
           }}
           placeholder={
@@ -1926,7 +1855,6 @@ export default function ReflectView({
               : "Create or pick a homily in Write to start taking notes."
           }
           disabled={!currentId}
-          rows={1}
           style={{
             border: "none",
             outline: "none",
@@ -1939,7 +1867,7 @@ export default function ReflectView({
             fontSize: 15,
             fontStyle: "italic",
             lineHeight: 1.6,
-            transition: "height 5000ms ease-in-out",
+            transition: "height 1000ms ease-in-out",
           }}
         />
         {lastAdded && (
