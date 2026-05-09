@@ -17,8 +17,8 @@ function WrapperGrown({
   value: string;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
   placeholder: string;
-  textareaStyle?: React.CSSProperties;
-  wrapperStyle?: React.CSSProperties;
+  textareaStyle?: Omit<React.CSSProperties, 'height'>;
+  wrapperStyle?: Omit<React.CSSProperties, 'height'>;
 }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const currentHeightRef = useRef<number>(0);
