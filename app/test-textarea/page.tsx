@@ -104,6 +104,58 @@ function WrapperGrown({
   );
 }
 
+// ── PanelBreathing component ─────────────────────────────────────────────────
+// The panel is the animated element. The textarea is a passenger inside it,
+// always rendered at its natural height with no transition. As the textarea
+// reports a new required height (via onHeightChange), the panel eases its
+// own height toward that value with `transition: height 1000ms ease-in-out`.
+// No clipping — the panel does not have overflow:hidden. Text stays visible.
+function PanelBreathing({
+  value,
+  onChange,
+  placeholder,
+  textareaStyle,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder: string;
+  textareaStyle?: TextareaStyle;
+}) {
+  const [taHeight, setTaHeight] = useState<number>(0);
+
+  return (
+    <div
+      style={{
+        // Panel chrome
+        border: "1px solid #d4d6db",
+        borderRadius: 12,
+        background: "#fff",
+        padding: "16px 20px",
+        boxShadow: "0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03)",
+        // Panel breathes by easing its content-height toward the textarea's
+        // reported height. content-box means `height` refers to the inner
+        // content area, which is exactly what the textarea fills.
+        boxSizing: "content-box",
+        height: taHeight ? `${taHeight}px` : "auto",
+        transition: "height 1000ms ease-in-out",
+      }}
+    >
+      <TextareaAutosize
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        onHeightChange={(h) => setTaHeight(h)}
+        style={{
+          display: "block",
+          width: "100%",
+          // Textarea has no transition, no overflow constraint, no animation.
+          ...textareaStyle,
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 export default function TestTextareaPage() {
   const [value, setValue] = useState("");
@@ -146,7 +198,7 @@ export default function TestTextareaPage() {
           TextareaAutosize — transition variants
         </h1>
         <p style={{ fontSize: 13, color: "#999", marginBottom: 48 }}>
-          All four share the same typed value. Type until text wraps.
+          All five share the same typed value. Type until text wraps.
         </p>
 
         {/* 1 — Minimal */}
@@ -246,7 +298,7 @@ export default function TestTextareaPage() {
         </div>
 
         {/* 4 — Wrapper-driven (instrumented) */}
-        <div style={{ width: 480, marginBottom: 24 }}>
+        <div style={{ width: 480, marginBottom: 48 }}>
           <p
             style={{
               fontSize: 11,
@@ -274,6 +326,27 @@ export default function TestTextareaPage() {
               onReadout={setReadout}
             />
           </div>
+        </div>
+
+        {/* 5 — Panel-breathing */}
+        <div style={{ width: 480, marginBottom: 24 }}>
+          <p
+            style={{
+              fontSize: 11,
+              color: "#999",
+              marginBottom: 8,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            5 — Panel-breathing (height transition on panel · textarea inert)
+          </p>
+          <PanelBreathing
+            value={value}
+            onChange={handleChange}
+            placeholder="Type here until the text wraps…"
+            textareaStyle={{ ...baseStyle, padding: 0 }}
+          />
         </div>
 
         {/* On-screen readout panel */}
