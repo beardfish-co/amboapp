@@ -1578,12 +1578,14 @@ export default function ReflectView({
           gap: 12,
           maxHeight: "calc(100svh - 96px)",
           overflowY: "auto",
-          // overflowX:clip creates a clipping context without forming a scroll
-          // container, so the glass-card box-shadow renders outside it.
-          // (Setting overflowY to auto alone would force overflowX → auto, which
-          // clips the shadow. clip avoids that without allowing horizontal scroll.)
+          // overflowY:auto would force overflowX → auto per CSS spec (creating a
+          // scroll container that clips at the padding-box edge with no margin).
+          // overflowX:clip avoids the implicit scroll container but still clips
+          // horizontal overflow at the padding-box edge — so the cards' ~30px
+          // box-shadow needs cushion inside that boundary. The 36px horizontal
+          // padding gives the shadow room to render in full.
           overflowX: "clip",
-          padding: 0,
+          padding: "0 36px",
         }}
       >
         {/* DISCERNMENT panel */}
@@ -1958,6 +1960,10 @@ export default function ReflectView({
             position: static !important;
             max-height: none !important;
             overflow: visible !important;
+            /* Mobile: reset the desktop/tablet 36px shadow-cushion padding —
+               with overflow:visible the cards aren't being clipped, so they
+               can sit flush in the column. */
+            padding: 0 !important;
           }
           .reflect-notes {
             min-height: 280px;
