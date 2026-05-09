@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   // Skip auth entirely for API routes and auth callbacks —
   // they handle their own auth or are public (readings are public data)
   // Public routes — no auth required
-  const publicRoutes = ["/login", "/privacy", "/terms"];
+  const publicRoutes = ["/login", "/privacy", "/terms", "/test-textarea"];
   if (
     pathname.startsWith("/api") ||
     pathname.startsWith("/auth") ||
