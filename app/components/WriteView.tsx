@@ -7,6 +7,7 @@ import ReadingsDrawer from "./ReadingsDrawer";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon as StackIconShared, BookIcon as BookIconShared, NoteIcon, ExamineIcon } from "@/lib/ui/icons";
+import { BreathingPanel } from "@/lib/ui/breathing-panel";
 import { loadDayName } from "@/lib/readings";
 import type { Editor } from "@tiptap/react";
 import RichEditor from "./RichEditor";
@@ -160,6 +161,9 @@ export default function WriteView({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [readingsOpen, setReadingsOpen] = useState(false);
   const [notes, setNotes] = useState("");
+  // Drives the BreathingPanel height for the Notes textarea below
+  // (see /test-textarea variant 5).
+  const [notesHeight, setNotesHeight] = useState<number>(0);
   // Seed — primary line only (unfolding lives in Reflect). Read-only here.
   const [seed, setSeed] = useState("");
   const [tourSeed, setTourSeed] = useState<string | null>(null); // shown during onboarding tour only
@@ -784,7 +788,8 @@ export default function WriteView({
           backdropFilter: "var(--ambo-blur)",
           WebkitBackdropFilter: "var(--ambo-blur)",
           boxShadow: "var(--ambo-shadow-md)",
-          overflow: "hidden",
+          // overflow: hidden removed — BreathingPanel pattern needs the
+          // wrap-moment cushion to stay visible (see /test-textarea v5).
         }}>
           <div style={{
             padding: "12px 20px",
@@ -800,31 +805,33 @@ export default function WriteView({
               Notes
             </span>
           </div>
-          <TextareaAutosize
-            ref={notesTextareaRef}
-            value={notes}
-            onChange={(e) => {
-              const value = e.target.value;
-              handleNotesChange(value);
-            }}
-            placeholder="Your notes from Reflect. Edit freely."
-            style={{
-              width: "100%",
-              border: "none",
-              outline: "none",
-              resize: "none",
-              overflow: "hidden",
-              padding: "14px 20px",
-              background: "transparent",
-              color: "var(--ambo-text-primary)",
-              fontFamily: "inherit",
-              fontSize: 14,
-              lineHeight: 1.6,
-              boxSizing: "border-box",
-              transition: "height 1000ms ease-in-out",
-              verticalAlign: "top",
-            }}
-          />
+          <BreathingPanel height={notesHeight}>
+            <TextareaAutosize
+              ref={notesTextareaRef}
+              value={notes}
+              onChange={(e) => {
+                const value = e.target.value;
+                handleNotesChange(value);
+              }}
+              onHeightChange={setNotesHeight}
+              placeholder="Your notes from Reflect. Edit freely."
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                resize: "none",
+                overflow: "hidden",
+                padding: 0,
+                background: "transparent",
+                color: "var(--ambo-text-primary)",
+                fontFamily: "inherit",
+                fontSize: 14,
+                lineHeight: 1.6,
+                boxSizing: "border-box",
+                verticalAlign: "top",
+              }}
+            />
+          </BreathingPanel>
         </div>
       </SlideReveal>
 

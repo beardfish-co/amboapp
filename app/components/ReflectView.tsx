@@ -8,6 +8,7 @@ import { normalizeFatherName, selectDefaultCitations } from "@/lib/catena";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
+import { BreathingPanel } from "@/lib/ui/breathing-panel";
 import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 import TextareaAutosize from "react-textarea-autosize";
 
@@ -119,6 +120,14 @@ export default function ReflectView({
   const [seedEucharist, setSeedEucharist] = useState<string>("");
   const [seedResponse, setSeedResponse] = useState<string>("");
   const [seedExpanded, setSeedExpanded] = useState<boolean>(false);
+
+  // Heights reported by each TextareaAutosize, used to drive the
+  // BreathingPanel height transition (see /test-textarea variant 5).
+  const [seedHeight, setSeedHeight] = useState<number>(0);
+  const [seedWhyNowHeight, setSeedWhyNowHeight] = useState<number>(0);
+  const [seedEucharistHeight, setSeedEucharistHeight] = useState<number>(0);
+  const [seedResponseHeight, setSeedResponseHeight] = useState<number>(0);
+  const [notesHeight, setNotesHeight] = useState<number>(0);
   const [notesOpenMobile, setNotesOpenMobile] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
@@ -1618,34 +1627,38 @@ export default function ReflectView({
               What is the one thread I am being given?
             </label>
 
-            {/* Hinge field — italic Newsreader, auto-grows with content */}
-            <TextareaAutosize
-              ref={threadRef}
-              value={seed}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSeed(value);
-                saveField("seed", value);
-              }}
-              placeholder="A thread, when one has come."
-              disabled={!currentId}
-              style={{
-                width: "100%",
-                border: "none",
-                outline: "none",
-                resize: "none",
-                overflow: "hidden",
-                background: "transparent",
-                color: "var(--ambo-text-primary)",
-                fontFamily: "var(--ambo-font-reading)",
-                fontSize: 16,
-                fontStyle: "italic",
-                lineHeight: 1.65,
-                padding: 0,
-                transition: "height 1000ms ease-in-out",
-                verticalAlign: "top",
-              }}
-            />
+            {/* Hinge field — italic Newsreader, auto-grows with content.
+                BreathingPanel eases its height toward the textarea's
+                reported height; the textarea itself is inert. */}
+            <BreathingPanel height={seedHeight}>
+              <TextareaAutosize
+                ref={threadRef}
+                value={seed}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSeed(value);
+                  saveField("seed", value);
+                }}
+                onHeightChange={setSeedHeight}
+                placeholder="A thread, when one has come."
+                disabled={!currentId}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  resize: "none",
+                  overflow: "hidden",
+                  background: "transparent",
+                  color: "var(--ambo-text-primary)",
+                  fontFamily: "var(--ambo-font-reading)",
+                  fontSize: 16,
+                  fontStyle: "italic",
+                  lineHeight: 1.65,
+                  padding: 0,
+                  verticalAlign: "top",
+                }}
+              />
+            </BreathingPanel>
 
             {/* Single expanding wrapper — SlideReveal preserves the original
                 3.2s ease-in-out 0.6s pace; noOpacity/noTransform let the
@@ -1716,9 +1729,9 @@ export default function ReflectView({
                     gap: 10,
                   }}>
                     {[
-                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?",          label: "Why do my people need this now?",          ref: seedWhyNowRef    },
-                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?",  label: "How does this lead toward the Eucharist?",  ref: seedEucharistRef },
-                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?",  label: "What is the Lord asking of these people?",  ref: seedResponseRef  },
+                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "Why do my people need this now?",          label: "Why do my people need this now?",          ref: seedWhyNowRef,    height: seedWhyNowHeight,    setHeight: setSeedWhyNowHeight    },
+                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "How does this lead toward the Eucharist?",  label: "How does this lead toward the Eucharist?",  ref: seedEucharistRef, height: seedEucharistHeight, setHeight: setSeedEucharistHeight },
+                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "What is the Lord asking of these people?",  label: "What is the Lord asking of these people?",  ref: seedResponseRef,  height: seedResponseHeight,  setHeight: setSeedResponseHeight  },
                     ].map((f) => (
                       <div key={f.col}>
                         <div style={{
@@ -1730,33 +1743,35 @@ export default function ReflectView({
                         }}>
                           {f.label}
                         </div>
-                        <TextareaAutosize
-                          ref={f.ref}
-                          value={f.value}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            f.set(value);
-                            saveField(f.col, value);
-                          }}
-                          placeholder={f.placeholder}
-                          disabled={!currentId}
-                          style={{
-                            width: "100%",
-                            border: "none",
-                            outline: "none",
-                            resize: "none",
-                            overflow: "hidden",
-                            background: "transparent",
-                            color: "var(--ambo-text-secondary)",
-                            fontFamily: "var(--ambo-font-reading)",
-                            fontSize: "var(--rf-cite-size)",
-                            fontStyle: "italic",
-                            lineHeight: 1.55,
-                            padding: 0,
-                            transition: "height 1000ms ease-in-out",
-                            verticalAlign: "top",
-                          }}
-                        />
+                        <BreathingPanel height={f.height}>
+                          <TextareaAutosize
+                            ref={f.ref}
+                            value={f.value}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              f.set(value);
+                              saveField(f.col, value);
+                            }}
+                            onHeightChange={f.setHeight}
+                            placeholder={f.placeholder}
+                            disabled={!currentId}
+                            style={{
+                              width: "100%",
+                              border: "none",
+                              outline: "none",
+                              resize: "none",
+                              overflow: "hidden",
+                              background: "transparent",
+                              color: "var(--ambo-text-secondary)",
+                              fontFamily: "var(--ambo-font-reading)",
+                              fontSize: "var(--rf-cite-size)",
+                              fontStyle: "italic",
+                              lineHeight: 1.55,
+                              padding: 0,
+                              verticalAlign: "top",
+                            }}
+                          />
+                        </BreathingPanel>
                       </div>
                     ))}
                   </div>
@@ -1826,7 +1841,8 @@ export default function ReflectView({
             borderRadius: 14,
             background: notes.trim() ? "var(--ambo-surface)" : "transparent",
             boxShadow: notes.trim() ? "var(--ambo-shadow-sm)" : "none",
-            overflow: "hidden",
+            // overflow: hidden removed — BreathingPanel pattern needs the
+            // wrap-moment cushion to stay visible (see /test-textarea v5).
             transition: "background 0.4s ease, box-shadow 0.4s ease",
           }}
         >
@@ -1844,35 +1860,38 @@ export default function ReflectView({
             Notes
           </span>
         </div>
-        <TextareaAutosize
-          ref={notesRef}
-          value={notes}
-          onChange={(e) => {
-            const value = e.target.value;
-            handleNotesChange(value);
-          }}
-          placeholder={
-            currentId
-              ? "Jot what's stirring. Tap any prompt to send it here."
-              : "Create or pick a homily in Write to start taking notes."
-          }
-          disabled={!currentId}
-          style={{
-            border: "none",
-            outline: "none",
-            resize: "none",
-            overflow: "hidden",
-            padding: "14px 16px",
-            background: "transparent",
-            color: "var(--ambo-text-primary)",
-            fontFamily: "inherit",
-            fontSize: 15,
-            fontStyle: "italic",
-            lineHeight: 1.6,
-            transition: "height 1000ms ease-in-out",
-            verticalAlign: "top",
-          }}
-        />
+        <BreathingPanel height={notesHeight}>
+          <TextareaAutosize
+            ref={notesRef}
+            value={notes}
+            onChange={(e) => {
+              const value = e.target.value;
+              handleNotesChange(value);
+            }}
+            onHeightChange={setNotesHeight}
+            placeholder={
+              currentId
+                ? "Jot what's stirring. Tap any prompt to send it here."
+                : "Create or pick a homily in Write to start taking notes."
+            }
+            disabled={!currentId}
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              resize: "none",
+              overflow: "hidden",
+              padding: 0,
+              background: "transparent",
+              color: "var(--ambo-text-primary)",
+              fontFamily: "inherit",
+              fontSize: 15,
+              fontStyle: "italic",
+              lineHeight: 1.6,
+              verticalAlign: "top",
+            }}
+          />
+        </BreathingPanel>
         {lastAdded && (
           <div style={{
             padding: "8px 14px",
