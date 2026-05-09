@@ -31,15 +31,22 @@ import type { ReactNode, CSSProperties } from "react";
  * Callers may pass extra `style` (e.g. background, border, shadow) for
  * visible chrome, but the breathing-critical values (padding, height,
  * transition, box-sizing) always win.
+ *
+ * `transition` lets a caller transiently override the default ease — pass
+ * `"none"` to snap to a new height without animation (e.g. when content
+ * has been swapped externally and an animated morph between unrelated
+ * heights would feel jarring). Omit to use the default 2000ms ease.
  */
 export function BreathingPanel({
   height,
   children,
   style,
+  transition,
 }: {
   height: number;
   children: ReactNode;
   style?: CSSProperties;
+  transition?: string;
 }) {
   return (
     <div
@@ -49,7 +56,7 @@ export function BreathingPanel({
         boxSizing: "content-box",
         padding: "16px 20px 32px 20px",
         height: height ? `${height}px` : "auto",
-        transition: "height 2000ms ease-in-out",
+        transition: transition ?? "height 2000ms ease-in-out",
       }}
     >
       {children}

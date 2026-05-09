@@ -10,6 +10,8 @@ import { SOURCE_ATTRIBUTION } from "@/lib/jurisdiction";
 import { PillButton } from "@/lib/ui/pill-button";
 import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 import { SlideReveal } from "@/lib/ui/slide-reveal";
+import { BreathingPanel } from "@/lib/ui/breathing-panel";
+import TextareaAutosize from "react-textarea-autosize";
 import ThemeToggle from "./ThemeToggle";
 import AccountMenu from "./AccountMenu";
 import { DailyPreachPanel } from "./DailyPreachPanel";
@@ -114,6 +116,9 @@ export default function DailyMassView({
   const [openBodies, setOpenBodies] = useState<Set<string>>(() => new Set());
 
   const [noteContent, setNoteContent] = useState("");
+  // Drives the BreathingPanel height for the writing surface below
+  // (panel-breathing pattern from /test-textarea variant 5).
+  const [noteHeight, setNoteHeight] = useState<number>(0);
   const [noteId, setNoteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasUnsaved, setHasUnsaved] = useState(false);
@@ -337,57 +342,17 @@ export default function DailyMassView({
     setHasUnsaved(false);
   }, [persistNote, readings]);
 
-  // ── lastUserTypedRef: tracks content set by user keystrokes vs external loads
-  const lastUserTypedRef = useRef<string | null>(null);
-
-  // ── autosizeEased — for user typing.
-  // Pins current px height → measures target via height:auto → restores current
-  // → sets target on next rAF so the CSS transition has two real pixel values.
-  // Also resets scrollTop to 0 so text stays top-anchored during the easing.
-  const autosizeEased = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const current = ta.getBoundingClientRect().height;
-    ta.style.height = "auto";
-    const target = ta.scrollHeight;
-    ta.style.height = `${current}px`;
-    requestAnimationFrame(() => {
-      ta.style.height = `${target}px`;
-      ta.scrollTop = 0; // anchor text to top while box eases open/closed
-    });
-  }, []);
-
-  // ── autosizeInstant — for external content loads (mount, Supabase, date change).
-  // Disables the transition, snaps to full scrollHeight, forces a reflow so the
-  // browser commits the height before the transition is restored.
-  const autosizeInstant = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.transition = "none";
-    ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
-    void ta.offsetHeight; // force reflow so height commits before transition restores
-    requestAnimationFrame(() => { ta.style.transition = ""; });
-  }, []);
-
-  // Fires on every noteContent change AND when mode returns to "daily".
-  // Routing:
-  //   user keystroke            → autosizeEased  (CSS transition, smooth)
-  //   external load / nav back  → autosizeInstant (no transition, full height)
-  // mode is in the dep array so that navigating back from Preach re-triggers
-  // the effect even when noteContent hasn't changed (textarea was unmounted
-  // while in Preach mode and remounts without a content change).
-  useEffect(() => {
-    if (mode !== "daily") return; // textarea not in DOM in preach mode
-    if (lastUserTypedRef.current === noteContent) {
-      autosizeEased();
-    } else {
-      autosizeInstant();
-    }
-  }, [noteContent, mode, autosizeEased, autosizeInstant]);
+  // ── lastUserTyped: tracks content set by user keystrokes vs external loads.
+  // handleContentChange sets this alongside setNoteContent (batched into the
+  // same render); anything that updates noteContent without setting this (DB
+  // load, date change, nav back from Preach) leaves it !== noteContent — that
+  // mismatch is how we detect an external load and tell BreathingPanel to snap
+  // rather than animate between unrelated content heights.
+  const [lastUserTyped, setLastUserTyped] = useState<string | null>(null);
+  const isExternalLoad = lastUserTyped !== noteContent;
 
   const handleContentChange = useCallback((value: string) => {
-    lastUserTypedRef.current = value; // mark before setNoteContent so effect can identify it
+    setLastUserTyped(value); // batched with setNoteContent so isExternalLoad === false in next render
     setNoteContent(value);
     setHasUnsaved(true);
     currentNoteRef.current = { ...currentNoteRef.current, content: value };
@@ -797,31 +762,43 @@ export default function DailyMassView({
                         marginBottom: 28,
                       }} />
 
-                      {/* Writing surface — auto-sizes via ref */}
-                      <textarea
-                        ref={textareaRef}
-                        value={noteContent}
-                        onChange={(e) => handleContentChange(e.target.value)}
-                        placeholder="Begin writing…"
-                        style={{
-                          width: "100%",
-                          flex: 1,
-                          minHeight: 60,
-                          border: "none", background: "transparent",
-                          resize: "none", outline: "none", overflow: "hidden",
-                          fontFamily: "var(--ambo-font-reading)",
-                          fontSize: "clamp(15px, 1.5vw, 17px)",
-                          lineHeight: 1.85,
-                          color: noteContent.trim()
-                            ? "var(--ambo-text-primary)"
-                            : "var(--ambo-text-muted)",
-                          caretColor: "var(--ambo-accent)",
-                          transition: "height 2500ms cubic-bezier(0.16, 1, 0.3, 1), color 0.35s",
-                          boxSizing: "border-box",
-                        } as CSSProperties}
-                        spellCheck
-                        autoCapitalize="sentences"
-                      />
+                      {/* Writing surface — panel-breathing pattern (variant 5).
+                          BreathingPanel eases its height toward the textarea's
+                          reported height; the textarea itself is inert. The
+                          `transition: "none"` override during external loads
+                          (snapPanel === true) skips the 2000ms ease so the
+                          panel doesn't animate between unrelated date contents. */}
+                      <BreathingPanel
+                        height={noteHeight}
+                        transition={isExternalLoad ? "none" : undefined}
+                      >
+                        <TextareaAutosize
+                          ref={textareaRef}
+                          value={noteContent}
+                          onChange={(e) => handleContentChange(e.target.value)}
+                          onHeightChange={setNoteHeight}
+                          minRows={2}
+                          placeholder="Begin writing…"
+                          style={{
+                            width: "100%",
+                            border: "none", background: "transparent",
+                            resize: "none", outline: "none", overflow: "hidden",
+                            padding: 0,
+                            fontFamily: "var(--ambo-font-reading)",
+                            fontSize: "clamp(15px, 1.5vw, 17px)",
+                            lineHeight: 1.85,
+                            color: noteContent.trim()
+                              ? "var(--ambo-text-primary)"
+                              : "var(--ambo-text-muted)",
+                            caretColor: "var(--ambo-accent)",
+                            transition: "color 0.35s",
+                            boxSizing: "border-box",
+                            verticalAlign: "top",
+                          }}
+                          spellCheck
+                          autoCapitalize="sentences"
+                        />
+                      </BreathingPanel>
 
                       {/* Word count — absolutely positioned so it never affects card height */}
                       <div style={{
