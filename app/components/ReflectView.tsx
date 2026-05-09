@@ -1635,9 +1635,12 @@ export default function ReflectView({
           gap: 12,
           maxHeight: "calc(100svh - 96px)",
           overflowY: "auto",
-          // Padding gives the glass-card box-shadow room before hitting the
-          // scroll-container clipping edge (overflowY:auto forces overflowX:auto).
-          padding: "0 10px",
+          // overflowX:clip creates a clipping context without forming a scroll
+          // container, so the glass-card box-shadow renders outside it.
+          // (Setting overflowY to auto alone would force overflowX → auto, which
+          // clips the shadow. clip avoids that without allowing horizontal scroll.)
+          overflowX: "clip",
+          padding: 0,
         }}
       >
         {/* DISCERNMENT panel */}
