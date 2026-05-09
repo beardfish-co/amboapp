@@ -1576,17 +1576,11 @@ export default function ReflectView({
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          maxHeight: "calc(100svh - 96px)",
-          overflowY: "auto",
-          // overflowY:auto would force overflowX → auto per CSS spec (creating a
-          // scroll container that clips horizontal overflow at the padding-box
-          // edge with no margin allowance). overflowX:clip avoids the implicit
-          // scroll container, and overflow-clip-margin pushes the X-axis clip
-          // boundary 36px outside the element so the cards' ~30px box-shadow
-          // renders in full without narrowing the column.
-          overflowX: "clip",
-          overflowClipMargin: "36px",
-          padding: 0,
+          // No overflow / maxHeight — without a scroll container here, the
+          // glass-card box-shadow renders fully on all four sides. When the
+          // column's own content exceeds the viewport, page-level overflow
+          // handles it; the column still sticks to top:72 as the main column
+          // scrolls past.
         }}
       >
         {/* DISCERNMENT panel */}
