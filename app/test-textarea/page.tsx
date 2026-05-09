@@ -76,7 +76,7 @@ export default function TestTextareaPage() {
   const [value, setValue] = useState("");
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => setValue(e.target.value);
 
-  const baseStyle: React.CSSProperties = {
+  const baseStyle: Omit<React.CSSProperties, 'height'> = {
     border: "none",
     outline: "none",
     resize: "none",
