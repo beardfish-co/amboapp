@@ -822,6 +822,7 @@ export default function WriteView({
               lineHeight: 1.6,
               boxSizing: "border-box",
               transition: "height 1000ms ease-in-out",
+              verticalAlign: "top",
             }}
           />
         </div>

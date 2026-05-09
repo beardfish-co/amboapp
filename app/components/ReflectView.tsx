@@ -1643,6 +1643,7 @@ export default function ReflectView({
                 lineHeight: 1.65,
                 padding: 0,
                 transition: "height 1000ms ease-in-out",
+                verticalAlign: "top",
               }}
             />
 
@@ -1753,6 +1754,7 @@ export default function ReflectView({
                             lineHeight: 1.55,
                             padding: 0,
                             transition: "height 1000ms ease-in-out",
+                            verticalAlign: "top",
                           }}
                         />
                       </div>
@@ -1868,6 +1870,7 @@ export default function ReflectView({
             fontStyle: "italic",
             lineHeight: 1.6,
             transition: "height 1000ms ease-in-out",
+            verticalAlign: "top",
           }}
         />
         {lastAdded && (
