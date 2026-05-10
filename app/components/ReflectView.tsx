@@ -1615,7 +1615,7 @@ export default function ReflectView({
             {/* Hinge label */}
             <label style={{
               display: "block",
-              fontSize: 11,
+              fontSize: 12,
               fontStyle: "italic",
               color: "var(--ambo-text-muted)",
               marginBottom: 8,
@@ -1732,7 +1732,7 @@ export default function ReflectView({
                     ].map((f) => (
                       <div key={f.col}>
                         <div style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           fontStyle: "italic",
                           color: "var(--ambo-text-muted)",
                           lineHeight: 1.4,
