@@ -1857,7 +1857,7 @@ export default function ReflectView({
             Notes
           </span>
         </div>
-        <div style={{ padding: "0 18px" }}>
+        <div style={{ padding: "16px 18px" }}>
         <BreathingPanel height={notesHeight}>
           <TextareaAutosize
             ref={notesRef}
