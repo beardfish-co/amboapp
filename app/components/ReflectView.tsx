@@ -1726,9 +1726,9 @@ export default function ReflectView({
                     gap: 10,
                   }}>
                     {[
-                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "A need, if one surfaces.",                 label: "Why do my people need this now?",          ref: seedWhyNowRef,    height: seedWhyNowHeight,    setHeight: setSeedWhyNowHeight    },
-                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "A path, if one opens.",                    label: "How does this lead toward the Eucharist?",  ref: seedEucharistRef, height: seedEucharistHeight, setHeight: setSeedEucharistHeight },
-                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "A calling, if one is given.",              label: "What is the Lord asking of these people?",  ref: seedResponseRef,  height: seedResponseHeight,  setHeight: setSeedResponseHeight  },
+                      { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "A response, if one comes.",                 label: "Why do my people need this now?",          ref: seedWhyNowRef,    height: seedWhyNowHeight,    setHeight: setSeedWhyNowHeight    },
+                      { value: seedEucharist, set: setSeedEucharist, col: "seed_eucharist", placeholder: "A response, if one comes.",                    label: "How does this lead toward the Eucharist?",  ref: seedEucharistRef, height: seedEucharistHeight, setHeight: setSeedEucharistHeight },
+                      { value: seedResponse,  set: setSeedResponse,  col: "seed_response",  placeholder: "A response, if one comes.",              label: "What is the Lord asking of these people?",  ref: seedResponseRef,  height: seedResponseHeight,  setHeight: setSeedResponseHeight  },
                     ].map((f) => (
                       <div key={f.col}>
                         <div style={{
@@ -1761,7 +1761,7 @@ export default function ReflectView({
                               background: "transparent",
                               color: "var(--ambo-text-secondary)",
                               fontFamily: "var(--ambo-font-reading)",
-                              fontSize: "var(--rf-cite-size)",
+                              fontSize: 15,
                               fontStyle: "italic",
                               lineHeight: 1.55,
                               padding: 0,
