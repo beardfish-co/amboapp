@@ -1723,7 +1723,7 @@ export default function ReflectView({
                     paddingTop: 4,
                     display: "flex",
                     flexDirection: "column",
-                    gap: 10,
+                    gap: 4,
                   }}>
                     {[
                       { value: seedWhyNow,    set: setSeedWhyNow,    col: "seed_why_now",   placeholder: "A response, if one comes.",                 label: "Why do my people need this now?",          ref: seedWhyNowRef,    height: seedWhyNowHeight,    setHeight: setSeedWhyNowHeight    },
