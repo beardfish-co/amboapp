@@ -12,7 +12,7 @@ import type { ReactNode, CSSProperties } from "react";
  * the parent stores that in state and passes it as `height` here. The
  * panel eases its own content-area height toward that value.
  *
- * Generous bottom padding (28px) gives wrapped text a cushion at the
+ * Bottom padding (28px) gives wrapped text a cushion at the
  * moment of the wrap, before the panel's height has caught up.
  *
  * Usage:
@@ -54,7 +54,7 @@ export function BreathingPanel({
         ...style,
         // Sampled exactly from /test-textarea variant 5 — do not approximate.
         boxSizing: "content-box",
-        padding: "16px 20px 28px 20px",
+        padding: "8px 20px 28px 20px",
         height: height ? `${height}px` : "auto",
         transition: transition ?? "height 2000ms ease-in-out",
       }}
