@@ -1857,6 +1857,7 @@ export default function ReflectView({
             Notes
           </span>
         </div>
+        <div style={{ padding: "0 18px" }}>
         <BreathingPanel height={notesHeight}>
           <TextareaAutosize
             ref={notesRef}
@@ -1880,15 +1881,16 @@ export default function ReflectView({
               overflow: "hidden",
               padding: 0,
               background: "transparent",
-              color: "var(--ambo-text-primary)",
-              fontFamily: "inherit",
+              color: "var(--ambo-text-secondary)",
+              fontFamily: "var(--ambo-font-reading)",
               fontSize: 15,
               fontStyle: "italic",
-              lineHeight: 1.6,
+              lineHeight: 1.55,
               verticalAlign: "top",
             }}
           />
         </BreathingPanel>
+        </div>
         {lastAdded && (
           <div style={{
             padding: "8px 14px",
