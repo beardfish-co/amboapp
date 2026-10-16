@@ -107,15 +107,18 @@ export default function LoginPage() {
       {/* Logo */}
       <div style={{ marginBottom: 40, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <AmboLogo />
+        {/* Wordmark — same treatment as the app header: lowercase Newsreader in accent blue */}
         <h1 style={{
-          marginTop: 12,
-          fontSize: 28,
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          color: "var(--ambo-text-primary)",
+          marginTop: 10,
+          fontSize: 34,
+          fontWeight: 400,
+          fontFamily: "var(--font-newsreader), Georgia, serif",
+          letterSpacing: "0.01em",
+          lineHeight: 1.1,
+          color: "var(--ambo-accent)",
           textAlign: "center",
         }}>
-          Ambo
+          ambo
         </h1>
         <p style={{
           marginTop: 6,
@@ -369,13 +372,16 @@ const ghostBtnStyle: React.CSSProperties = {
 };
 
 function AmboLogo() {
+  // The line-drawn ambo mark, as used in the app header and app icon.
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" style={{ display: "block" }}>
-      <rect x="9" y="2" width="6" height="12" rx="1.5" fill="var(--ambo-accent)" opacity="0.85" />
-      <rect x="5" y="10" width="14" height="2.5" rx="1.25" fill="var(--ambo-accent)" />
-      <rect x="11" y="14.5" width="2" height="7.5" rx="1" fill="var(--ambo-accent)" opacity="0.6" />
-      <rect x="8" y="21" width="8" height="1.5" rx="0.75" fill="var(--ambo-accent)" opacity="0.5" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/ambo-mark-256.png"
+      alt=""
+      width={64}
+      height={64}
+      style={{ display: "block", objectFit: "contain" }}
+    />
   );
 }
 
