@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Surface errors redirected back from the auth callback
@@ -89,7 +88,9 @@ export default function LoginPage() {
       setError("That code didn't work. Check it and try again.");
       setCode("");
     } else {
-      router.push("/");
+      // Full navigation (not a client push) so the app loads fresh with the new
+      // session, and the sign-in page is replaced rather than left in history.
+      window.location.replace("/");
     }
   };
 

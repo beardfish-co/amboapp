@@ -28,7 +28,9 @@ export default function AboutPage() {
         flexShrink: 0,
       }}>
         <button
-          onClick={() => router.back()}
+          // Always return to the app. router.back() could land on a stale
+          // history entry (e.g. the pre-sign-in redirect to /login).
+          onClick={() => router.push("/")}
           style={{
             border: "1px solid var(--ambo-border)",
             background: "transparent",
