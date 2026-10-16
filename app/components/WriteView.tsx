@@ -167,6 +167,10 @@ export default function WriteView({
   // Seed — primary line only (unfolding lives in Reflect). Read-only here.
   const [seed, setSeed] = useState("");
   const [tourSeed, setTourSeed] = useState<string | null>(null); // shown during onboarding tour only
+  // Onboarding tour: reveal the Notes / Examine pills for their tour steps even
+  // when a new priest has no notes yet or fewer than 30 words.
+  const [tourShowNotes, setTourShowNotes] = useState(false);
+  const [tourShowExamine, setTourShowExamine] = useState(false);
   // Sub-questions from Discernment — read-only in Write
   const [seedWhyNow, setSeedWhyNow] = useState("");
   const [seedEucharist, setSeedEucharist] = useState("");
@@ -182,6 +186,18 @@ export default function WriteView({
       window.removeEventListener("ambo:tour-open-readings",  open);
       window.removeEventListener("ambo:tour-close-readings", close);
     };
+  }, []);
+
+  // Tour support: reveal the Notes and Examine pills during their tour steps
+  useEffect(() => {
+    const pairs: Array<[string, () => void]> = [
+      ["ambo:tour-show-notes",    () => setTourShowNotes(true)],
+      ["ambo:tour-hide-notes",    () => setTourShowNotes(false)],
+      ["ambo:tour-show-examine",  () => setTourShowExamine(true)],
+      ["ambo:tour-hide-examine",  () => setTourShowExamine(false)],
+    ];
+    pairs.forEach(([ev, fn]) => window.addEventListener(ev, fn));
+    return () => pairs.forEach(([ev, fn]) => window.removeEventListener(ev, fn));
   }, []);
 
   // Tour support: show dummy discernment content while onboarding
@@ -754,7 +770,7 @@ export default function WriteView({
 
         {/* Right group: Notes + Examine — both pre-preach tools */}
         <div data-tour="write-notes" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {notes.trim().length > 0 && (
+          {(tourShowNotes || notes.trim().length > 0) && (
             <PillButton
               variant={notesOpen ? "active" : "ghost"}
               icon={<NoteIcon />}
@@ -765,7 +781,7 @@ export default function WriteView({
             </PillButton>
           )}
 
-          {wordCount >= 30 && (
+          {(tourShowExamine || wordCount >= 30) && (
             <PillButton
               variant={examineOpen ? "active" : "ghost"}
               icon={<ExamineIcon />}

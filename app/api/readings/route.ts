@@ -70,6 +70,10 @@ function parseUniversalisDay(dayHtml: string): { saint: string; dayName: string 
     // The feria label lives after the closing </b> tag (typically after <br/>)
     const afterBold = dayHtml.slice(dayHtml.indexOf("</b>") + 4);
     const dayName = stripHtml(afterBold).trim();
+    // Universalis now also bolds plain Sundays and ferias ("<b>29th Sunday in
+    // Ordinary Time</b>" with nothing after). Then the bold text is the day
+    // name, not a saint.
+    if (!dayName) return { saint: "", dayName: saint };
     return { saint, dayName };
   }
   // No <b> tag — ordinary feria
