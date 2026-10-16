@@ -42,7 +42,7 @@ Separate citations with a blank line. Use **bold** for document titles.
 Do not add a title or introduction. Do not end with questions, offers to assist further, or invitations to reply.`;
 
 export function buildUserPrompt(gospelRef: string, dayName: string): string {
-  return `The Gospel reading is ${gospelRef} (${dayName}). Provide 3 to 4 citations from Church teaching for a priest preparing a homily on this passage.`;
+  return `The Gospel reading is ${gospelRef}${dayName ? ` (${dayName})` : ""}. Provide 3 to 4 citations from Church teaching for a priest preparing a homily on this passage.`;
 }
 
 export interface MagisteriumCitation {
@@ -129,4 +129,223 @@ export async function queryMagisterium(
     contentRaw: raw,
     citations: sanitiseCitations(data.citations),
   };
+}
+
+// ── Presentation: verified teaching points ─────────────────────────────────
+//
+// The answer prose (content_raw) is a short list of points, each ending in
+// footnote markers like [^5]. Marker n refers to citations[n-1]. The
+// `citations` array is Magisterium's whole retrieval set, most of which the
+// answer never uses, so we only show citations a point actually cites.
+//
+// For each point we return the Church's own words: the key sentence from
+// the cited passage (the one closest to the point being made), plus the
+// surrounding sentences for "more of this passage", and a link to the source.
+// Non-English passages are dropped (decision, Oct 2026).
+
+export interface TeachingPoint {
+  theme: string;        // short bold lead, e.g. "Citizenship carries real duties."
+  before: string;       // sentences before the lead, verbatim, may be ""
+  lead: string;         // key sentence(s), verbatim from the source
+  after: string;        // sentences after the lead, verbatim, may be ""
+  sourceLabel: string;  // e.g. "Catechism of the Catholic Church · §2240"
+  sourceUrl: string;
+}
+
+const LEAD_MAX = 360;     // characters: one or two sentences
+const BEFORE_MAX = 450;   // characters of context shown before the lead
+const AFTER_MAX = 700;    // characters of context shown after it
+
+const STOPWORDS_EN = new Set([
+  "the", "and", "of", "to", "in", "is", "that", "for", "with", "as", "be",
+  "which", "his", "by", "it", "not", "are", "this", "from", "who", "we", "our",
+]);
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&nbsp;/g, " ");
+}
+
+function cleanPassage(text: string): string {
+  // Drop heading paragraphs (a markdown heading can wrap over several lines).
+  const body = decodeEntities(text)
+    .split(/\n\s*\n/)
+    .filter((para) => !/^\s*#{1,6}\s/.test(para))
+    .join("\n\n");
+  return body
+    .replace(/^\s*\[\^\w+\]:.*$/gm, "")        // footnote definitions
+    .replace(/\[\^\w+\]/g, "")                 // footnote markers
+    .replace(/^\s*#{1,6}\s.*$/gm, "")          // markdown headings
+    .replace(/^\s*-{3,}\s*$/gm, "")            // rules
+    .replace(/\b\d{4}\s+Dz\s+\d+\s*/g, "")     // Denzinger numbering "3152 Dz 1857"
+    .replace(/\s+/g, " ")
+    .replace(/^\s*\d{1,4}\.\s+/, "")           // leading paragraph number "102. "
+    .replace(/\s+\d{1,2}\.\s+(?=[A-Z])/g, " ") // inline section numbers " 2. Con"
+    .trim();
+}
+
+function isEnglish(text: string): boolean {
+  const words = text.toLowerCase().match(/[a-zà-ÿ']+/g) ?? [];
+  if (words.length < 8) return true;
+  const hits = words.filter((w) => STOPWORDS_EN.has(w)).length;
+  return hits / words.length > 0.12;
+}
+
+// Abbreviations common in Church documents that end in a full stop but do
+// not end a sentence ("Cfr. Io. 18, 37", "St. Augustine").
+const ABBREV = /(?:\b(?:Cfr|Cf|cf|Luc|Lk|Io|Jn|Marc|Mk|Matt|Mt|Ibid|ibid|Congr|St|Sts|Pp|nn?|No|Ac|Rom|Cor|Gal|Eph|Phil|Col|Heb|Ps|Is|Jer|Gen|Ex|Dt|Fr|Mgr|Dr|vol|art|cap|ch|op|cit)\.)$/;
+
+function splitSentences(text: string): string[] {
+  // Split after . ! ? (optionally followed by a closing quote), and after a
+  // closing citation parenthesis "(Luc. 20, 22)", before a capital, an
+  // opening quote or a bracket.
+  const rough = text
+    .split(/(?<=[.!?][”"’)\]]?|\))\s+(?=[“"‘(\[]?[A-Z])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  // Re-join pieces that were split after an abbreviation.
+  const out: string[] = [];
+  for (const piece of rough) {
+    if (out.length && ABBREV.test(out[out.length - 1])) out[out.length - 1] += ` ${piece}`;
+    else out.push(piece);
+  }
+  return out;
+}
+
+function contentWords(s: string): Set<string> {
+  return new Set(
+    (s.toLowerCase().match(/[a-z']+/g) ?? [])
+      .filter((w) => w.length > 3 && !STOPWORDS_EN.has(w))
+      .map((w) => w.slice(0, 5)), // crude stem: "distinction" ~ "distinguish"
+  );
+}
+
+function pickPassage(
+  passage: string,
+  pointText: string,
+): { before: string; lead: string; after: string } {
+  const sentences = splitSentences(passage);
+  if (sentences.length === 0) return { before: "", lead: "", after: "" };
+
+  const target = contentWords(pointText);
+  let best = 0;
+  let bestScore = -1;
+  sentences.forEach((s, i) => {
+    const words = contentWords(s);
+    let score = 0;
+    words.forEach((w) => { if (target.has(w)) score++; });
+    if (s.length > 600) score -= 2; // avoid run-on chunks as the lead
+    if (score > bestScore) { bestScore = score; best = i; }
+  });
+
+  // Lead: best sentence, plus the next one if the first is short.
+  let end = best + 1;
+  let lead = sentences[best];
+  if (lead.length < 140 && end < sentences.length && lead.length + sentences[end].length < LEAD_MAX) {
+    lead = `${lead} ${sentences[end]}`;
+    end++;
+  }
+
+  // Context in reading order: a little before, more after.
+  const before: string[] = [];
+  let len = 0;
+  for (let i = best - 1; i >= 0 && len + sentences[i].length <= BEFORE_MAX; i--) {
+    before.unshift(sentences[i]);
+    len += sentences[i].length;
+  }
+  const after: string[] = [];
+  len = 0;
+  for (let i = end; i < sentences.length && len + sentences[i].length <= AFTER_MAX; i++) {
+    after.push(sentences[i]);
+    len += sentences[i].length;
+  }
+
+  const tidy = (t: string) => t.replace(/\s*(?:\.\s){2,}\.?\s*$/, "").trim(); // trailing ". . ."
+  return { before: tidy(before.join(" ")), lead: tidy(lead), after: tidy(after.join(" ")) };
+}
+
+function sourceLabel(c: MagisteriumCitation): string {
+  const title = (c.document_title ?? "").trim();
+  const author = (c.document_author ?? "").replace(/^Pope\s+/i, "").trim();
+  const ref = (c.document_reference ?? "").trim();
+  const numericRef = /^(para-)?\d+$/.test(ref) ? ref.replace(/^para-/, "") : "";
+
+  if (/Catechism of the Catholic Church/i.test(title)) {
+    return numericRef ? `Catechism of the Catholic Church · §${numericRef}` : "Catechism of the Catholic Church";
+  }
+
+  if (/Enchiridion|Sources of Catholic Dogma/i.test(title)) {
+    const heading = (c.cited_text_heading ?? "").replace(/\s+/g, " ");
+    const m = heading.match(/["“]([^"”]+?),?["”],?\s*(?:[A-Z][a-z]+\s+\d{1,2},\s*)?(\d{4})/);
+    const doc = m ? `${m[1]}, ${m[2]}` : heading.replace(/^.*?From the\s+/i, "") || "Enchiridion Symbolorum";
+    return numericRef ? `${doc} · DH ${numericRef}` : doc;
+  }
+
+  // Vatican-site style titles: "9 October 1989: Holy Mass in … - Homily"
+  const dated = title.match(/^(\d{1,2}\s+[A-Z][a-z]+\s+\d{4}):\s.*?\s-\s([A-Z][A-Za-z ]+)$/);
+  const cleanTitle = dated ? `${dated[2]}, ${dated[1]}` : title.replace(/"/g, "");
+  const parts = [author, cleanTitle].filter(Boolean);
+  let label = parts.join(" · ");
+  if (numericRef) label += ` · §${numericRef}`;
+  return label || "Source";
+}
+
+function firstSentence(s: string): string {
+  const first = splitSentences(s)[0] ?? "";
+  return first.length > 220 ? "" : first;
+}
+
+export function buildTeachingPoints(
+  contentRaw: string | null | undefined,
+  citations: MagisteriumCitation[] | null | undefined,
+): TeachingPoint[] {
+  if (!contentRaw || !citations?.length) return [];
+
+  const blocks = contentRaw
+    .split(/\n\s*\n/)
+    .map((b) => b.trim())
+    .filter((b) => /\[\^\d+\]/.test(b));
+
+  const points: TeachingPoint[] = [];
+  const usedDocs = new Set<number>();
+
+  for (const block of blocks) {
+    const markers = [...block.matchAll(/\[\^(\d+)\]/g)].map((m) => Number(m[1]) - 1);
+    const text = block
+      .replace(/\[\^\w+\]/g, "")
+      .replace(/^[-*]\s+/, "")
+      .replace(/^>\s?/gm, "")
+      .trim();
+
+    const boldMatch = text.match(/^\*\*(.+?)\*\*\s*/);
+    const theme = boldMatch ? boldMatch[1].trim() : "";
+    const rest = (boldMatch ? text.slice(boldMatch[0].length) : text)
+      .replace(/\*\*/g, "").replace(/\*([^*]+)\*/g, "$1").replace(/_([^_]+)_/g, "$1").trim();
+
+    // First cited source that is English and not already shown.
+    for (const idx of markers) {
+      const c = citations[idx];
+      if (!c || usedDocs.has(idx)) continue;
+      const passage = cleanPassage(c.cited_text);
+      if (passage.length < 40 || !isEnglish(passage)) continue;
+
+      const { before, lead, after } = pickPassage(passage, `${theme} ${rest}`);
+      if (!lead) continue;
+
+      usedDocs.add(idx);
+      points.push({
+        theme: theme || firstSentence(rest) || "From the Church’s teaching",
+        before,
+        lead,
+        after,
+        sourceLabel: sourceLabel(c),
+        sourceUrl: c.source_url,
+      });
+      break;
+    }
+  }
+
+  return points;
 }

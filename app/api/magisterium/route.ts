@@ -11,7 +11,9 @@
 //      (shared prompt in lib/magisterium.ts), store in cache, return.
 //
 // Response shape:
-//   { content: string; citations: MagisteriumCitation[]; cached: boolean }
+//   { content: string; points: TeachingPoint[]; cached: boolean }
+//   `points` (verified passages with sources) is empty for old cache rows
+//   that predate stored citations; the UI then falls back to `content`.
 //
 // Error handling:
 //   400 — missing or invalid date param
@@ -23,10 +25,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { queryMagisterium, type MagisteriumCitation } from "@/lib/magisterium";
+import {
+  queryMagisterium,
+  buildTeachingPoints,
+  type MagisteriumCitation,
+} from "@/lib/magisterium";
 
 interface CachedRow {
   content: string;
+  content_raw: string | null;
   citations: MagisteriumCitation[] | null;
 }
 
@@ -56,14 +63,14 @@ export async function GET(req: NextRequest) {
   // 1. Cache check
   const { data: cached } = await supabase
     .from("magisterium_cache")
-    .select("content, citations")
+    .select("content, content_raw, citations")
     .eq("date", date)
     .maybeSingle<CachedRow>();
 
   if (cached) {
     return NextResponse.json({
       content: cached.content,
-      citations: cached.citations ?? [],
+      points: buildTeachingPoints(cached.content_raw, cached.citations),
       cached: true,
     });
   }
@@ -82,10 +89,13 @@ export async function GET(req: NextRequest) {
 
   interface ReadingsPayload {
     dayName: string;
+    saint?: string;
     readings: Array<{ id: string; reference: string }>;
   }
   const readings: ReadingsPayload = await readingsRes.json();
   const gospel = readings.readings.find((r) => r.id === "gospel");
+  // Universalis puts Sunday names in `saint` (e.g. "29th Sunday in Ordinary Time").
+  const dayName = readings.dayName || readings.saint || "";
 
   if (!gospel?.reference) {
     return NextResponse.json(
@@ -104,7 +114,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const result = await queryMagisterium(gospel.reference, readings.dayName, apiKey);
+  const result = await queryMagisterium(gospel.reference, dayName, apiKey);
   if (!result.ok) {
     console.error("[magisterium] API error:", result.status, result.error);
     return NextResponse.json(
@@ -117,7 +127,7 @@ export async function GET(req: NextRequest) {
   const { error: insertErr } = await supabase.from("magisterium_cache").insert({
     date,
     gospel_ref: gospel.reference,
-    day_name: readings.dayName,
+    day_name: dayName,
     content: result.content,
     content_raw: result.contentRaw,
     citations: result.citations,
@@ -129,7 +139,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     content: result.content,
-    citations: result.citations,
+    points: buildTeachingPoints(result.contentRaw, result.citations),
     cached: false,
   });
 }

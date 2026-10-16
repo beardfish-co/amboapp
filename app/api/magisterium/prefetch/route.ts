@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
 
   interface ReadingsPayload {
     dayName: string;
+    saint?: string;
     readings: Array<{ id: string; reference: string }>;
   }
 
@@ -77,6 +78,8 @@ export async function GET(req: NextRequest) {
 
     const readings: ReadingsPayload = await readingsRes.json();
     const gospel = readings.readings.find((r) => r.id === "gospel");
+    // Universalis puts Sunday names in `saint` (e.g. "29th Sunday in Ordinary Time").
+    const dayName = readings.dayName || readings.saint || "";
 
     if (!gospel?.reference) {
       results.push({ date, status: "gospel_not_found" });
@@ -84,7 +87,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Query Magisterium AI (shared prompt in lib/magisterium.ts)
-    const result = await queryMagisterium(gospel.reference, readings.dayName, apiKey);
+    const result = await queryMagisterium(gospel.reference, dayName, apiKey);
     if (!result.ok) {
       results.push({ date, status: `magisterium_error_${result.status}` });
       continue;
@@ -93,7 +96,7 @@ export async function GET(req: NextRequest) {
     const { error: insertErr } = await supabase.from("magisterium_cache").insert({
       date,
       gospel_ref: gospel.reference,
-      day_name: readings.dayName,
+      day_name: dayName,
       content: result.content,
       content_raw: result.contentRaw,
       citations: result.citations,

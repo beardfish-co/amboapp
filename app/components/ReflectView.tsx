@@ -12,6 +12,7 @@ import { BreathingPanel } from "@/lib/ui/breathing-panel";
 import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 import TextareaAutosize from "react-textarea-autosize";
 import { redirectIfUnauthorised } from "@/lib/redirect-if-unauthorised";
+import type { TeachingPoint } from "@/lib/magisterium";
 
 interface Reading {
   id: string;
@@ -113,6 +114,10 @@ export default function ReflectView({
   // Magisterium AI — magisterial tradition citations for the Gospel
   // Magisterium AI — magisterial tradition layer for the Gospel
   const [magisteriumContent, setMagisteriumContent] = useState<string | null>(null);
+  // Verified teaching points (Church's own words + source). Empty for old
+  // cache rows, in which case the prose `magisteriumContent` is rendered.
+  const [magisteriumPoints, setMagisteriumPoints] = useState<TeachingPoint[]>([]);
+  const [openPassages, setOpenPassages] = useState<Set<number>>(() => new Set());
   const [magisteriumLoading, setMagisteriumLoading] = useState<boolean>(false);
   const [traditionExpanded, setTraditionExpanded] = useState<boolean>(false);
   // Seed — the Directory's "one principal grace" externalised as 4 lines
@@ -372,14 +377,19 @@ export default function ReflectView({
     let cancelled = false;
     setMagisteriumLoading(true);
     setMagisteriumContent(null);
+    setMagisteriumPoints([]);
+    setOpenPassages(new Set());
     setTraditionExpanded(false);
     (async () => {
       try {
         const res = await fetch(`/api/magisterium?date=${compactDate}`);
         if (redirectIfUnauthorised(res)) return;
         if (!res.ok) return;
-        const d: { content?: string } = await res.json();
-        if (!cancelled) setMagisteriumContent(d.content ?? null);
+        const d: { content?: string; points?: TeachingPoint[] } = await res.json();
+        if (!cancelled) {
+          setMagisteriumPoints(Array.isArray(d.points) ? d.points : []);
+          setMagisteriumContent(d.content ?? null);
+        }
       } catch {
         /* Magisterium unavailable — gracefully absent */
       } finally {
@@ -1199,7 +1209,143 @@ export default function ReflectView({
                   </button>
 
                   <SlideReveal open={traditionExpanded} marginTop={traditionExpanded ? 12 : 0}>
-                    {(() => {
+                    {magisteriumPoints.length > 0 ? (
+                      // ── Verified teaching: the Church's own words, with source ──
+                      <div>
+                        <div style={{ marginBottom: 14 }}>
+                          <div style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "var(--ambo-text-muted)",
+                            marginBottom: 3,
+                          }}>
+                            From the Church’s teaching
+                          </div>
+                          <div style={{ fontSize: 10, color: "var(--ambo-text-muted)", opacity: 0.7 }}>
+                            Each passage is quoted from its source
+                          </div>
+                        </div>
+
+                        {magisteriumPoints.map((pt, pi) => {
+                          const open = openPassages.has(pi);
+                          const hasMore = pt.before.length > 0 || pt.after.length > 0;
+                          const passageStyle: React.CSSProperties = {
+                            fontFamily: "var(--ambo-font-reading)",
+                            fontStyle: "italic",
+                            fontSize: "calc(var(--rf-cite-size) + 2px)",
+                            lineHeight: 1.6,
+                            color: "var(--ambo-text-secondary)",
+                            margin: 0,
+                          };
+                          const contextStyle: React.CSSProperties = {
+                            ...passageStyle,
+                            color: "var(--ambo-text-muted)",
+                          };
+                          return (
+                            <div key={pi} style={{
+                              display: "flex",
+                              alignItems: "baseline",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              paddingLeft: 12,
+                              borderLeft: "2px solid var(--ambo-accent-light)",
+                              marginBottom: pi === magisteriumPoints.length - 1 ? 12 : 18,
+                            }}>
+                              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
+                                <div style={{
+                                  display: "flex",
+                                  gap: 6,
+                                  fontSize: "var(--rf-cite-size)",
+                                  lineHeight: 1.55,
+                                  color: "var(--ambo-text-secondary)",
+                                }}>
+                                  <span style={{ opacity: 0.4, flexShrink: 0 }}>–</span>
+                                  <strong style={{ color: "var(--ambo-text-primary)", fontWeight: 600 }}>{pt.theme}</strong>
+                                </div>
+
+                                {pt.before && (
+                                  <SlideReveal open={open} marginBottom={open ? 4 : 0}>
+                                    <p style={contextStyle}>{pt.before}</p>
+                                  </SlideReveal>
+                                )}
+                                <p style={passageStyle}>“{pt.lead}”</p>
+                                {pt.after && (
+                                  <SlideReveal open={open} marginTop={open ? 4 : 0}>
+                                    <p style={contextStyle}>{pt.after}</p>
+                                  </SlideReveal>
+                                )}
+
+                                {hasMore && (
+                                  <button
+                                    onClick={() => setOpenPassages((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(pi)) next.delete(pi); else next.add(pi);
+                                      return next;
+                                    })}
+                                    aria-expanded={open}
+                                    style={{
+                                      border: "none",
+                                      background: "transparent",
+                                      fontFamily: "inherit",
+                                      fontSize: 11,
+                                      color: "var(--ambo-text-muted)",
+                                      padding: 0,
+                                      cursor: "pointer",
+                                      alignSelf: "flex-start",
+                                      textDecoration: "underline",
+                                      textUnderlineOffset: 3,
+                                      textDecorationColor: "var(--ambo-border)",
+                                    }}
+                                  >
+                                    {open ? "less" : "more of this passage"}
+                                  </button>
+                                )}
+
+                                <div style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  alignItems: "baseline",
+                                  gap: "4px 10px",
+                                  fontSize: 11,
+                                  lineHeight: 1.5,
+                                  color: "var(--ambo-text-muted)",
+                                }}>
+                                  <span>{pt.sourceLabel}</span>
+                                  <a
+                                    href={pt.sourceUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ color: "var(--ambo-accent)", textDecoration: "none", whiteSpace: "nowrap" }}
+                                  >
+                                    read in full ↗
+                                  </a>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => appendToNotes(
+                                  pt.sourceLabel,
+                                  open && hasMore
+                                    ? [pt.before, pt.lead, pt.after].filter(Boolean).join(" ")
+                                    : pt.lead,
+                                )}
+                                style={sendToNotesStyle}
+                                title="Add to your notes"
+                              >
+                                → note
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                        {/* Attribution — required by Magisterium API Terms §4.5 */}
+                        <div style={{ fontSize: 10, color: "var(--ambo-text-muted)", opacity: 0.7, textAlign: "right", marginTop: 4 }}>
+                          Powered by Magisterium AI
+                        </div>
+                      </div>
+                    ) : (() => {
+                      // Legacy rendering for cache rows without citations.
                       // Parse content into blank-line-separated groups.
                       // Each group is either a heading block or a citation block.
                       // Citation blocks get their own → note button.
