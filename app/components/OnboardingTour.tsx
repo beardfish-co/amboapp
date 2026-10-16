@@ -22,7 +22,7 @@ interface Step {
 const STEPS: Step[] = [
   { target: "nav-tabs",             title: "Reflect · Write · Preach",  copy: "For priests who want to preach from prayer.",                         tab: "reflect", prefer: "bottom" },
   { target: "reflect-tab",          title: "Reflect",                    copy: "Let the Word speak before you begin composing.",                      tab: "reflect", prefer: "bottom" },
-  { target: "reading-panels",       title: "The Readings",               copy: "The readings for the day, drawn from the lectionary.",                tab: "reflect", prefer: "right"  },
+  { target: "reading-panels",       title: "The Readings",               copy: "The readings for the day, drawn from the lectionary. Beneath the Gospel, the Fathers and the Church’s teaching wait for when you want them.",                tab: "reflect", prefer: "right"  },
   { target: "reflect-prompts",      title: "Prompts for Prayer",         copy: "Gentle questions to help you linger with the readings in prayer.",              tab: "reflect", prefer: "right",  prepareEvent: "ambo:tour-open-r1-prompts", prepareDelay: 1850 },
   { target: "reflect-discernment",  title: "Discernment",                copy: "What grace, burden, or invitation has prayer with the Word uncovered?",                 tab: "reflect", prefer: "left"   },
   { target: "reflect-notes",        title: "Prayer Notes",               copy: "Keep what comes as you pray: a phrase, an image, a tension, a small light.",                                 tab: "reflect", prefer: "left"   },
