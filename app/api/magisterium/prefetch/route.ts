@@ -13,44 +13,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { queryMagisterium } from "@/lib/magisterium";
 
-const MAGISTERIUM_API_URL =
-  "https://www.magisterium.com/api/v1/chat/completions";
-
-const SYSTEM_PROMPT = `You are a theological reference assistant for Catholic priests preparing a homily.
-Given a Gospel passage, provide 3 to 4 citations from official Church documents that illuminate the 
-central themes of the passage for preaching.
-
-Source priority — follow this order strictly:
-1. Catechism of the Catholic Church (1992) — always try to include at least 2 CCC citations
-2. Vatican II documents (1962–1965): Dei Verbum, Lumen Gentium, Gaudium et Spes, Sacrosanctum Concilium, etc.
-3. Post-conciliar papal documents: encyclicals, apostolic exhortations (e.g. Evangelii Gaudium, Deus Caritas Est)
-4. Earlier papal encyclicals only if directly relevant and no modern source covers the theme
-
-Do not cite the Church Fathers, patristic commentary, or the Catena Aurea — those are covered separately.
-Do not cite Scripture directly.
-
-For each citation, include the source and paragraph number in parentheses after the quote:
-(CCC §1234) or (Gaudium et Spes §22) or (Evangelii Gaudium §n).
-Do not use footnote markers like [^1].
-
-Write in clear prose. Use **bold** for document titles. Use > blockquote for direct quotations.
-Do not end with questions, offers to assist further, or invitations to reply.`;
-
-function cleanContent(raw: string): string {
-  return raw
-    .replace(/\[\^\w+\]/g, "")
-    .replace(/^Below are[^\n]*\n+/i, "")
-    .replace(/^Here are[^\n]*\n+/i, "")
-    .replace(/\n*If you want[^]*$/i, "")
-    .replace(/\n*Would you like[^]*$/i, "")
-    .replace(/\n*Let me know[^]*$/i, "")
-    .trim();
-}
-
-// Returns the next N Sundays as YYYYMMDD strings.
-// Priests can prepare for any future Sunday, so we warm the cache for
-// the next two Sundays every Monday — covering this week and next.
 function nextSundaysCompact(count: number): string[] {
   const now = new Date();
   const daysUntilSunday = ((7 - now.getUTCDay()) % 7) || 7;
@@ -86,9 +50,6 @@ export async function GET(req: NextRequest) {
     dayName: string;
     readings: Array<{ id: string; reference: string }>;
   }
-  interface MagisteriumResponse {
-    choices: Array<{ message: { content: string } }>;
-  }
 
   const results: Array<{ date: string; status: string; gospel_ref?: string }> = [];
 
@@ -122,45 +83,20 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    // Query Magisterium AI
-    const magRes = await fetch(MAGISTERIUM_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "magisterium-1",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `The Gospel reading is ${gospel.reference} (${readings.dayName}). Provide 3 to 4 magisterial citations for a priest preparing a homily on this passage.`,
-          },
-        ],
-      }),
-    });
-
-    if (!magRes.ok) {
-      results.push({ date, status: `magisterium_error_${magRes.status}` });
+    // Query Magisterium AI (shared prompt in lib/magisterium.ts)
+    const result = await queryMagisterium(gospel.reference, readings.dayName, apiKey);
+    if (!result.ok) {
+      results.push({ date, status: `magisterium_error_${result.status}` });
       continue;
     }
-
-    const magData: MagisteriumResponse = await magRes.json();
-    const raw = magData.choices?.[0]?.message?.content ?? "";
-
-    if (!raw) {
-      results.push({ date, status: "empty_response" });
-      continue;
-    }
-
-    const content = cleanContent(raw);
 
     const { error: insertErr } = await supabase.from("magisterium_cache").insert({
       date,
       gospel_ref: gospel.reference,
       day_name: readings.dayName,
-      content,
+      content: result.content,
+      content_raw: result.contentRaw,
+      citations: result.citations,
     });
 
     if (insertErr && insertErr.code !== "23505") {
