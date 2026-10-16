@@ -13,6 +13,14 @@ import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 import TextareaAutosize from "react-textarea-autosize";
 import { redirectIfUnauthorised } from "@/lib/redirect-if-unauthorised";
 import type { TeachingPoint } from "@/lib/magisterium";
+import { getComingSunday } from "./ReadingView";
+
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 interface Reading {
   id: string;
@@ -33,6 +41,8 @@ interface ReflectViewProps {
   currentId: string | null;
   onOpenList: () => void;
   onGoWrite: () => void;
+  /** Called when Reflect creates the homily row (first note on a fresh draft). */
+  onCurrentIdChange?: (id: string) => void;
 }
 
 type ReadingSlot = "r1" | "ps" | "r2" | "gospel";
@@ -71,6 +81,7 @@ export default function ReflectView({
   readingsSource = "universalis",
   onOpenList,
   onGoWrite,
+  onCurrentIdChange,
 }: ReflectViewProps) {
   const [sundayDate, setSundayDate] = useState<string | null>(null);
   const [title, setTitle] = useState<string>("");
@@ -151,6 +162,10 @@ export default function ReflectView({
 
   // Load the homily (sunday_date, notes, title) for currentId
   useEffect(() => {
+    // Reflect itself just created this homily row (see ensureDraftId) and is
+    // already showing its content — don't reload over what the priest is typing.
+    if (currentId && currentId === draftIdRef.current && loadedIdRef.current === currentId) return;
+
     let cancelled = false;
 
     (async () => {
@@ -158,6 +173,8 @@ export default function ReflectView({
       setExpandedSlot(null);
 
       let loadedSunday: string | null = null;
+      let foundRow = false;
+      let foundId: string | null = currentId ?? null;
       let loadedNotes = "";
       let loadedTitle = "";
       let loadedSeed = "";
@@ -176,6 +193,7 @@ export default function ReflectView({
             .eq("user_id", user.id)
             .single();
           if (data) {
+            foundRow = true;
             loadedTitle = data.title ?? "";
             loadedNotes = data.notes ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
@@ -193,6 +211,8 @@ export default function ReflectView({
             .limit(1)
             .maybeSingle();
           if (data) {
+            foundRow = true;
+            foundId = (data.id as string) ?? null;
             loadedTitle = data.title ?? "";
             loadedNotes = data.notes ?? "";
             loadedSunday = (data.sunday_date as string | null) ?? null;
@@ -206,6 +226,13 @@ export default function ReflectView({
         /* ignore; show empty state */
       }
 
+      // A fresh homily (no saved row yet) opens on the coming Sunday's
+      // readings, the same default Write uses for a new homily.
+      if (!foundRow) {
+        loadedSunday = toIsoDate(getComingSunday(new Date()));
+        foundId = null;
+      }
+
       if (cancelled) return;
       setTitle(loadedTitle);
       setNotes(loadedNotes);
@@ -217,7 +244,7 @@ export default function ReflectView({
       // open the seed panel automatically only if the priest has started writing one
       setSeedExpanded(Boolean(loadedSeedWhy || loadedSeedEu || loadedSeedResp));
       loadedIdRef.current = currentId ?? null;
-      draftIdRef.current = currentId ?? null;
+      draftIdRef.current = foundId;
       setLoading(false);
     })();
 
@@ -401,6 +428,40 @@ export default function ReflectView({
     };
   }, [readings, sundayDate]);
 
+  // Keep the current Sunday available to async save callbacks.
+  const sundayDateRef = useRef<string | null>(null);
+  useEffect(() => { sundayDateRef.current = sundayDate; }, [sundayDate]);
+
+  // Return the homily row id, creating the row on the first write if this is
+  // a fresh draft (e.g. a new priest who starts in Reflect before Write).
+  const creatingRef = useRef<Promise<string | null> | null>(null);
+  const ensureDraftId = useCallback(async (userId: string): Promise<string | null> => {
+    if (draftIdRef.current) return draftIdRef.current;
+    if (creatingRef.current) return creatingRef.current;
+    creatingRef.current = (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("homilies")
+          .insert({ user_id: userId, title: "", content: "", sunday_date: sundayDateRef.current })
+          .select("id")
+          .single();
+        const id = (data?.id as string | undefined) ?? null;
+        if (id) {
+          draftIdRef.current = id;
+          loadedIdRef.current = id;
+          onCurrentIdChange?.(id);
+        }
+        return id;
+      } catch {
+        return null;
+      } finally {
+        creatingRef.current = null;
+      }
+    })();
+    return creatingRef.current;
+  }, [onCurrentIdChange]);
+
   // Persist notes (debounced, 1.2s)
   const saveNotes = useCallback((value: string) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -409,8 +470,8 @@ export default function ReflectView({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const id = draftIdRef.current;
-        if (!id) return; // no homily yet — Write view creates rows
+        const id = await ensureDraftId(user.id);
+        if (!id) return;
         await supabase
           .from("homilies")
           .update({ notes: value })
@@ -426,7 +487,7 @@ export default function ReflectView({
         /* ignore */
       }
     }, 1200);
-  }, []);
+  }, [ensureDraftId]);
 
   // Generic per-column debounced save (used for seed fields).
   const saveField = useCallback((column: string, value: string) => {
@@ -438,7 +499,7 @@ export default function ReflectView({
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
-        const id = draftIdRef.current;
+        const id = await ensureDraftId(user.id);
         if (!id) return;
         await supabase
           .from("homilies")
@@ -465,7 +526,7 @@ export default function ReflectView({
       }
     }, 1200);
     timers.set(column, t);
-  }, []);
+  }, [ensureDraftId]);
 
   // Collapse sub-questions if the priest clears the thread
   useEffect(() => {
@@ -1945,11 +2006,12 @@ export default function ReflectView({
                   try {
                     const supabase = createClient();
                     const { data: { user } } = await supabase.auth.getUser();
-                    if (user && draftIdRef.current) {
+                    const id = user ? await ensureDraftId(user.id) : null;
+                    if (user && id) {
                       await supabase
                         .from("homilies")
                         .update({ seed })
-                        .eq("id", draftIdRef.current)
+                        .eq("id", id)
                         .eq("user_id", user.id);
                     }
                   } catch { /* ignore — thread already debouncing */ }

@@ -527,6 +527,7 @@ export default function AmboApp() {
                 readingsSource={readingsSource}
                 onOpenList={openDrawer}
                 onGoWrite={() => { setMode("write"); setDiscernmentVersion(v => v + 1); }}
+                onCurrentIdChange={persistCurrentId}
               />
               </ErrorBoundary>
             </div>
