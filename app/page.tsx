@@ -634,8 +634,12 @@ export default function AmboApp() {
         onSaved={() => setListRefreshKey((k) => k + 1)}
       />
 
-      {/* Onboarding tour */}
-      <OnboardingTour mode={mode} setMode={setMode} />
+      {/* Onboarding tour — only once the priest has chosen where he celebrates
+          Mass. Until then the jurisdiction picker covers the app, including the
+          header the tour's first steps point at. */}
+      {lectionaryFamily && !showPicker && (
+        <OnboardingTour mode={mode} setMode={setMode} />
+      )}
     </div>
   );
 }
