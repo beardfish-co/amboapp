@@ -11,6 +11,7 @@ import { StackIcon, CalendarIcon } from "@/lib/ui/icons";
 import { BreathingPanel } from "@/lib/ui/breathing-panel";
 import { loadReadings, type ReadingsStatus } from "@/lib/readings";
 import TextareaAutosize from "react-textarea-autosize";
+import { redirectIfUnauthorised } from "@/lib/redirect-if-unauthorised";
 
 interface Reading {
   id: string;
@@ -256,6 +257,7 @@ export default function ReflectView({
         const resp = await fetch(`/api/reflect-prompts?date=${targetDate}`, {
           cache: "no-store",
         });
+        if (redirectIfUnauthorised(resp)) return;
         if (!resp.ok) return;
         const data = (await resp.json()) as { prompts: AiPromptSet | null };
         if (cancelled) return;
@@ -282,6 +284,7 @@ export default function ReflectView({
         const d = String(t.getDate()).padStart(2, "0");
         const iso = `${y}-${m}-${d}`;
         const resp = await fetch(`/api/reflect-prompts?date=${iso}`, { cache: "no-store" });
+        if (redirectIfUnauthorised(resp)) return;
         if (!resp.ok || cancelled) return;
         const data = (await resp.json()) as { prompts: AiPromptSet | null };
         if (cancelled || !data.prompts) return;
@@ -373,6 +376,7 @@ export default function ReflectView({
     (async () => {
       try {
         const res = await fetch(`/api/magisterium?date=${compactDate}`);
+        if (redirectIfUnauthorised(res)) return;
         if (!res.ok) return;
         const d: { content?: string } = await res.json();
         if (!cancelled) setMagisteriumContent(d.content ?? null);

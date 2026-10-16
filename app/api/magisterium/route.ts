@@ -87,6 +87,14 @@ function cleanContent(raw: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
 
@@ -96,8 +104,6 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
   }
-
-  const supabase = await createClient();
 
   // 1. Cache check
   const { data: cached } = await supabase

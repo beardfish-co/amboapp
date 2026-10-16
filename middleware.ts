@@ -6,7 +6,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // is bypassed: every route is reachable without authentication. To re-enable
 // the gate for beta, flip this single line to `false` — no other code changes
 // required.
-const PUBLIC_BUILD = true;
+const PUBLIC_BUILD = false;
 
 export async function middleware(request: NextRequest) {
   if (PUBLIC_BUILD) return NextResponse.next();

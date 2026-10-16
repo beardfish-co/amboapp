@@ -8,6 +8,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function DELETE(req: NextRequest) {
+  // Admin only: require the cron secret, same as /api/magisterium/prefetch.
+  const cronSecret = process.env.CRON_SECRET;
+  const auth = req.headers.get("authorization");
+  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
 

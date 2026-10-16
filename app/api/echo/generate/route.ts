@@ -25,6 +25,7 @@
 
 import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { createClient } from "@/lib/supabase/server";
 
 // ── Valid output types ─────────────────────────────────────────────────────
 
@@ -235,6 +236,18 @@ Output only the Prayer Prompt. Do not include any other text.`;
 // ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Auth: only signed-in priests can generate (this call costs tokens).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return new Response(JSON.stringify({ error: "Unauthorised" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   // Parse body.
   let body: { homilyText?: string; outputType?: string; variant?: string };
   try {

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { redirectIfUnauthorised } from "@/lib/redirect-if-unauthorised";
 
 // ── Shared types (mirrored from EchoWorkspace) ────────────────────────────────
 
@@ -213,6 +214,7 @@ export default function MobileEchoWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ homilyText: resolvedHomilyText, outputType: selectedType, variant: resolvedVariant }),
       });
+      if (redirectIfUnauthorised(res)) return;
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error ?? `Server error ${res.status}`);
@@ -327,6 +329,7 @@ export default function MobileEchoWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: outputText, outputType: selectedType, attribution }),
       });
+      if (redirectIfUnauthorised(res)) return;
       if (!res.ok) throw new Error(`Download API returned ${res.status}`);
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);

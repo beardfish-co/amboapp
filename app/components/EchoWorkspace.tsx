@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { redirectIfUnauthorised } from "@/lib/redirect-if-unauthorised";
 
 // ── Archive types ──────────────────────────────────────────────────────────
 
@@ -777,6 +778,7 @@ export default function EchoWorkspace({
         }),
       });
 
+      if (redirectIfUnauthorised(res)) return;
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error ?? `Server error ${res.status}`);
@@ -931,6 +933,7 @@ export default function EchoWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: outputText, outputType: activeTab, attribution }),
       });
+      if (redirectIfUnauthorised(res)) return;
       if (!res.ok) throw new Error(`Download API returned ${res.status}`);
 
       const blob = await res.blob();

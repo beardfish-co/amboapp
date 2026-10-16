@@ -12,6 +12,7 @@
 // Response: application/vnd.openxmlformats-officedocument.wordprocessingml.document
 
 import { NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import JSZip from "jszip";
 
 // ── Per-type document titles ──────────────────────────────────────────────
@@ -189,6 +190,14 @@ function buildDocumentXml(text: string, outputType: string, attribution: string)
 // ── Route handler ─────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return Response.json({ error: "Unauthorised" }, { status: 401 });
+  }
+
   try {
     const { text, outputType, attribution } = await req.json() as {
       text: string;
